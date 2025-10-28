@@ -1,4 +1,5 @@
 import {
+  Box,
   Container,
   Title,
   Text,
@@ -11,6 +12,7 @@ import {
 } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { QRCodeDisplay } from '../components/common/QRCodeDisplay';
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -31,6 +33,7 @@ export const Dashboard = () => {
   };
 
   const daysRemaining = getDaysRemaining();
+  const isActive = userProfile.subscription?.status === 'active';
 
   return (
     <Container size="lg" py={40}>
@@ -45,12 +48,13 @@ export const Dashboard = () => {
             >
               BONJOUR, {userProfile.firstName.toUpperCase()}
             </Title>
-            <Text c="gray.7" size="lg">
+            <Text c="dimmed" size="lg">
               Bienvenue sur votre espace membre
             </Text>
           </div>
           <Button
             variant="outline"
+            color="dark"
             onClick={() => navigate('/profile')}
             styles={{
               root: {
@@ -60,6 +64,8 @@ export const Dashboard = () => {
                 transition: 'all 0.3s ease',
                 '&:hover': {
                   transform: 'translateY(-2px)',
+                  background: '#000',
+                  color: '#fff',
                 },
               },
             }}
@@ -97,29 +103,31 @@ export const Dashboard = () => {
 
                 <Stack gap="xs">
                   <Group justify="space-between">
-                    <Text fw={500}>Nom complet</Text>
-                    <Text c="gray.7">
+                    <Text fw={700}>Nom complet</Text>
+                    <Text c="dimmed">
                       {userProfile.firstName} {userProfile.lastName}
                     </Text>
                   </Group>
 
                   <Group justify="space-between">
-                    <Text fw={500}>Email</Text>
-                    <Text c="gray.7">{userProfile.email}</Text>
+                    <Text fw={700}>Email</Text>
+                    <Text c="dimmed">{userProfile.email}</Text>
                   </Group>
 
                   {userProfile.phone && (
                     <Group justify="space-between">
-                      <Text fw={500}>Téléphone</Text>
-                      <Text c="gray.7">{userProfile.phone}</Text>
+                      <Text fw={700}>Téléphone</Text>
+                      <Text c="dimmed">{userProfile.phone}</Text>
                     </Group>
                   )}
 
                   {userProfile.dateOfBirth && (
                     <Group justify="space-between">
-                      <Text fw={500}>Date de naissance</Text>
-                      <Text c="gray.7">
-                        {new Date(userProfile.dateOfBirth).toLocaleDateString('fr-FR')}
+                      <Text fw={700}>Date de naissance</Text>
+                      <Text c="dimmed">
+                        {new Date(userProfile.dateOfBirth).toLocaleDateString(
+                          'fr-FR'
+                        )}
                       </Text>
                     </Group>
                   )}
@@ -162,10 +170,9 @@ export const Dashboard = () => {
                         variant="outline"
                         color="dark"
                         size="lg"
-                        style={{
-                          borderWidth: 2,
-                          borderRadius: '12px',
-                          fontWeight: 700,
+                        radius="md"
+                        styles={{
+                          root: { borderWidth: 2, fontWeight: 700 },
                         }}
                       >
                         {interest.toUpperCase()}
@@ -173,13 +180,13 @@ export const Dashboard = () => {
                     ))}
                   </Group>
                 ) : (
-                  <Text c="gray.6">Aucun centre d'intérêt renseigné</Text>
+                  <Text c="dimmed">Aucun centre d'intérêt renseigné</Text>
                 )}
               </Stack>
             </Paper>
           </Grid.Col>
 
-          {/* Carte Abonnement avec temps restant */}
+          {/* Carte Abonnement */}
           <Grid.Col span={{ base: 12, md: 6 }}>
             <Paper
               p="xl"
@@ -190,10 +197,7 @@ export const Dashboard = () => {
                 borderRadius: '20px',
                 height: '100%',
                 transition: 'all 0.3s ease',
-                background:
-                  userProfile.subscription?.status === 'active'
-                    ? 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)'
-                    : '#ffffff',
+                background: '#ffffff',
               }}
               styles={{
                 root: {
@@ -204,96 +208,67 @@ export const Dashboard = () => {
                 },
               }}
             >
-              <Stack gap="md">
+              <Stack gap="lg">
                 <Title order={3} size={20} fw={700}>
                   MON ABONNEMENT
                 </Title>
 
                 {userProfile.subscription ? (
-                  <Stack gap="md">
+                  <Stack gap="lg">
                     <Group justify="space-between">
-                      <Text fw={500}>Type</Text>
+                      <Text fw={700}>Type</Text>
                       <Badge
                         variant="filled"
-                        color={
-                          userProfile.subscription.status === 'active'
-                            ? 'green'
-                            : 'gray'
-                        }
-                        style={{
-                          borderRadius: '12px',
-                          fontWeight: 700,
-                          padding: '8px 16px',
-                        }}
+                        color="dark"
+                        size="lg"
+                        radius="md"
+                        fw={900}
                       >
                         {userProfile.subscription.type.toUpperCase()}
                       </Badge>
                     </Group>
                     <Group justify="space-between">
-                      <Text fw={500}>Statut</Text>
+                      <Text fw={700}>Statut</Text>
                       <Badge
-                        variant="outline"
-                        color={
-                          userProfile.subscription.status === 'active'
-                            ? 'green'
-                            : 'gray'
-                        }
-                        style={{
-                          borderRadius: '12px',
-                          borderWidth: 2,
-                          fontWeight: 700,
-                        }}
+                        variant={isActive ? 'filled' : 'outline'}
+                        color="dark"
+                        size="lg"
+                        radius="md"
+                        fw={900}
+                        styles={{ root: { borderWidth: 2 } }}
                       >
-                        {userProfile.subscription.status === 'active'
-                          ? 'ACTIF'
-                          : 'INACTIF'}
+                        {isActive ? 'ACTIF' : 'INACTIF'}
                       </Badge>
                     </Group>
-                    {daysRemaining !== null && (
-                      <div
+
+                    {daysRemaining !== null && isActive && (
+                      <Box
+                        p="lg"
                         style={{
-                          padding: '16px',
+                          border: '2px solid #000',
                           borderRadius: '12px',
-                          background:
-                            daysRemaining > 30
-                              ? '#d3f9d8'
-                              : daysRemaining > 7
-                              ? '#fff3bf'
-                              : '#ffe0e0',
-                          border: `2px solid ${
-                            daysRemaining > 30
-                              ? '#2f9e44'
-                              : daysRemaining > 7
-                              ? '#f59f00'
-                              : '#fa5252'
-                          }`,
+                          background: '#f8f9fa',
                         }}
                       >
-                        <Text
-                          size="xl"
-                          fw={900}
-                          ta="center"
-                          c={
-                            daysRemaining > 30
-                              ? 'green.8'
-                              : daysRemaining > 7
-                              ? 'yellow.9'
-                              : 'red.8'
-                          }
-                        >
-                          {daysRemaining} JOURS RESTANTS
-                        </Text>
-                        <Text size="xs" ta="center" c="gray.7" mt={4}>
-                          Expire le{' '}
-                          {new Date(
-                            userProfile.subscription.endDate
-                          ).toLocaleDateString('fr-FR')}
-                        </Text>
-                      </div>
+                        <Stack align="center" gap={0}>
+                          <Text size="48px" fw={900} lh={1} c="#000">
+                            {daysRemaining}
+                          </Text>
+                          <Text size="sm" fw={700} c="#000">
+                            JOURS RESTANTS
+                          </Text>
+                          <Text size="xs" c="dimmed" mt="xs">
+                            Expire le{' '}
+                            {new Date(
+                              userProfile.subscription.endDate
+                            ).toLocaleDateString('fr-FR')}
+                          </Text>
+                        </Stack>
+                      </Box>
                     )}
                   </Stack>
                 ) : (
-                  <Text c="gray.6">
+                  <Text c="dimmed">
                     Aucun abonnement actif. Contactez-nous pour découvrir nos
                     offres !
                   </Text>
@@ -313,7 +288,7 @@ export const Dashboard = () => {
                 borderRadius: '20px',
                 height: '100%',
                 transition: 'all 0.3s ease',
-                background: 'linear-gradient(135deg, #ffffff 0%, #fff9db 100%)',
+                background: '#ffffff',
               }}
               styles={{
                 root: {
@@ -333,7 +308,7 @@ export const Dashboard = () => {
                   <Text size="48px" fw={900} style={{ letterSpacing: '-0.02em' }}>
                     {userProfile.loyaltyPoints || 0}
                   </Text>
-                  <Text c="gray.6" size="sm" fw={600}>
+                  <Text c="dimmed" size="sm" fw={600}>
                     points accumulés
                   </Text>
                 </div>
@@ -361,31 +336,27 @@ export const Dashboard = () => {
                 },
               }}
             >
-              <Stack gap="md" align="center">
+              <Stack gap="lg" align="center">
                 <Title order={3} size={20} fw={700}>
                   MON QR CODE D'ACCÈS
                 </Title>
 
+                <Text size="sm" c="dimmed" ta="center" maw={600}>
+                  Présentez ce QR code à l'entrée du Fornap pour accéder à
+                  l'espace
+                </Text>
+
                 {userProfile.qrCode ? (
-                  <div
-                    style={{
-                      width: 200,
-                      height: 200,
-                      border: '2px solid #000',
-                      borderRadius: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: '#f8f9fa',
-                    }}
-                  >
-                    {/* QR Code sera généré ici */}
-                    <Text c="gray.6" fw={700}>
-                      QR Code
-                    </Text>
-                  </div>
+                  <QRCodeDisplay
+                    uid={userProfile.uid}
+                    firstName={userProfile.firstName}
+                    lastName={userProfile.lastName}
+                    size={250}
+                    showDownloadButton={true}
+                    showUserInfo={false}
+                  />
                 ) : (
-                  <Text c="gray.6" ta="center" maw={500}>
+                  <Text c="dimmed" ta="center" maw={500} my="lg">
                     Votre QR code sera généré après l'activation de votre
                     abonnement
                   </Text>

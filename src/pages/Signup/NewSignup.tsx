@@ -92,7 +92,7 @@ export const NewSignup = () => {
         message: `Votre adhésion ${selectedPlan.name} a été activée avec succès`,
         color: 'dark',
       });
-      navigate('/dashboard');
+      navigate('/signup-success');
     } catch (error: any) {
       notifications.show({
         title: 'Erreur',

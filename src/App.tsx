@@ -8,6 +8,8 @@ import { Login } from './pages/Login';
 import { QRLogin } from './pages/QRLogin';
 import { Dashboard } from './pages/Dashboard';
 import { Profile } from './pages/Profile';
+import { QRCodeSuccess } from './pages/QRCodeSuccess';
+import { CheckIn } from './pages/CheckIn';
 
 function App() {
   return (
@@ -16,6 +18,11 @@ function App() {
         {/* Routes sans navbar (inscription et QR login) */}
         <Route path="/signup" element={<NewSignup />} />
         <Route path="/qr-login" element={<QRLogin />} />
+        <Route path="/signup-success" element={
+          <ProtectedRoute>
+            <QRCodeSuccess />
+          </ProtectedRoute>
+        } />
 
         {/* Routes avec navbar */}
         <Route element={<Layout />}>
@@ -35,6 +42,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/check-in"
+            element={
+              <ProtectedRoute>
+                <CheckIn />
               </ProtectedRoute>
             }
           />

@@ -10,6 +10,7 @@ import {
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import type { UserProfile, SignupFormData } from '../types/user';
+import { generateQRCodeContent } from '../utils/qrcode';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -91,6 +92,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         autoRenew: data.membershipType !== 'honorary', // Pas de renouvellement auto pour honorary
       },
 
+      // Aussi sauvegardé dans subscription pour compatibilité avec Dashboard
+      subscription: {
+        type: data.membershipType,
+        status: 'active',
+        startDate: new Date().toISOString(),
+        endDate: membershipEndDate?.toISOString() || '',
+        autoRenew: data.membershipType !== 'honorary',
+      },
+
       // Programme de fidélité
       loyaltyPoints: 0,
 
@@ -109,8 +119,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Étiquettes par défaut
       tags: ['actif'],
 
-      // Pas d'intérêts pour le moment (peut être ajouté plus tard)
-      interests: [],
+      // Centres d'intérêt depuis le formulaire
+      interests: data.interests || [],
+
+      // Questions de personnalité
+      howDidYouHearAboutUs: data.howDidYouHearAboutUs,
+      preferredAmbiance: data.preferredAmbiance,
+
+      // QR Code pour l'identification membre
+      qrCode: generateQRCodeContent(userCredential.user.uid),
     };
 
     await setDoc(doc(db, 'users', userCredential.user.uid), userProfile);

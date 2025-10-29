@@ -43,10 +43,10 @@ export const NewSignup = () => {
       confirmPassword: '',
       firstName: '',
       lastName: '',
-      dateOfBirth: '',
+      birthDate: '', // Correction: Renommé de dateOfBirth
       phone: '',
       postalCode: '',
-      membershipType: planId,
+      planId: planId, // Correction: Renommé de membershipType
       interests: [],
       howDidYouHearAboutUs: '',
       preferredAmbiance: '',
@@ -61,7 +61,7 @@ export const NewSignup = () => {
         value === values.password ? null : 'Les mots de passe ne correspondent pas',
       firstName: (value) => (value.trim() ? null : 'Le prénom est requis'),
       lastName: (value) => (value.trim() ? null : 'Le nom est requis'),
-      dateOfBirth: (value) => (value ? null : 'La date de naissance est requise'),
+      birthDate: (value) => (value ? null : 'La date de naissance est requise'), // Correction
       phone: (value) =>
         /^(\+33|0)[1-9](\d{2}){4}$/.test(value.replace(/\s/g, ''))
           ? null

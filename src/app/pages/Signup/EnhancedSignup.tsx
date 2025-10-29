@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Container, Paper, Stack } from '@mantine/core';
+import { Box, Container, Paper, Stack, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -144,7 +144,11 @@ export const EnhancedSignup = () => {
   });
 
   const handleNext = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, stepLabels.length - 1));
+    setCurrentStep((prev) => {
+      const nextStep = Math.min(prev + 1, stepLabels.length - 1);
+      console.log(`Moving from step ${prev} to ${nextStep}`);
+      return nextStep;
+    });
   };
 
   const handleBack = () => {

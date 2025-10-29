@@ -16,8 +16,9 @@ export const EngagementStep = ({
 }: EngagementStepProps) => {
   const handleNext = () => {
     const errors = form.validate();
-    if (!errors.hasErrors || !form.values.howDidYouKnowUs) {
-      // howDidYouKnowUs est le seul champ requis dans cette section
+    console.log('Validation errors:', errors);
+    if (!errors.hasErrors) {
+      console.log('No validation errors, calling onNext()');
       onNext();
     }
   };
@@ -131,6 +132,7 @@ export const EngagementStep = ({
         </Button>
         <Button
           onClick={handleNext}
+          disabled={false}
           styles={{
             root: {
               borderRadius: '12px',

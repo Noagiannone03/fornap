@@ -413,18 +413,30 @@ export function EnhancedUsersListPage() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {paginatedUsers.map((user) => (
-                <Table.Tr key={user.uid}>
+              {paginatedUsers.map((user) => {
+                const hasDataAnomaly = user.tags.includes('DATA_ANOMALY');
+                return (
+                <Table.Tr
+                  key={user.uid}
+                  style={hasDataAnomaly ? { backgroundColor: 'rgba(255, 0, 0, 0.05)' } : undefined}
+                >
                   <Table.Td>
                     <Group gap="sm">
-                      <Avatar color="indigo" radius="xl">
+                      <Avatar color={hasDataAnomaly ? "red" : "indigo"} radius="xl">
                         {user.firstName[0]}
                         {user.lastName[0]}
                       </Avatar>
                       <div>
-                        <Text size="sm" fw={500}>
-                          {user.firstName} {user.lastName}
-                        </Text>
+                        <Group gap="xs">
+                          <Text size="sm" fw={500}>
+                            {user.firstName} {user.lastName}
+                          </Text>
+                          {hasDataAnomaly && (
+                            <Badge size="xs" color="red" variant="filled">
+                              ⚠️ ANOMALIE
+                            </Badge>
+                          )}
+                        </Group>
                       </div>
                     </Group>
                   </Table.Td>
@@ -485,7 +497,19 @@ export function EnhancedUsersListPage() {
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c="dimmed">
-                      {new Date(user.createdAt.toDate()).toLocaleDateString('fr-FR')}
+                      {(() => {
+                        try {
+                          // Gérer les cas où createdAt peut être un Timestamp Firestore ou une Date
+                          const date = user.createdAt?.toDate
+                            ? user.createdAt.toDate()
+                            : user.createdAt
+                              ? new Date(user.createdAt)
+                              : new Date();
+                          return date.toLocaleDateString('fr-FR');
+                        } catch (e) {
+                          return 'Date invalide';
+                        }
+                      })()}
                     </Text>
                   </Table.Td>
                   <Table.Td>
@@ -552,7 +576,8 @@ export function EnhancedUsersListPage() {
                     </Group>
                   </Table.Td>
                 </Table.Tr>
-              ))}
+                );
+              })}
             </Table.Tbody>
           </Table>
         </Table.ScrollContainer>

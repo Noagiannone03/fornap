@@ -10,7 +10,8 @@ interface BirthdayStepProps {
 
 export const BirthdayStep = ({ form, onNext, onBack }: BirthdayStepProps) => {
   const handleNext = () => {
-    if (form.values.dateOfBirth) {
+    // Ensure the date is valid before proceeding
+    if (form.values.birthDate && !isNaN(new Date(form.values.birthDate).getTime())) {
       onNext();
     }
   };
@@ -58,7 +59,7 @@ export const BirthdayStep = ({ form, onNext, onBack }: BirthdayStepProps) => {
                 marginBottom: '8px',
               },
             }}
-            {...form.getInputProps('dateOfBirth')}
+            {...form.getInputProps('birthDate')}
           />
         </Stack>
 
@@ -84,7 +85,7 @@ export const BirthdayStep = ({ form, onNext, onBack }: BirthdayStepProps) => {
           <Button
             size="lg"
             onClick={handleNext}
-            disabled={!form.values.dateOfBirth}
+            disabled={!form.values.birthDate}
             styles={{
               root: {
                 background: '#000',

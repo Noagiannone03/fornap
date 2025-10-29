@@ -185,7 +185,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // 6. Créer l'utilisateur dans Firestore (avec QR code automatique)
-      await createUser(userData, getClientIP(), navigator.userAgent);
+      await createUser(userData, userCredential.user.uid, getClientIP(), navigator.userAgent);
 
       // 7. Charger le profil créé
       const profile = await getUserById(userCredential.user.uid);

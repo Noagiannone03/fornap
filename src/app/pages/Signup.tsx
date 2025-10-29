@@ -50,10 +50,10 @@ export const Signup = () => {
       confirmPassword: '',
       firstName: '',
       lastName: '',
-      dateOfBirth: '',
+      birthDate: '', // Correction
       phone: '',
       postalCode: '',
-      membershipType: planId || 'monthly',
+      planId: planId || 'monthly', // Correction
     },
     validate: {
       email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Email invalide'),
@@ -65,7 +65,7 @@ export const Signup = () => {
         value === values.password ? null : 'Les mots de passe ne correspondent pas',
       firstName: (value) => (value.trim() ? null : 'Le prénom est requis'),
       lastName: (value) => (value.trim() ? null : 'Le nom est requis'),
-      dateOfBirth: (value) => (value ? null : 'La date de naissance est requise'),
+      birthDate: (value) => (value ? null : 'La date de naissance est requise'), // Correction
       phone: (value) =>
         /^(\+33|0)[1-9](\d{2}){4}$/.test(value.replace(/\s/g, ''))
           ? null
@@ -82,7 +82,7 @@ export const Signup = () => {
       'confirmPassword',
       'firstName',
       'lastName',
-      'dateOfBirth',
+      'birthDate', // Correction
       'phone',
       'postalCode',
     ];
@@ -293,7 +293,7 @@ export const Signup = () => {
                           color: '#000',
                         },
                       }}
-                      {...form.getInputProps('dateOfBirth')}
+                      {...form.getInputProps('birthDate')}
                     />
                     <TextInput
                       label="Code postal"

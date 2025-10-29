@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -187,6 +188,7 @@ function calculateExpiryDate(
  */
 export async function createUser(
   userData: Omit<User, 'uid' | 'createdAt' | 'updatedAt' | 'qrCode'>,
+  userId?: string,
   ipAddress?: string,
   userAgent?: string
 ): Promise<string> {
@@ -194,12 +196,12 @@ export async function createUser(
     const usersRef = collection(db, USERS_COLLECTION);
     const now = Timestamp.now();
 
-    // Créer un document temporaire pour obtenir l'ID
-    const tempDocRef = doc(usersRef);
-    const userId = tempDocRef.id;
+    // Utiliser l'UID fourni ou générer un nouvel ID
+    const docId = userId || doc(usersRef).id;
+    const userDocRef = doc(usersRef, docId);
 
     // Générer le QR code
-    const qrCode = await generateUniqueQRCode(userId);
+    const qrCode = await generateUniqueQRCode(docId);
 
     const newUser: Omit<User, 'uid'> = {
       ...userData,
@@ -220,10 +222,10 @@ export async function createUser(
     };
 
     // Créer le document avec l'ID pré-généré
-    await updateDoc(tempDocRef, newUser as any);
+    await setDoc(userDocRef, newUser);
 
     // Créer une entrée dans l'historique d'abonnement
-    await addMembershipHistory(userId, {
+    await addMembershipHistory(docId, {
       id: '',
       planId: userData.currentMembership.planId,
       planName: userData.currentMembership.planName,
@@ -235,7 +237,7 @@ export async function createUser(
     });
 
     // Créer une entrée dans l'historique d'actions
-    await addActionHistory(userId, {
+    await addActionHistory(docId, {
       actionType: 'membership_created',
       details: {
         description: `Abonnement ${userData.currentMembership.planName} créé`,
@@ -245,7 +247,7 @@ export async function createUser(
       deviceType: 'web',
     });
 
-    return userId;
+    return docId;
   } catch (error) {
     console.error('Error creating user:', error);
     throw error;
@@ -973,32 +975,33 @@ export async function getAllUsersForList(): Promise<UserListItem[]> {
     querySnapshot.forEach((doc) => {
       const data = doc.data() as User;
 
-      // Vérifier que les données essentielles existent
-      if (!data.currentMembership) {
-        console.warn(`User ${doc.id} has no currentMembership data`);
-        return; // Skip this user
-      }
+      // Détecter les anomalies
+      const hasDataIssue = !data.currentMembership || !data.status;
+      const tags = data.status?.tags || [];
 
-      if (!data.status) {
-        console.warn(`User ${doc.id} has no status data`);
-        return; // Skip this user
+      if (hasDataIssue) {
+        console.warn(`User ${doc.id} has incomplete data - showing with anomaly flag`);
+        // Ajouter un tag "DATA_ANOMALY" pour identifier ces utilisateurs
+        if (!tags.includes('DATA_ANOMALY')) {
+          tags.push('DATA_ANOMALY');
+        }
       }
 
       users.push({
         uid: doc.id,
-        email: data.email || '',
-        firstName: data.firstName || '',
-        lastName: data.lastName || '',
+        email: data.email || 'no-email@unknown.com',
+        firstName: data.firstName || 'Prénom',
+        lastName: data.lastName || 'Inconnu',
         membership: {
-          type: data.currentMembership.planType || 'monthly',
-          status: data.currentMembership.status || 'pending',
-          planName: data.currentMembership.planName || 'Unknown',
+          type: data.currentMembership?.planType || 'monthly',
+          status: data.currentMembership?.status || 'pending',
+          planName: data.currentMembership?.planName || '⚠️ Données manquantes',
         },
         loyaltyPoints: data.loyaltyPoints || 0,
-        tags: data.status.tags || [],
-        createdAt: data.createdAt,
-        isAccountBlocked: data.status.isAccountBlocked || false,
-        isCardBlocked: data.status.isCardBlocked || false,
+        tags: tags,
+        createdAt: data.createdAt || Timestamp.now(),
+        isAccountBlocked: data.status?.isAccountBlocked || false,
+        isCardBlocked: data.status?.isCardBlocked || false,
       });
     });
 

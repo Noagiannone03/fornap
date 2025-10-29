@@ -10,7 +10,7 @@ import {
 import { Timestamp } from 'firebase/firestore';
 import { auth } from '../config/firebase';
 import type { BasicSignupFormData, ExtendedSignupFormData, User as UserType } from '../types/user';
-import { createUser, getUserById, updateUser } from '../services/userService';
+import { createUser, getUserById, updateUser, periodToMembershipType } from '../services/userService';
 import { getMembershipPlanById } from '../services/membershipService';
 
 // Type guard pour vérifier si c'est un formulaire étendu
@@ -128,7 +128,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         currentMembership: {
           planId: plan.id,
           planName: plan.name,
-          planType: plan.period,
+          planType: periodToMembershipType(plan.period), // ✅ Conversion vers le standard
           status: 'pending', // Sera 'active' après paiement
           paymentStatus: 'pending',
           startDate,

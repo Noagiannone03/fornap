@@ -1,4 +1,4 @@
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import type {
   AgeDistributionData,
@@ -7,6 +7,52 @@ import type {
 } from '../../types/user';
 
 const USERS_COLLECTION = 'users';
+
+/**
+ * Normalise le type de plan pour gérer les variations
+ * @param planType - Le type de plan brut de la base de données
+ * @returns Le type normalisé ('monthly', 'annual', 'lifetime') ou null
+ */
+function normalizePlanType(planType: any): 'monthly' | 'annual' | 'lifetime' | null {
+  if (!planType || planType === 'null' || planType === 'undefined') return null;
+
+  const type = String(planType).toLowerCase().trim();
+
+  // Mapping des variations
+  if (type === 'monthly' || type === 'month') return 'monthly';
+  if (type === 'annual' || type === 'year' || type === 'yearly') return 'annual';
+  if (type === 'lifetime' || type === 'honoraire' || type === 'honorary') return 'lifetime';
+
+  return null;
+}
+
+/**
+ * Convertit une date Firestore Timestamp ou Date en objet Date JavaScript
+ */
+function toDate(value: any): Date | null {
+  if (!value) return null;
+
+  // Si c'est déjà un objet Date
+  if (value instanceof Date) return value;
+
+  // Si c'est un Timestamp Firestore avec la méthode toDate()
+  if (value.toDate && typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+
+  // Si c'est un objet avec seconds et nanoseconds (Timestamp Firestore)
+  if (value.seconds !== undefined) {
+    return new Date(value.seconds * 1000);
+  }
+
+  // Si c'est une string, essayer de la parser
+  if (typeof value === 'string') {
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+}
 
 /**
  * Calcule l'âge d'un utilisateur à partir de sa date de naissance
@@ -65,17 +111,22 @@ export async function getAgeDistribution(): Promise<AgeDistributionData> {
     snapshot.forEach((doc) => {
       const data = doc.data();
       if (data.birthDate) {
-        const birthDate = data.birthDate.toDate();
+        const birthDate = toDate(data.birthDate);
+        if (!birthDate) return; // Skip si la conversion échoue
+
         const age = calculateAge(birthDate);
         ages.push(age);
 
         const range = getAgeRange(age);
         byRange[range]++;
 
-        const membershipType = data.currentMembership.planType;
-        if (membershipType === 'monthly') byRangeAndType[range].monthly++;
-        else if (membershipType === 'annual') byRangeAndType[range].annual++;
-        else if (membershipType === 'lifetime') byRangeAndType[range].lifetime++;
+        // Vérifier que currentMembership existe
+        if (data.currentMembership?.planType) {
+          const membershipType = normalizePlanType(data.currentMembership.planType);
+          if (membershipType === 'monthly') byRangeAndType[range].monthly++;
+          else if (membershipType === 'annual') byRangeAndType[range].annual++;
+          else if (membershipType === 'lifetime') byRangeAndType[range].lifetime++;
+        }
       }
     });
 
@@ -122,7 +173,11 @@ export async function getGeographicDistribution(): Promise<GeographicData> {
     snapshot.forEach((doc) => {
       const data = doc.data();
       const postalCode = data.postalCode;
-      const membershipType = data.currentMembership.planType;
+
+      // Vérifier que currentMembership existe
+      if (!data.currentMembership?.planType || !postalCode) return;
+
+      const membershipType = normalizePlanType(data.currentMembership.planType);
 
       if (!postalCodeMap.has(postalCode)) {
         postalCodeMap.set(postalCode, { monthly: 0, annual: 0, lifetime: 0 });

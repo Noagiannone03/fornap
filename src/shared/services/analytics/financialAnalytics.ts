@@ -13,6 +13,52 @@ import { getUserMembershipHistory } from '../userService';
 const USERS_COLLECTION = 'users';
 
 /**
+ * Normalise le type de plan pour gérer les variations
+ * @param planType - Le type de plan brut de la base de données
+ * @returns Le type normalisé ('monthly', 'annual', 'lifetime') ou null
+ */
+function normalizePlanType(planType: any): 'monthly' | 'annual' | 'lifetime' | null {
+  if (!planType || planType === 'null' || planType === 'undefined') return null;
+
+  const type = String(planType).toLowerCase().trim();
+
+  // Mapping des variations
+  if (type === 'monthly' || type === 'month') return 'monthly';
+  if (type === 'annual' || type === 'year' || type === 'yearly') return 'annual';
+  if (type === 'lifetime' || type === 'honoraire' || type === 'honorary') return 'lifetime';
+
+  return null;
+}
+
+/**
+ * Convertit une date Firestore Timestamp ou Date en objet Date JavaScript
+ */
+function toDate(value: any): Date | null {
+  if (!value) return null;
+
+  // Si c'est déjà un objet Date
+  if (value instanceof Date) return value;
+
+  // Si c'est un Timestamp Firestore avec la méthode toDate()
+  if (value.toDate && typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+
+  // Si c'est un objet avec seconds et nanoseconds (Timestamp Firestore)
+  if (value.seconds !== undefined) {
+    return new Date(value.seconds * 1000);
+  }
+
+  // Si c'est une string, essayer de la parser
+  if (typeof value === 'string') {
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+}
+
+/**
  * Calcule les KPIs financiers
  */
 export async function getFinancialKPIs(): Promise<FinancialKPIs> {
@@ -34,16 +80,20 @@ export async function getFinancialKPIs(): Promise<FinancialKPIs> {
       const data = doc.data();
       const membership = data.currentMembership;
 
+      // Vérifier que membership existe
+      if (!membership) return;
+
       // Revenu total (tous les paiements)
       if (membership.paymentStatus === 'paid') {
         totalRevenue += membership.price || 0;
 
-        // Répartition par type
-        if (membership.planType === 'monthly') {
+        // Répartition par type (normaliser)
+        const normalizedType = normalizePlanType(membership.planType);
+        if (normalizedType === 'monthly') {
           revenueByType.monthly += membership.price || 0;
-        } else if (membership.planType === 'annual') {
+        } else if (normalizedType === 'annual') {
           revenueByType.annual += membership.price || 0;
-        } else if (membership.planType === 'lifetime') {
+        } else if (normalizedType === 'lifetime') {
           revenueByType.lifetime += membership.price || 0;
         }
       }
@@ -52,9 +102,10 @@ export async function getFinancialKPIs(): Promise<FinancialKPIs> {
       if (membership.status === 'active' && membership.paymentStatus === 'paid') {
         activeUsers++;
 
-        if (membership.planType === 'monthly') {
+        const normalizedType = normalizePlanType(membership.planType);
+        if (normalizedType === 'monthly') {
           mrr += membership.price || 0;
-        } else if (membership.planType === 'annual') {
+        } else if (normalizedType === 'annual') {
           // Diviser le prix annuel par 12
           mrr += (membership.price || 0) / 12;
         }
@@ -66,8 +117,8 @@ export async function getFinancialKPIs(): Promise<FinancialKPIs> {
         (membership.status === 'expired' || membership.status === 'cancelled') &&
         membership.expiryDate
       ) {
-        const expiryDate = membership.expiryDate.toDate();
-        if (expiryDate >= oneMonthAgo) {
+        const expiryDate = toDate(membership.expiryDate);
+        if (expiryDate && expiryDate >= oneMonthAgo) {
           churnedUsers++;
         }
       }
@@ -142,7 +193,8 @@ export async function getRevenueEvolution(
       const history = await getUserMembershipHistory(userDoc.id);
 
       for (const entry of history) {
-        const entryDate = entry.startDate.toDate();
+        const entryDate = toDate(entry.startDate);
+        if (!entryDate) continue; // Skip si la conversion échoue
 
         // Vérifier si l'entrée est dans la période
         if (entryDate >= startDate && entryDate <= endDate) {
@@ -165,10 +217,11 @@ export async function getRevenueEvolution(
           const revenue = entry.price || 0;
           monthData.totalRevenue += revenue;
 
-          // Répartir par type
-          if (entry.planType === 'monthly') monthData.monthly += revenue;
-          else if (entry.planType === 'annual') monthData.annual += revenue;
-          else if (entry.planType === 'lifetime') monthData.lifetime += revenue;
+          // Répartir par type (normaliser)
+          const normalizedType = normalizePlanType(entry.planType);
+          if (normalizedType === 'monthly') monthData.monthly += revenue;
+          else if (normalizedType === 'annual') monthData.annual += revenue;
+          else if (normalizedType === 'lifetime') monthData.lifetime += revenue;
 
           // Compter nouveaux membres vs renouvellements
           if (entry.isRenewal) {
@@ -220,7 +273,8 @@ export async function getTransactionsForPeriod(
       const history = await getUserMembershipHistory(userDoc.id);
 
       for (const entry of history) {
-        const entryDate = entry.startDate.toDate();
+        const entryDate = toDate(entry.startDate);
+        if (!entryDate) continue; // Skip si la conversion échoue
 
         // Vérifier si l'entrée est dans la période
         if (entryDate >= startDate && entryDate <= endDate && entry.status !== 'pending') {
@@ -242,7 +296,11 @@ export async function getTransactionsForPeriod(
     }
 
     // Trier par date décroissante
-    transactions.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+    transactions.sort((a, b) => {
+      const dateA = a.date?.toMillis ? a.date.toMillis() : 0;
+      const dateB = b.date?.toMillis ? b.date.toMillis() : 0;
+      return dateB - dateA;
+    });
 
     return transactions;
   } catch (error) {

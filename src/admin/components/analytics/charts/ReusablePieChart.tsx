@@ -23,6 +23,9 @@ export function ReusablePieChart({
   subtitle,
   innerRadius = 0,
 }: ReusablePieChartProps) {
+  // Vérifier si les données sont vides ou nulles
+  const hasData = data && data.length > 0 && data.some((item) => item.value > 0);
+
   return (
     <Paper shadow="sm" p="md" radius="md" withBorder>
       <Box mb="md">
@@ -36,29 +39,44 @@ export function ReusablePieChart({
         )}
       </Box>
 
-      <ResponsiveContainer width="100%" height={height}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={innerRadius}
-            outerRadius={80}
-            fill="#8884d8"
-            dataKey="value"
-            label={({ name, percent }: { name: string; percent: number }) =>
-              `${name}: ${(percent * 100).toFixed(0)}%`
-            }
-            labelLine={false}
-          >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-          </Pie>
-          <Tooltip />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
+      {!hasData ? (
+        <Box
+          style={{
+            height,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text c="dimmed" size="sm">
+            Aucune donnée à afficher
+          </Text>
+        </Box>
+      ) : (
+        <ResponsiveContainer width="100%" height={height}>
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={innerRadius}
+              outerRadius={80}
+              fill="#8884d8"
+              dataKey="value"
+              label={({ name, percent }: { name: string; percent: number }) =>
+                `${name}: ${(percent * 100).toFixed(0)}%`
+              }
+              labelLine={false}
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
     </Paper>
   );
 }

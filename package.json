@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "migrate:dry-run": "ts-node scripts/migrateMembershipTypes.ts --dry-run",
+    "migrate:membership-types": "ts-node scripts/migrateMembershipTypes.ts"
   },
   "dependencies": {
     "@mantine/charts": "^8.3.5",

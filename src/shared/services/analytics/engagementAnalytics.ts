@@ -248,11 +248,11 @@ export async function getAcquisitionChannels(): Promise<AcquisitionData> {
         }
 
         // Suggestions
-        if (engagement.suggestions) {
+        if (engagement.suggestions && data.createdAt) {
           suggestions.push({
             text: engagement.suggestions,
             userId: doc.id,
-            date: data.createdAt,
+            date: data.createdAt, // Firestore Timestamp
           });
         }
       }
@@ -269,7 +269,11 @@ export async function getAcquisitionChannels(): Promise<AcquisitionData> {
       .sort((a, b) => b.count - a.count);
 
     // Trier les suggestions par date (plus récentes en premier)
-    suggestions.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+    suggestions.sort((a, b) => {
+      const dateA = a.date?.toMillis ? a.date.toMillis() : 0;
+      const dateB = b.date?.toMillis ? b.date.toMillis() : 0;
+      return dateB - dateA;
+    });
 
     return { channels, suggestions };
   } catch (error) {

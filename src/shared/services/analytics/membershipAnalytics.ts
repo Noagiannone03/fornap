@@ -19,6 +19,52 @@ import { getUserMembershipHistory } from '../userService';
 const USERS_COLLECTION = 'users';
 
 /**
+ * Normalise le type de plan pour gérer les variations
+ * @param planType - Le type de plan brut de la base de données
+ * @returns Le type normalisé ('monthly', 'annual', 'lifetime') ou null
+ */
+function normalizePlanType(planType: any): 'monthly' | 'annual' | 'lifetime' | null {
+  if (!planType || planType === 'null' || planType === 'undefined') return null;
+
+  const type = String(planType).toLowerCase().trim();
+
+  // Mapping des variations
+  if (type === 'monthly' || type === 'month') return 'monthly';
+  if (type === 'annual' || type === 'year' || type === 'yearly') return 'annual';
+  if (type === 'lifetime' || type === 'honoraire' || type === 'honorary') return 'lifetime';
+
+  return null;
+}
+
+/**
+ * Convertit une date Firestore Timestamp ou Date en objet Date JavaScript
+ */
+function toDate(value: any): Date | null {
+  if (!value) return null;
+
+  // Si c'est déjà un objet Date
+  if (value instanceof Date) return value;
+
+  // Si c'est un Timestamp Firestore avec la méthode toDate()
+  if (value.toDate && typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+
+  // Si c'est un objet avec seconds et nanoseconds (Timestamp Firestore)
+  if (value.seconds !== undefined) {
+    return new Date(value.seconds * 1000);
+  }
+
+  // Si c'est une string, essayer de la parser
+  if (typeof value === 'string') {
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+}
+
+/**
  * Calcule le taux de renouvellement global et par type
  * @param periodMonths - Nombre de mois à analyser (par défaut 12)
  */
@@ -44,7 +90,9 @@ export async function getRenewalRate(
 
       for (const entry of history) {
         // Vérifier si l'entrée est dans la période analysée
-        const entryDate = entry.startDate.toDate();
+        const entryDate = toDate(entry.startDate);
+        if (!entryDate) continue; // Skip si la conversion échoue
+
         const monthsAgo = (new Date().getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
 
         if (monthsAgo <= periodMonths) {
@@ -58,8 +106,9 @@ export async function getRenewalRate(
             totalRenewals++;
             monthlyEvolution.get(monthKey)!.renewals++;
 
-            if (entry.planType === 'monthly') monthlyRenewals++;
-            else if (entry.planType === 'annual') annualRenewals++;
+            const normalizedType = normalizePlanType(entry.planType);
+            if (normalizedType === 'monthly') monthlyRenewals++;
+            else if (normalizedType === 'annual') annualRenewals++;
           }
 
           // Compter les expirations (statut expired ou cancelled)
@@ -67,8 +116,9 @@ export async function getRenewalRate(
             totalExpirations++;
             monthlyEvolution.get(monthKey)!.expirations++;
 
-            if (entry.planType === 'monthly') monthlyExpirations++;
-            else if (entry.planType === 'annual') annualExpirations++;
+            const normalizedType = normalizePlanType(entry.planType);
+            if (normalizedType === 'monthly') monthlyExpirations++;
+            else if (normalizedType === 'annual') annualExpirations++;
           }
         }
       }
@@ -127,7 +177,13 @@ export async function getUpcomingExpirations(
 
     snapshot.forEach((doc) => {
       const data = doc.data();
-      const expiryDate = data.currentMembership.expiryDate.toDate();
+
+      // Vérifier que currentMembership et expiryDate existent
+      if (!data.currentMembership?.expiryDate) return;
+
+      const expiryDate = toDate(data.currentMembership.expiryDate);
+      if (!expiryDate) return; // Skip si la conversion échoue
+
       const dateKey = expiryDate.toISOString().split('T')[0];
       const membershipType = data.currentMembership.planType;
       const price = data.currentMembership.price || 0;
@@ -201,7 +257,11 @@ export async function getMembershipTimeline(
     });
 
     // Trier par date décroissante
-    timeline.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+    timeline.sort((a, b) => {
+      const dateA = a.date?.toMillis ? a.date.toMillis() : 0;
+      const dateB = b.date?.toMillis ? b.date.toMillis() : 0;
+      return dateB - dateA;
+    });
 
     return timeline;
   } catch (error) {
@@ -237,7 +297,11 @@ export async function getMembersEvolution(
 
     snapshot.forEach((doc) => {
       const data = doc.data();
-      const createdAt = data.createdAt.toDate();
+
+      // Vérifier que createdAt et currentMembership existent
+      const createdAt = toDate(data.createdAt);
+      if (!createdAt || !data.currentMembership?.planType) return;
+
       let periodKey: string;
 
       switch (groupBy) {
@@ -262,7 +326,7 @@ export async function getMembersEvolution(
       }
 
       const periodData = dataMap.get(periodKey)!;
-      const membershipType = data.currentMembership.planType;
+      const membershipType = normalizePlanType(data.currentMembership.planType);
 
       if (membershipType === 'monthly') periodData.monthly++;
       else if (membershipType === 'annual') periodData.annual++;
@@ -300,10 +364,17 @@ export async function getMembershipDistribution(): Promise<MembershipDistributio
 
     snapshot.forEach((doc) => {
       const data = doc.data();
-      const membershipType = data.currentMembership.planType;
+
+      // Vérifier que currentMembership existe
+      if (!data.currentMembership) {
+        return;
+      }
+
+      const rawPlanType = data.currentMembership.planType;
+      const membershipType = normalizePlanType(rawPlanType);
       const status = data.currentMembership.status;
 
-      // Compter par type
+      // Compter par type (utiliser le type normalisé)
       if (membershipType === 'monthly') byType.monthly++;
       else if (membershipType === 'annual') byType.annual++;
       else if (membershipType === 'lifetime') byType.lifetime++;

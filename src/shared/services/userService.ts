@@ -164,8 +164,9 @@ export async function getUserByQRCode(qrCode: string): Promise<User | null> {
 
 /**
  * Convertit un MembershipPeriod en MembershipType
+ * ⚠️ TOUJOURS utiliser cette fonction lors de la création d'un user à partir d'un plan !
  */
-function periodToMembershipType(period: 'month' | 'year' | 'lifetime'): 'monthly' | 'annual' | 'lifetime' {
+export function periodToMembershipType(period: 'month' | 'year' | 'lifetime'): 'monthly' | 'annual' | 'lifetime' {
   switch (period) {
     case 'month':
       return 'monthly';
@@ -174,7 +175,7 @@ function periodToMembershipType(period: 'month' | 'year' | 'lifetime'): 'monthly
     case 'lifetime':
       return 'lifetime';
     default:
-      return 'monthly';
+      throw new Error(`Invalid period: ${period}. Expected: 'month', 'year', or 'lifetime'`);
   }
 }
 
@@ -200,6 +201,22 @@ function calculateExpiryDate(
 }
 
 /**
+ * Valide que le membershipType est standard
+ * ⚠️ Empêche la création de users avec des types invalides
+ */
+function validateMembershipType(planType: any): void {
+  const validTypes: Array<'monthly' | 'annual' | 'lifetime'> = ['monthly', 'annual', 'lifetime'];
+  if (!validTypes.includes(planType)) {
+    throw new Error(
+      `❌ INVALID membershipType: "${planType}". ` +
+      `Must be one of: 'monthly', 'annual', 'lifetime'. ` +
+      `If you are using a MembershipPlan, use periodToMembershipType(plan.period) to convert. ` +
+      `See DATA_MODEL.md for details.`
+    );
+  }
+}
+
+/**
  * Crée un nouvel utilisateur (via inscription plateforme)
  */
 export async function createUser(
@@ -209,6 +226,9 @@ export async function createUser(
   userAgent?: string
 ): Promise<string> {
   try {
+    // ⚠️ VALIDATION STRICTE: Empêcher la création de types non-standard
+    validateMembershipType(userData.currentMembership.planType);
+
     const usersRef = collection(db, USERS_COLLECTION);
     const now = Timestamp.now();
 
@@ -1164,13 +1184,16 @@ export async function renewMembership(
     }
     // Pour 'lifetime', expiryDate reste null
 
+    // Convertir le type de plan au standard
+    const membershipType = periodToMembershipType(newPlan.period);
+
     // Mettre à jour l'abonnement actuel de l'utilisateur
     await updateUser(userId, {
       currentMembership: {
         ...user.currentMembership,
         planId: newPlan.id,
         planName: newPlan.name,
-        planType: newPlan.period,
+        planType: membershipType, // ✅ Type standardisé
         status: 'active',
         paymentStatus: 'paid',
         startDate,
@@ -1185,7 +1208,7 @@ export async function renewMembership(
       id: '',
       planId: newPlan.id,
       planName: newPlan.name,
-      planType: newPlan.period,
+      planType: membershipType, // ✅ Type standardisé
       status: 'active',
       startDate,
       endDate: expiryDate,

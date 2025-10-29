@@ -207,6 +207,12 @@ export interface MembershipHistory {
   transactionId?: string;
   cancelReason?: string;
   cancelledAt?: Timestamp;
+
+  // Tracking des renouvellements pour analytics
+  isRenewal: boolean; // True si c'est un renouvellement
+  previousMembershipId?: string; // ID de l'abonnement précédent
+  renewalSource?: 'auto' | 'manual'; // Renouvellement automatique ou manuel
+  daysBeforeRenewal?: number; // Nombre de jours avant expiration où le renouvellement a eu lieu
 }
 
 // ============================================================================
@@ -606,3 +612,295 @@ export const MUSIC_GENRES = [
   'world',
   'chanson_francaise',
 ];
+
+// ============================================================================
+// TYPES ANALYTICS
+// ============================================================================
+
+/**
+ * KPIs pour la vue d'ensemble analytics
+ */
+export interface OverviewKPIs {
+  totalMembers: number;
+  activeMembers: number;
+  activityRate: number; // Pourcentage
+  renewalRate: number; // Pourcentage
+  mrr: number; // Monthly Recurring Revenue
+  arr: number; // Annual Recurring Revenue
+  totalRevenue: number;
+  averageAge: number;
+  newThisWeek: number;
+  newThisMonth: number;
+  trends: {
+    members: number; // % change vs last period
+    revenue: number;
+    activeMembers: number;
+    renewalRate: number;
+  };
+}
+
+/**
+ * Données d'évolution des membres dans le temps
+ */
+export interface MembersEvolutionData {
+  date: string;
+  monthly: number;
+  annual: number;
+  lifetime: number;
+  total: number;
+}
+
+/**
+ * Distribution des abonnements
+ */
+export interface MembershipDistribution {
+  byType: {
+    monthly: number;
+    annual: number;
+    lifetime: number;
+  };
+  byStatus: {
+    active: number;
+    expired: number;
+    pending: number;
+    cancelled: number;
+  };
+}
+
+/**
+ * Données sur le taux de renouvellement
+ */
+export interface RenewalRateData {
+  overall: number; // Pourcentage
+  byType: {
+    monthly: number;
+    annual: number;
+  };
+  evolution: Array<{
+    month: string;
+    rate: number;
+  }>;
+}
+
+/**
+ * Données sur les expirations à venir
+ */
+export interface ExpirationData {
+  date: string;
+  count: number;
+  estimatedRevenueLoss: number;
+  membershipType: MembershipType;
+}
+
+/**
+ * Timeline d'un membre
+ */
+export interface MembershipTimelineEvent {
+  date: Timestamp;
+  type: 'created' | 'renewed' | 'cancelled' | 'expired';
+  planName: string;
+  price: number;
+  isRenewal: boolean;
+}
+
+/**
+ * Distribution par âge
+ */
+export interface AgeDistributionData {
+  averageAge: number;
+  medianAge: number;
+  byRange: {
+    '18-25': number;
+    '26-35': number;
+    '36-45': number;
+    '46-55': number;
+    '56-65': number;
+    '66+': number;
+  };
+  byRangeAndType: {
+    [range: string]: {
+      monthly: number;
+      annual: number;
+      lifetime: number;
+    };
+  };
+}
+
+/**
+ * Distribution géographique
+ */
+export interface GeographicData {
+  totalPostalCodes: number;
+  topPostalCodes: Array<{
+    postalCode: string;
+    count: number;
+    percentage: number;
+    byType: {
+      monthly: number;
+      annual: number;
+      lifetime: number;
+    };
+  }>;
+}
+
+/**
+ * Distribution professionnelle
+ */
+export interface ProfessionalData {
+  totalWithExtendedProfile: number;
+  byStatus: {
+    salaried: number;
+    independent: number;
+    student: number;
+    retired: number;
+    unemployed: number;
+  };
+  topProfessions: Array<{
+    profession: string;
+    count: number;
+  }>;
+  topActivityDomains: Array<{
+    domain: string;
+    count: number;
+  }>;
+}
+
+/**
+ * KPIs d'engagement
+ */
+export interface EngagementKPIs {
+  totalExtendedProfiles: number;
+  profileCompletionRate: number;
+  publicProfileConsentRate: number;
+  volunteerCount: number;
+  participationInterestedCount: number;
+  totalSkillsAvailable: number;
+  uniqueSkillsCount: number;
+}
+
+/**
+ * Analytics des centres d'intérêt
+ */
+export interface InterestsAnalytics {
+  eventTypes: Array<{
+    type: string;
+    count: number;
+    percentage: number;
+  }>;
+  artisticDomains: Array<{
+    domain: string;
+    count: number;
+    percentage: number;
+  }>;
+  musicGenres: Array<{
+    genre: string;
+    count: number;
+    percentage: number;
+  }>;
+  conferenceThemes: Array<{
+    theme: string;
+    count: number;
+    percentage: number;
+  }>;
+}
+
+/**
+ * Analytics des compétences
+ */
+export interface SkillsData {
+  bySkill: Array<{
+    skill: string;
+    totalCount: number;
+    volunteersCount: number;
+    members: Array<{
+      userId: string;
+      name: string;
+      isVolunteer: boolean;
+      email?: string;
+    }>;
+  }>;
+}
+
+/**
+ * Données d'acquisition
+ */
+export interface AcquisitionData {
+  channels: Array<{
+    source: string;
+    count: number;
+    percentage: number;
+  }>;
+  suggestions: Array<{
+    text: string;
+    userId: string;
+    date: Timestamp;
+  }>;
+}
+
+/**
+ * Préférences de communication
+ */
+export interface CommunicationData {
+  preferredContact: {
+    email: number;
+    sms: number;
+    social: number;
+    app: number;
+  };
+  socialMediaPresence: {
+    instagram: number;
+    facebook: number;
+    linkedin: number;
+    tiktok: number;
+    youtube: number;
+    blog: number;
+    website: number;
+  };
+}
+
+/**
+ * KPIs financiers
+ */
+export interface FinancialKPIs {
+  totalRevenue: number;
+  mrr: number;
+  arr: number;
+  arpu: number; // Average Revenue Per User
+  ltv: number; // Lifetime Value
+  churnRate: number;
+  revenueByType: {
+    monthly: number;
+    annual: number;
+    lifetime: number;
+  };
+}
+
+/**
+ * Évolution du revenu
+ */
+export interface RevenueEvolutionData {
+  date: string;
+  totalRevenue: number;
+  monthly: number;
+  annual: number;
+  lifetime: number;
+  newMembers: number;
+  renewals: number;
+}
+
+/**
+ * Données de transaction pour exports
+ */
+export interface TransactionData {
+  id: string;
+  date: Timestamp;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  membershipType: MembershipType;
+  planName: string;
+  amount: number;
+  paymentMethod: string;
+  transactionId: string;
+  isRenewal: boolean;
+}

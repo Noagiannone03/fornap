@@ -1,4 +1,4 @@
-import { AppShell, Burger, Group, Text, Avatar, Menu, ActionIcon, Indicator, ScrollArea, UnstyledButton, rem } from '@mantine/core';
+import { AppShell, Burger, Group, Text, Avatar, Menu, ActionIcon, Indicator, ScrollArea, UnstyledButton, rem, Collapse } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
   IconDashboard,
@@ -9,15 +9,29 @@ import {
   IconSettings,
   IconLogout,
   IconBell,
-  IconSearch
+  IconSearch,
+  IconChartBar,
+  IconChevronDown,
+  IconChevronRight,
+  IconCurrencyEuro,
+  IconMapPin,
+  IconHeart,
 } from '@tabler/icons-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+
+interface SubMenuItem {
+  icon: React.ComponentType<any>;
+  label: string;
+  path: string;
+}
 
 interface NavItem {
   icon: React.ComponentType<any>;
   label: string;
   path: string;
   badge?: number;
+  submenu?: SubMenuItem[];
 }
 
 const navigationItems: NavItem[] = [
@@ -26,18 +40,34 @@ const navigationItems: NavItem[] = [
   { icon: IconTicket, label: 'Abonnements', path: '/admin/memberships' },
   { icon: IconCalendar, label: 'Événements', path: '/admin/events' },
   { icon: IconBuildingCommunity, label: 'Coworking', path: '/admin/coworking' },
+  {
+    icon: IconChartBar,
+    label: 'Analytics',
+    path: '/admin/analytics',
+    submenu: [
+      { icon: IconDashboard, label: 'Vue d\'ensemble', path: '/admin/analytics/overview' },
+      { icon: IconCurrencyEuro, label: 'Comptabilité', path: '/admin/analytics/financial' },
+      { icon: IconMapPin, label: 'Démographie', path: '/admin/analytics/demographics' },
+      { icon: IconHeart, label: 'Engagement', path: '/admin/analytics/engagement' },
+    ],
+  },
   { icon: IconSettings, label: 'Paramètres', path: '/admin/settings' },
 ];
 
 export function AdminLayout() {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleNavigation = (path: string) => {
     navigate(path);
     if (mobileOpened) toggleMobile();
+  };
+
+  const toggleSubmenu = (label: string) => {
+    setOpenSubmenu(openSubmenu === label ? null : label);
   };
 
   return (
@@ -115,7 +145,96 @@ export function AdminLayout() {
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
+              const isSubmenuOpen = openSubmenu === item.label;
+              const isInSubmenuPath = item.submenu?.some(sub => location.pathname === sub.path);
 
+              if (item.submenu) {
+                // Menu avec sous-menu
+                return (
+                  <div key={item.path}>
+                    <UnstyledButton
+                      onClick={() => toggleSubmenu(item.label)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        backgroundColor: isInSubmenuPath ? 'var(--mantine-color-indigo-light)' : 'transparent',
+                        color: isInSubmenuPath ? 'var(--mantine-color-indigo-filled)' : 'var(--mantine-color-text)',
+                        fontWeight: isInSubmenuPath ? 600 : 400,
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isInSubmenuPath) {
+                          e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-light)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isInSubmenuPath) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }
+                      }}
+                    >
+                      <Group justify="space-between" style={{ width: '100%' }}>
+                        <Group gap="sm">
+                          <Icon size={20} stroke={1.5} />
+                          <Text size="sm">{item.label}</Text>
+                        </Group>
+                        {isSubmenuOpen ? (
+                          <IconChevronDown size={16} />
+                        ) : (
+                          <IconChevronRight size={16} />
+                        )}
+                      </Group>
+                    </UnstyledButton>
+
+                    <Collapse in={isSubmenuOpen}>
+                      <div style={{ paddingLeft: '20px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        {item.submenu.map((subItem) => {
+                          const SubIcon = subItem.icon;
+                          const isSubActive = location.pathname === subItem.path;
+
+                          return (
+                            <UnstyledButton
+                              key={subItem.path}
+                              onClick={() => handleNavigation(subItem.path)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                width: '100%',
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                backgroundColor: isSubActive ? 'var(--mantine-color-indigo-light)' : 'transparent',
+                                color: isSubActive ? 'var(--mantine-color-indigo-filled)' : 'var(--mantine-color-text)',
+                                fontWeight: isSubActive ? 600 : 400,
+                                transition: 'all 0.2s',
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isSubActive) {
+                                  e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-light)';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isSubActive) {
+                                  e.currentTarget.style.backgroundColor = 'transparent';
+                                }
+                              }}
+                            >
+                              <Group gap="sm">
+                                <SubIcon size={18} stroke={1.5} />
+                                <Text size="sm">{subItem.label}</Text>
+                              </Group>
+                            </UnstyledButton>
+                          );
+                        })}
+                      </div>
+                    </Collapse>
+                  </div>
+                );
+              }
+
+              // Menu sans sous-menu
               return (
                 <UnstyledButton
                   key={item.path}

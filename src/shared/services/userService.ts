@@ -253,6 +253,10 @@ export async function createUser(
       startDate: userData.currentMembership.startDate,
       endDate: userData.currentMembership.expiryDate,
       price: userData.currentMembership.price,
+      isRenewal: false, // Première inscription
+      renewalSource: undefined,
+      previousMembershipId: undefined,
+      daysBeforeRenewal: undefined,
     });
 
     // Créer une entrée dans l'historique d'actions
@@ -1101,6 +1105,113 @@ export async function exportUserData(userId: string): Promise<any> {
     };
   } catch (error) {
     console.error('Error exporting user data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Renouvelle l'abonnement d'un utilisateur
+ * @param userId - ID de l'utilisateur
+ * @param newPlanId - ID du nouveau plan (peut être le même)
+ * @param renewalSource - Source du renouvellement ('auto' ou 'manual')
+ * @param paymentMethod - Méthode de paiement
+ * @param transactionId - ID de la transaction
+ * @returns ID de l'entrée d'historique créée
+ */
+export async function renewMembership(
+  userId: string,
+  newPlanId: string,
+  renewalSource: 'auto' | 'manual',
+  paymentMethod?: string,
+  transactionId?: string
+): Promise<string> {
+  try {
+    const user = await getUserById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const newPlan = await getMembershipPlanById(newPlanId);
+    if (!newPlan) {
+      throw new Error('Membership plan not found');
+    }
+
+    // Récupérer l'historique pour trouver l'abonnement actuel
+    const history = await getUserMembershipHistory(userId);
+    const currentMembershipHistoryId = history.length > 0 ? history[0].id : undefined;
+
+    // Calculer les jours avant expiration
+    let daysBeforeRenewal: number | undefined;
+    if (user.currentMembership.expiryDate) {
+      const now = new Date();
+      const expiryDate = user.currentMembership.expiryDate.toDate();
+      daysBeforeRenewal = Math.floor((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    // Calculer les nouvelles dates
+    const now = Timestamp.now();
+    const startDate = now;
+    let expiryDate: Timestamp | null = null;
+
+    if (newPlan.period === 'month') {
+      const expiry = new Date(startDate.toDate());
+      expiry.setMonth(expiry.getMonth() + 1);
+      expiryDate = Timestamp.fromDate(expiry);
+    } else if (newPlan.period === 'year') {
+      const expiry = new Date(startDate.toDate());
+      expiry.setFullYear(expiry.getFullYear() + 1);
+      expiryDate = Timestamp.fromDate(expiry);
+    }
+    // Pour 'lifetime', expiryDate reste null
+
+    // Mettre à jour l'abonnement actuel de l'utilisateur
+    await updateUser(userId, {
+      currentMembership: {
+        ...user.currentMembership,
+        planId: newPlan.id,
+        planName: newPlan.name,
+        planType: newPlan.period,
+        status: 'active',
+        paymentStatus: 'paid',
+        startDate,
+        expiryDate,
+        price: newPlan.price,
+        lastPaymentDate: now,
+      },
+    });
+
+    // Ajouter une entrée dans l'historique avec les infos de renouvellement
+    const historyId = await addMembershipHistory(userId, {
+      id: '',
+      planId: newPlan.id,
+      planName: newPlan.name,
+      planType: newPlan.period,
+      status: 'active',
+      startDate,
+      endDate: expiryDate,
+      price: newPlan.price,
+      paymentMethod,
+      transactionId,
+      isRenewal: true,
+      previousMembershipId: currentMembershipHistoryId,
+      renewalSource,
+      daysBeforeRenewal,
+    });
+
+    // Ajouter une action dans l'historique
+    await addActionHistory(userId, {
+      actionType: 'membership_renewed',
+      details: {
+        description: `Abonnement ${newPlan.name} renouvelé (${renewalSource})`,
+        amount: newPlan.price,
+        transactionId,
+      },
+      deviceType: 'web',
+    });
+
+    return historyId;
+  } catch (error) {
+    console.error('Error renewing membership:', error);
     throw error;
   }
 }

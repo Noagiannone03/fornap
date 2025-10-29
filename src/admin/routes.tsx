@@ -9,6 +9,10 @@ import { MembershipsPage } from './pages/Memberships/MembershipsPage';
 import { EventsListPage } from './pages/Events/EventsListPage';
 import { CoworkingListPage } from './pages/Coworking/CoworkingListPage';
 import { SettingsPage } from './pages/Settings/SettingsPage';
+import { AnalyticsOverviewPage } from './pages/Analytics/AnalyticsOverviewPage';
+import { FinancialAnalyticsPage } from './pages/Analytics/FinancialAnalyticsPage';
+import { DemographicsAnalyticsPage } from './pages/Analytics/DemographicsAnalyticsPage';
+import { EngagementAnalyticsPage } from './pages/Analytics/EngagementAnalyticsPage';
 
 export function AdminRoutes() {
   return (
@@ -23,6 +27,14 @@ export function AdminRoutes() {
         <Route path="memberships" element={<MembershipsPage />} />
         <Route path="events" element={<EventsListPage />} />
         <Route path="coworking" element={<CoworkingListPage />} />
+
+        {/* Routes Analytics */}
+        <Route path="analytics" element={<Navigate to="analytics/overview" replace />} />
+        <Route path="analytics/overview" element={<AnalyticsOverviewPage />} />
+        <Route path="analytics/financial" element={<FinancialAnalyticsPage />} />
+        <Route path="analytics/demographics" element={<DemographicsAnalyticsPage />} />
+        <Route path="analytics/engagement" element={<EngagementAnalyticsPage />} />
+
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>

@@ -12,17 +12,19 @@ import {
   List,
   ThemeIcon,
   Grid,
+  LoadingOverlay,
+  Alert,
 } from '@mantine/core';
-import { IconCheck } from '@tabler/icons-react';
+import { IconCheck, IconAlertCircle } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
-import { MEMBERSHIP_PLANS } from '../../shared/constants/membershipPlans';
-import type { MembershipType } from '../../shared/types/user';
+import { useMembershipPlans } from '../../shared/hooks/useMembershipPlans';
 
 export const Membership = () => {
   const navigate = useNavigate();
-  const [selectedPlan, setSelectedPlan] = useState<MembershipType | null>(null);
+  const { plans, loading, error } = useMembershipPlans(true); // Seulement les formules actives
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
-  const handleSelectPlan = (planId: MembershipType) => {
+  const handleSelectPlan = (planId: string) => {
     setSelectedPlan(planId);
     navigate(`/signup?plan=${planId}`);
   };
@@ -46,8 +48,11 @@ export const Membership = () => {
         minHeight: '100vh',
         background: '#ffffff',
         padding: '4rem 1rem',
+        position: 'relative',
       }}
     >
+      <LoadingOverlay visible={loading} />
+
       <Container size="lg">
         <Stack gap="xl" align="center" mb={60}>
           <Title order={1} size={48} fw={900} ta="center" c="#000">
@@ -58,21 +63,34 @@ export const Membership = () => {
           </Text>
         </Stack>
 
+        {error && (
+          <Alert icon={<IconAlertCircle size={16} />} color="red" mb="xl">
+            Une erreur est survenue lors du chargement des formules
+          </Alert>
+        )}
+
+        {!loading && plans.length === 0 && (
+          <Alert icon={<IconAlertCircle size={16} />} color="blue" mb="xl">
+            Aucune formule d'abonnement n'est actuellement disponible. Veuillez
+            réessayer plus tard.
+          </Alert>
+        )}
+
         <Grid gutter="xl">
-          {MEMBERSHIP_PLANS.map((plan) => (
+          {plans.map((plan) => (
             <Grid.Col key={plan.id} span={{ base: 12, md: 4 }}>
               <Card
                 padding="xl"
                 radius="lg"
                 style={{
                   height: '100%',
-                  border: plan.highlighted ? '4px solid #000' : '2px solid #000',
+                  border: plan.isPrimary ? '4px solid #000' : '2px solid #000',
                   transition: 'all 0.2s ease',
                   position: 'relative',
                   background: 'white',
                 }}
               >
-                {plan.highlighted && (
+                {plan.isPrimary && (
                   <Badge
                     size="lg"
                     color="dark"
@@ -131,7 +149,7 @@ export const Membership = () => {
                   <Button
                     fullWidth
                     size="lg"
-                    variant={plan.highlighted ? 'filled' : 'outline'}
+                    variant={plan.isPrimary ? 'filled' : 'outline'}
                     color="dark"
                     onClick={() => handleSelectPlan(plan.id)}
                     styles={{
@@ -142,16 +160,16 @@ export const Membership = () => {
                         borderRadius: '12px',
                         borderWidth: '2px',
                         transition: 'all 0.2s ease',
-                        background: plan.highlighted ? '#000' : 'transparent',
-                        color: plan.highlighted ? '#fff' : '#000',
+                        background: plan.isPrimary ? '#000' : 'transparent',
+                        color: plan.isPrimary ? '#fff' : '#000',
                         '&:hover': {
-                          background: plan.highlighted ? '#333' : '#000',
+                          background: plan.isPrimary ? '#333' : '#000',
                           color: '#fff',
                         },
                       },
                     }}
                   >
-                    {plan.id === 'honorary' ? 'DEVENIR MEMBRE D\'HONNEUR' : 'CHOISIR'}
+                    {plan.period === 'lifetime' ? 'DEVENIR MEMBRE D\'HONNEUR' : 'CHOISIR'}
                   </Button>
                 </Stack>
               </Card>

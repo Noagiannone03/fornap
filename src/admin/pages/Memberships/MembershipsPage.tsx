@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Container,
   Title,
@@ -15,6 +15,8 @@ import {
   Divider,
   Switch,
   Menu,
+  LoadingOverlay,
+  Alert,
 } from '@mantine/core';
 import {
   IconPlus,
@@ -26,65 +28,19 @@ import {
   IconTrendingUp,
   IconUsers,
   IconCurrencyEuro,
+  IconAlertCircle,
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { StatCard } from '../../components/stats/StatCard';
 import { BarChart } from '../../components/charts/BarChart';
+import { useMembershipPlansWithStats } from '../../../shared/hooks/useMembershipPlans';
+import { toggleMembershipPlanActive } from '../../../shared/services/membershipService';
+import { MembershipPlanModal } from '../../components/memberships/MembershipPlanModal';
+import { DeleteMembershipPlanModal } from '../../components/memberships/DeleteMembershipPlanModal';
+import { InitializeMembershipPlansButton } from '../../components/memberships/InitializeMembershipPlansButton';
+import type { MembershipPlanWithStats } from '../../../shared/types/membership';
 
-// Mock data
-const membershipPlans = [
-  {
-    id: '1',
-    name: 'Mensuel',
-    type: 'monthly',
-    price: 25,
-    description: 'Abonnement mensuel flexible',
-    subscriberCount: 245,
-    totalRevenue: 6125,
-    isActive: true,
-    isPrimary: false,
-    features: [
-      { name: 'Accès aux événements', included: true },
-      { name: '5 heures de coworking', included: true },
-      { name: 'Réduction de 10%', included: true },
-      { name: 'Accès VIP', included: false },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Annuel',
-    type: 'annual',
-    price: 250,
-    description: 'Abonnement annuel - 2 mois offerts',
-    subscriberCount: 182,
-    totalRevenue: 45500,
-    isActive: true,
-    isPrimary: true,
-    features: [
-      { name: 'Accès aux événements', included: true },
-      { name: '20 heures de coworking', included: true },
-      { name: 'Réduction de 20%', included: true },
-      { name: 'Accès VIP', included: true },
-    ],
-  },
-  {
-    id: '3',
-    name: 'Honoraire',
-    type: 'honorary',
-    price: 0,
-    description: 'Membres honoraires et partenaires',
-    subscriberCount: 45,
-    totalRevenue: 0,
-    isActive: true,
-    isPrimary: false,
-    features: [
-      { name: 'Accès aux événements', included: true },
-      { name: 'Coworking illimité', included: true },
-      { name: 'Réduction de 30%', included: true },
-      { name: 'Accès VIP', included: true },
-    ],
-  },
-];
-
+// Mock data pour les stats historiques (à remplacer par de vraies données)
 const subscriptionStats = [
   { month: 'Jan', monthly: 220, annual: 165, honorary: 42 },
   { month: 'Fév', monthly: 235, annual: 170, honorary: 43 },
@@ -94,34 +50,77 @@ const subscriptionStats = [
 ];
 
 export function MembershipsPage() {
-  const [plans, setPlans] = useState(membershipPlans);
+  const { plans, loading, error, refresh } = useMembershipPlansWithStats(false);
+  const [modalOpened, setModalOpened] = useState(false);
+  const [deleteModalOpened, setDeleteModalOpened] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<MembershipPlanWithStats | null>(null);
 
-  const handleToggleActive = (planId: string) => {
-    setPlans(plans.map(plan =>
-      plan.id === planId ? { ...plan, isActive: !plan.isActive } : plan
-    ));
+  const handleToggleActive = async (planId: string, currentState: boolean) => {
+    try {
+      await toggleMembershipPlanActive(planId, !currentState);
+      notifications.show({
+        title: 'Succès',
+        message: 'Le statut de la formule a été mis à jour',
+        color: 'green',
+      });
+      refresh();
+    } catch (error) {
+      console.error('Error toggling plan active status:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: 'Une erreur est survenue',
+        color: 'red',
+      });
+    }
   };
 
-  const handleEditPlan = (planId: string) => {
-    console.log('Edit plan:', planId);
+  const handleEditPlan = (plan: MembershipPlanWithStats) => {
+    setSelectedPlan(plan);
+    setModalOpened(true);
   };
 
-  const handleDeletePlan = (planId: string) => {
-    console.log('Delete plan:', planId);
+  const handleDeletePlan = (plan: MembershipPlanWithStats) => {
+    setSelectedPlan(plan);
+    setDeleteModalOpened(true);
   };
 
-  const totalSubscribers = plans.reduce((sum, plan) => sum + plan.subscriberCount, 0);
-  const totalRevenue = plans.reduce((sum, plan) => sum + plan.totalRevenue, 0);
-  const averageRevenue = totalRevenue / totalSubscribers;
+  const handleCreateNew = () => {
+    setSelectedPlan(null);
+    setModalOpened(true);
+  };
+
+  const totalSubscribers = plans.reduce((sum, plan) => sum + (plan.stats?.subscriberCount || 0), 0);
+  const totalRevenue = plans.reduce((sum, plan) => sum + (plan.stats?.totalRevenue || 0), 0);
+  const averageRevenue = totalSubscribers > 0 ? totalRevenue / totalSubscribers : 0;
 
   return (
-    <Container size="xl">
+    <Container size="xl" pos="relative">
+      <LoadingOverlay visible={loading} />
+
       <Group justify="space-between" mb="xl">
         <Title order={1}>Gestion des Abonnements</Title>
-        <Button leftSection={<IconPlus size={16} />}>
-          Nouveau Plan
-        </Button>
+        <Group>
+          {plans.length === 0 && !loading && (
+            <InitializeMembershipPlansButton onSuccess={refresh} />
+          )}
+          <Button leftSection={<IconPlus size={16} />} onClick={handleCreateNew}>
+            Nouveau Plan
+          </Button>
+        </Group>
       </Group>
+
+      {error && (
+        <Alert icon={<IconAlertCircle size={16} />} color="red" mb="xl">
+          Une erreur est survenue lors du chargement des formules
+        </Alert>
+      )}
+
+      {!loading && plans.length === 0 && (
+        <Alert icon={<IconAlertCircle size={16} />} color="blue" mb="xl">
+          Aucune formule d'abonnement n'existe encore. Cliquez sur "Initialiser les
+          données" pour créer les formules par défaut.
+        </Alert>
+      )}
 
       {/* Stats Overview */}
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mb="xl">
@@ -208,7 +207,7 @@ export function MembershipsPage() {
                 <Menu.Dropdown>
                   <Menu.Item
                     leftSection={<IconEdit size={14} />}
-                    onClick={() => handleEditPlan(plan.id)}
+                    onClick={() => handleEditPlan(plan)}
                   >
                     Modifier
                   </Menu.Item>
@@ -216,7 +215,7 @@ export function MembershipsPage() {
                   <Menu.Item
                     color="red"
                     leftSection={<IconTrash size={14} />}
-                    onClick={() => handleDeletePlan(plan.id)}
+                    onClick={() => handleDeletePlan(plan)}
                   >
                     Supprimer
                   </Menu.Item>
@@ -229,7 +228,7 @@ export function MembershipsPage() {
                 {plan.price}€
               </Text>
               <Text size="sm" c="dimmed">
-                /{plan.type === 'monthly' ? 'mois' : plan.type === 'annual' ? 'an' : 'vie'}
+                /{plan.period === 'month' ? 'mois' : plan.period === 'year' ? 'an' : 'vie'}
               </Text>
             </Group>
 
@@ -238,17 +237,9 @@ export function MembershipsPage() {
             <Stack gap="xs" mb="md">
               {plan.features.map((feature, index) => (
                 <Group key={index} gap="xs">
-                  {feature.included ? (
-                    <IconCheck size={16} color="var(--mantine-color-green-6)" />
-                  ) : (
-                    <IconX size={16} color="var(--mantine-color-gray-5)" />
-                  )}
-                  <Text
-                    size="sm"
-                    c={feature.included ? 'black' : 'dimmed'}
-                    style={{ textDecoration: feature.included ? 'none' : 'line-through' }}
-                  >
-                    {feature.name}
+                  <IconCheck size={16} color="var(--mantine-color-green-6)" />
+                  <Text size="sm">
+                    {feature}
                   </Text>
                 </Group>
               ))}
@@ -263,7 +254,7 @@ export function MembershipsPage() {
                   Abonnés actifs
                 </Text>
                 <Text size="sm" fw={600}>
-                  {plan.subscriberCount}
+                  {plan.stats?.subscriberCount || 0}
                 </Text>
               </Group>
               <Group justify="space-between">
@@ -271,7 +262,7 @@ export function MembershipsPage() {
                   Revenu total
                 </Text>
                 <Text size="sm" fw={600} c="green">
-                  {plan.totalRevenue.toLocaleString()}€
+                  {(plan.stats?.totalRevenue || 0).toLocaleString()}€
                 </Text>
               </Group>
             </Stack>
@@ -284,13 +275,28 @@ export function MembershipsPage() {
               </Text>
               <Switch
                 checked={plan.isActive}
-                onChange={() => handleToggleActive(plan.id)}
+                onChange={() => handleToggleActive(plan.id, plan.isActive)}
                 color="green"
               />
             </Group>
           </Card>
         ))}
       </SimpleGrid>
+
+      {/* Modals */}
+      <MembershipPlanModal
+        opened={modalOpened}
+        onClose={() => setModalOpened(false)}
+        plan={selectedPlan}
+        onSuccess={refresh}
+      />
+
+      <DeleteMembershipPlanModal
+        opened={deleteModalOpened}
+        onClose={() => setDeleteModalOpened(false)}
+        plan={selectedPlan}
+        onSuccess={refresh}
+      />
     </Container>
   );
 }

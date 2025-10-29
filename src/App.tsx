@@ -3,7 +3,7 @@ import { Layout } from './app/components/layout/Layout';
 import { ProtectedRoute } from './app/components/ProtectedRoute';
 import { Home } from './app/pages/Home';
 import { Membership } from './app/pages/Membership';
-import { NewSignup } from './app/pages/Signup/NewSignup';
+import { EnhancedSignup } from './app/pages/Signup/EnhancedSignup';
 import { Login } from './app/pages/Login';
 import { QRLogin } from './app/pages/QRLogin';
 import { Dashboard } from './app/pages/Dashboard';
@@ -28,7 +28,7 @@ function App() {
         />
 
         {/* Routes sans navbar (inscription et QR login) */}
-        <Route path="/signup" element={<NewSignup />} />
+        <Route path="/signup" element={<EnhancedSignup />} />
         <Route path="/qr-login" element={<QRLogin />} />
         <Route path="/signup-success" element={
           <ProtectedRoute>

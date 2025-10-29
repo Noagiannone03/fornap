@@ -7,19 +7,32 @@ import {
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
-import type { UserProfile, SignupFormData } from '../types/user';
-import { generateQRCodeContent } from '../utils/qrcode';
+import { Timestamp } from 'firebase/firestore';
+import { auth } from '../config/firebase';
+import type { BasicSignupFormData, ExtendedSignupFormData, User as UserType } from '../types/user';
+import { createUser, getUserById, updateUser } from '../services/userService';
+import { getMembershipPlanById } from '../services/membershipService';
+
+// Type guard pour vérifier si c'est un formulaire étendu
+function isExtendedSignup(data: BasicSignupFormData | ExtendedSignupFormData): data is ExtendedSignupFormData {
+  return 'profession' in data;
+}
+
+// Helper pour obtenir l'IP du client (approximatif côté client)
+function getClientIP(): string {
+  // Côté client, on ne peut pas obtenir la vraie IP
+  // En production, cela devrait être fait côté serveur
+  return 'client-side';
+}
 
 interface AuthContextType {
   currentUser: User | null;
-  userProfile: UserProfile | null;
+  userProfile: UserType | null;
   loading: boolean;
-  signup: (data: SignupFormData) => Promise<void>;
+  signup: (data: BasicSignupFormData | ExtendedSignupFormData) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
+  updateUserProfile: (data: Partial<UserType>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,7 +47,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userProfile, setUserProfile] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,11 +55,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setCurrentUser(user);
 
       if (user) {
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          setUserProfile(docSnap.data() as UserProfile);
+        try {
+          const profile = await getUserById(user.uid);
+          setUserProfile(profile);
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+          setUserProfile(null);
         }
       } else {
         setUserProfile(null);
@@ -58,80 +72,131 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return unsubscribe;
   }, []);
 
-  const signup = async (data: SignupFormData) => {
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      data.email,
-      data.password
-    );
+  const signup = async (data: BasicSignupFormData | ExtendedSignupFormData) => {
+    try {
+      // 1. Créer le compte Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        data.email,
+        data.password
+      );
 
-    const now = new Date();
-    const membershipEndDate = data.membershipType === 'monthly'
-      ? new Date(now.setMonth(now.getMonth() + 1))
-      : data.membershipType === 'annual'
-      ? new Date(now.setFullYear(now.getFullYear() + 1))
-      : undefined; // Pas de date de fin pour honorary
+      // 2. Récupérer le plan d'abonnement
+      const plan = await getMembershipPlanById(data.planId);
+      if (!plan) {
+        throw new Error('Plan d\'abonnement introuvable');
+      }
 
-    const userProfile: UserProfile = {
-      uid: userCredential.user.uid,
-      email: data.email,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      dateOfBirth: data.dateOfBirth,
-      phone: data.phone,
-      postalCode: data.postalCode,
-      createdAt: new Date().toISOString(),
+      // 3. Calculer la date d'expiration
+      const now = Timestamp.now();
+      const startDate = now;
+      let expiryDate: Timestamp | null = null;
 
-      // Abonnement
-      membership: {
-        type: data.membershipType,
-        status: 'active',
-        startDate: new Date().toISOString(),
-        endDate: membershipEndDate?.toISOString(),
-        validUntil: membershipEndDate?.toISOString(),
-        autoRenew: data.membershipType !== 'honorary', // Pas de renouvellement auto pour honorary
-      },
+      if (plan.period === 'month') {
+        const expiry = new Date();
+        expiry.setMonth(expiry.getMonth() + 1);
+        expiryDate = Timestamp.fromDate(expiry);
+      } else if (plan.period === 'year') {
+        const expiry = new Date();
+        expiry.setFullYear(expiry.getFullYear() + 1);
+        expiryDate = Timestamp.fromDate(expiry);
+      }
+      // Pour lifetime, expiryDate reste null
 
-      // Aussi sauvegardé dans subscription pour compatibilité avec Dashboard
-      subscription: {
-        type: data.membershipType,
-        status: 'active',
-        startDate: new Date().toISOString(),
-        endDate: membershipEndDate?.toISOString() || '',
-        autoRenew: data.membershipType !== 'honorary',
-      },
+      // 4. Préparer les données utilisateur de base
+      const userData: Omit<UserType, 'uid' | 'createdAt' | 'updatedAt' | 'qrCode'> = {
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        postalCode: data.postalCode,
+        birthDate: Timestamp.fromDate(new Date(data.birthDate)),
+        phone: data.phone,
 
-      // Programme de fidélité
-      loyaltyPoints: 0,
-
-      // Historique d'activité - première entrée
-      activityHistory: [
-        {
-          id: `${Date.now()}-signup`,
-          type: 'subscription',
-          title: `Adhésion ${data.membershipType === 'monthly' ? 'mensuelle' : data.membershipType === 'annual' ? 'annuelle' : 'd\'honneur'}`,
-          description: 'Création du compte et souscription à l\'adhésion',
-          date: new Date().toISOString(),
-          points: data.membershipType === 'annual' ? 50 : data.membershipType === 'honorary' ? 200 : 10,
+        status: {
+          tags: ['actif'],
+          isAccountBlocked: false,
+          isCardBlocked: false,
         },
-      ],
 
-      // Étiquettes par défaut
-      tags: ['actif'],
+        registration: {
+          source: 'platform',
+          createdAt: now,
+          ipAddress: getClientIP(),
+          userAgent: navigator.userAgent,
+        },
 
-      // Centres d'intérêt depuis le formulaire
-      interests: data.interests || [],
+        currentMembership: {
+          planId: plan.id,
+          planName: plan.name,
+          planType: plan.period,
+          status: 'pending', // Sera 'active' après paiement
+          paymentStatus: 'pending',
+          startDate,
+          expiryDate,
+          price: plan.price,
+          autoRenew: plan.period !== 'lifetime',
+        },
 
-      // Questions de personnalité
-      howDidYouHearAboutUs: data.howDidYouHearAboutUs,
-      preferredAmbiance: data.preferredAmbiance,
+        loyaltyPoints: 0,
+      };
 
-      // QR Code pour l'identification membre
-      qrCode: generateQRCodeContent(userCredential.user.uid),
-    };
+      // 5. Ajouter le profil étendu si abonnement annuel
+      if (isExtendedSignup(data) && plan.period === 'year') {
+        userData.extendedProfile = {
+          professional: {
+            profession: data.profession,
+            activityDomain: data.activityDomain,
+            status: data.professionalStatus,
+            volunteerWork: data.isVolunteer ? {
+              isVolunteer: true,
+              domains: data.volunteerDomains,
+            } : undefined,
+            skills: data.skills,
+          },
+          interests: {
+            eventTypes: data.eventTypes,
+            artisticDomains: data.artisticDomains,
+            musicGenres: data.musicGenres || [],
+            conferenceThemes: data.conferenceThemes || [],
+          },
+          communication: {
+            preferredContact: data.preferredContact,
+            socialMedia: {
+              instagram: data.instagram,
+              facebook: data.facebook,
+              linkedin: data.linkedin,
+              tiktok: data.tiktok,
+              youtube: data.youtube,
+              blog: data.blog,
+              website: data.website,
+            },
+            publicProfileConsent: data.publicProfileConsent,
+            publicProfileLevel: data.publicProfileLevel,
+          },
+          engagement: {
+            howDidYouKnowUs: data.howDidYouKnowUs,
+            suggestions: data.suggestions,
+            participationInterest: {
+              interested: data.participationInterested,
+              domains: data.participationDomains || [],
+            },
+          },
+        };
+      }
 
-    await setDoc(doc(db, 'users', userCredential.user.uid), userProfile);
-    setUserProfile(userProfile);
+      // 6. Créer l'utilisateur dans Firestore (avec QR code automatique)
+      await createUser(userData, getClientIP(), navigator.userAgent);
+
+      // 7. Charger le profil créé
+      const profile = await getUserById(userCredential.user.uid);
+      setUserProfile(profile);
+
+      // TODO: Rediriger vers le paiement (Stripe, etc.)
+
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
+    }
   };
 
   const login = async (email: string, password: string) => {
@@ -143,11 +208,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUserProfile(null);
   };
 
-  const updateUserProfile = async (data: Partial<UserProfile>) => {
+  const updateUserProfile = async (data: Partial<UserType>) => {
     if (!currentUser) throw new Error('No user logged in');
 
-    const updatedProfile = { ...userProfile, ...data } as UserProfile;
-    await setDoc(doc(db, 'users', currentUser.uid), updatedProfile, { merge: true });
+    // Utiliser le service pour mettre à jour
+    await updateUser(currentUser.uid, data);
+
+    // Recharger le profil
+    const updatedProfile = await getUserById(currentUser.uid);
     setUserProfile(updatedProfile);
   };
 

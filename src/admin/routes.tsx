@@ -4,6 +4,7 @@ import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { EnhancedUsersListPage } from './pages/Users/EnhancedUsersListPage';
 import { UserDetailPage } from './pages/Users/UserDetailPage';
 import { UserEditPage } from './pages/Users/UserEditPage';
+import { UserCreatePage } from './pages/Users/UserCreatePage';
 import { MembershipsPage } from './pages/Memberships/MembershipsPage';
 import { EventsListPage } from './pages/Events/EventsListPage';
 import { CoworkingListPage } from './pages/Coworking/CoworkingListPage';
@@ -16,6 +17,7 @@ export function AdminRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="users" element={<EnhancedUsersListPage />} />
+        <Route path="users/new" element={<UserCreatePage />} />
         <Route path="users/:uid" element={<UserDetailPage />} />
         <Route path="users/:uid/edit" element={<UserEditPage />} />
         <Route path="memberships" element={<MembershipsPage />} />

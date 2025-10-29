@@ -47,6 +47,41 @@ import {
   MEMBERSHIP_STATUS_LABELS,
 } from '../../../shared/types/user';
 
+// Fonction utilitaire pour convertir les timestamps de manière sécurisée
+function toDate(timestamp: any): Date {
+  if (!timestamp) {
+    return new Date();
+  }
+
+  // Si c'est déjà une Date
+  if (timestamp instanceof Date) {
+    return timestamp;
+  }
+
+  // Si c'est un Timestamp Firestore avec la méthode toDate()
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    return timestamp.toDate();
+  }
+
+  // Si c'est un objet avec seconds (format Firestore après sérialisation)
+  if (timestamp.seconds) {
+    return new Date(timestamp.seconds * 1000);
+  }
+
+  // Si c'est un nombre (timestamp en millisecondes)
+  if (typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+
+  // Si c'est une string ISO
+  if (typeof timestamp === 'string') {
+    return new Date(timestamp);
+  }
+
+  // Fallback
+  return new Date();
+}
+
 export function UserDetailPage() {
   const { uid } = useParams<{ uid: string }>();
   const navigate = useNavigate();
@@ -254,14 +289,14 @@ export function UserDetailPage() {
                   <Text size="sm" c="dimmed">Date de naissance</Text>
                   <Text size="sm" fw={500}>
                     {user.birthDate
-                      ? new Date(user.birthDate.toDate()).toLocaleDateString('fr-FR')
+                      ? toDate(user.birthDate).toLocaleDateString('fr-FR')
                       : 'N/A'}
                   </Text>
                 </Group>
                 <Group justify="space-between">
                   <Text size="sm" c="dimmed">Membre depuis</Text>
                   <Text size="sm" fw={500}>
-                    {new Date(user.createdAt.toDate()).toLocaleDateString('fr-FR')}
+                    {toDate(user.createdAt).toLocaleDateString('fr-FR')}
                   </Text>
                 </Group>
                 <Group justify="space-between">
@@ -326,14 +361,14 @@ export function UserDetailPage() {
                   <Grid.Col span={6}>
                     <Text size="sm" c="dimmed">Date de début</Text>
                     <Text size="sm">
-                      {new Date(user.currentMembership.startDate.toDate()).toLocaleDateString('fr-FR')}
+                      {toDate(user.currentMembership.startDate).toLocaleDateString('fr-FR')}
                     </Text>
                   </Grid.Col>
                   <Grid.Col span={6}>
                     <Text size="sm" c="dimmed">Date de fin</Text>
                     <Text size="sm">
                       {user.currentMembership.expiryDate
-                        ? new Date(user.currentMembership.expiryDate.toDate()).toLocaleDateString('fr-FR')
+                        ? toDate(user.currentMembership.expiryDate).toLocaleDateString('fr-FR')
                         : 'Illimité'}
                     </Text>
                   </Grid.Col>
@@ -414,7 +449,7 @@ export function UserDetailPage() {
                         {action.details?.description || 'Aucune description'}
                       </Text>
                       <Text size="xs" c="dimmed">
-                        {new Date(action.timestamp.toDate()).toLocaleString('fr-FR')}
+                        {toDate(action.timestamp).toLocaleString('fr-FR')}
                       </Text>
                     </Timeline.Item>
                   ))}

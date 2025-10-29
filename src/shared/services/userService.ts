@@ -163,6 +163,22 @@ export async function getUserByQRCode(qrCode: string): Promise<User | null> {
 }
 
 /**
+ * Convertit un MembershipPeriod en MembershipType
+ */
+function periodToMembershipType(period: 'month' | 'year' | 'lifetime'): 'monthly' | 'annual' | 'lifetime' {
+  switch (period) {
+    case 'month':
+      return 'monthly';
+    case 'year':
+      return 'annual';
+    case 'lifetime':
+      return 'lifetime';
+    default:
+      return 'monthly';
+  }
+}
+
+/**
  * Calcule la date d'expiration en fonction du type d'abonnement
  */
 function calculateExpiryDate(
@@ -214,15 +230,18 @@ export async function createUser(
       updatedAt: now,
     };
 
-    // Enrichir les informations de registration
+    // Enrichir les informations de registration (ne pas inclure les valeurs undefined)
     newUser.registration = {
       ...newUser.registration,
-      ipAddress,
-      userAgent,
+      ...(ipAddress && { ipAddress }),
+      ...(userAgent && { userAgent }),
     };
 
+    // Nettoyer les valeurs undefined avant d'envoyer à Firestore
+    const cleanedUser = cleanUndefinedFields(newUser);
+
     // Créer le document avec l'ID pré-généré
-    await setDoc(userDocRef, newUser);
+    await setDoc(userDocRef, cleanedUser);
 
     // Créer une entrée dans l'historique d'abonnement
     await addMembershipHistory(docId, {
@@ -270,7 +289,8 @@ export async function createUserByAdmin(
 
     const now = Timestamp.now();
     const startDate = new Date(userData.startDate);
-    const expiryDate = calculateExpiryDate(startDate, plan.period);
+    const membershipType = periodToMembershipType(plan.period);
+    const expiryDate = calculateExpiryDate(startDate, membershipType);
 
     const newUserData: Omit<User, 'uid' | 'createdAt' | 'updatedAt' | 'qrCode'> = {
       email: userData.email,
@@ -290,12 +310,13 @@ export async function createUserByAdmin(
         source: 'admin',
         createdAt: now,
         createdBy: adminUserId,
+        ipAddress: 'admin_creation',
       },
 
       currentMembership: {
         planId: plan.id,
         planName: plan.name,
-        planType: plan.period,
+        planType: membershipType,
         status: userData.paymentStatus === 'paid' ? 'active' : 'pending',
         paymentStatus: userData.paymentStatus,
         startDate: Timestamp.fromDate(startDate),
@@ -340,10 +361,13 @@ export async function updateUser(
     const userRef = doc(db, USERS_COLLECTION, userId);
     const now = Timestamp.now();
 
-    await updateDoc(userRef, {
+    // Nettoyer les valeurs undefined avant d'envoyer à Firestore
+    const cleanedUpdates = cleanUndefinedFields({
       ...updates,
       updatedAt: now,
-    } as any);
+    });
+
+    await updateDoc(userRef, cleanedUpdates as any);
 
     // Logger chaque modification significative
     if (Object.keys(updates).length > 0) {
@@ -651,6 +675,31 @@ export async function spendLoyaltyPoints(
 // ============================================================================
 
 /**
+ * Nettoie un objet en retirant les valeurs undefined récursivement
+ */
+function cleanUndefinedFields(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefinedFields);
+  }
+
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanUndefinedFields(value);
+      }
+    }
+    return cleaned;
+  }
+
+  return obj;
+}
+
+/**
  * Ajoute une entrée dans l'historique d'actions
  */
 export async function addActionHistory(
@@ -665,10 +714,10 @@ export async function addActionHistory(
       ACTION_HISTORY_SUBCOLLECTION
     );
 
-    const actionEntry = {
+    const actionEntry = cleanUndefinedFields({
       ...actionData,
       timestamp: Timestamp.now(),
-    };
+    });
 
     const docRef = await addDoc(actionHistoryRef, actionEntry);
     return docRef.id;
@@ -740,7 +789,10 @@ export async function addMembershipHistory(
       MEMBERSHIP_HISTORY_SUBCOLLECTION
     );
 
-    const docRef = await addDoc(membershipHistoryRef, historyData);
+    // Nettoyer les valeurs undefined avant d'envoyer à Firestore
+    const cleanedHistoryData = cleanUndefinedFields(historyData);
+
+    const docRef = await addDoc(membershipHistoryRef, cleanedHistoryData);
     return docRef.id;
   } catch (error) {
     console.error('Error adding membership history:', error);

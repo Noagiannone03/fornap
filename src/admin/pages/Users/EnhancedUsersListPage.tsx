@@ -36,11 +36,13 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
+import { modals } from '@mantine/modals';
 import {
   getAllUsersForList,
   toggleAccountBlocked,
   toggleCardBlocked,
   regenerateQRCode,
+  deleteUser,
 } from '../../../shared/services/userService';
 import type {
   UserListItem,
@@ -169,9 +171,39 @@ export function EnhancedUsersListPage() {
     navigate(`/admin/users/${uid}/edit`);
   };
 
-  const handleDeleteUser = (uid: string) => {
-    // TODO: Implémenter la confirmation et la suppression
-    console.log('Delete user:', uid);
+  const handleDeleteUser = (uid: string, userName: string) => {
+    modals.openConfirmModal({
+      title: 'Supprimer définitivement l\'utilisateur',
+      centered: true,
+      children: (
+        <Text size="sm">
+          Êtes-vous sûr de vouloir supprimer <strong>{userName}</strong> ?
+          <br /><br />
+          ⚠️ <strong>Cette action supprimera définitivement toutes les données de l'utilisateur de la base de données.</strong>
+          <br /><br />
+          Cette action est <strong>irréversible</strong> et ne peut pas être annulée.
+        </Text>
+      ),
+      labels: { confirm: 'Supprimer définitivement', cancel: 'Annuler' },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        try {
+          await deleteUser(uid, 'current-admin-id'); // TODO: Utiliser l'ID de l'admin connecté
+          notifications.show({
+            title: 'Succès',
+            message: 'Utilisateur supprimé définitivement de la base de données',
+            color: 'green',
+          });
+          loadUsers();
+        } catch (error) {
+          notifications.show({
+            title: 'Erreur',
+            message: 'Impossible de supprimer l\'utilisateur',
+            color: 'red',
+          });
+        }
+      },
+    });
   };
 
   const handleSendEmail = (email: string) => {
@@ -500,11 +532,12 @@ export function EnhancedUsersListPage() {
                       {(() => {
                         try {
                           // Gérer les cas où createdAt peut être un Timestamp Firestore ou une Date
-                          const date = user.createdAt?.toDate
+                          if (!user.createdAt) {
+                            return 'Date inconnue';
+                          }
+                          const date = typeof user.createdAt.toDate === 'function'
                             ? user.createdAt.toDate()
-                            : user.createdAt
-                              ? new Date(user.createdAt)
-                              : new Date();
+                            : new Date(user.createdAt.seconds * 1000 || Date.now());
                           return date.toLocaleDateString('fr-FR');
                         } catch (e) {
                           return 'Date invalide';
@@ -567,7 +600,7 @@ export function EnhancedUsersListPage() {
                           <Menu.Item
                             color="red"
                             leftSection={<IconTrash size={14} />}
-                            onClick={() => handleDeleteUser(user.uid)}
+                            onClick={() => handleDeleteUser(user.uid, `${user.firstName} ${user.lastName}`)}
                           >
                             Supprimer
                           </Menu.Item>

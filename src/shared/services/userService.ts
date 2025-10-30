@@ -411,14 +411,44 @@ export async function updateUser(
 }
 
 /**
- * Supprime un utilisateur (soft delete recommandé)
+ * Supprime définitivement un utilisateur (hard delete)
  */
 export async function deleteUser(
   userId: string,
   adminUserId: string
 ): Promise<void> {
   try {
-    // Recommandé: Soft delete plutôt que hard delete
+    // Logger l'action avant de supprimer
+    await addActionHistory(userId, {
+      actionType: 'profile_update',
+      details: {
+        description: 'Compte supprimé définitivement',
+        updatedBy: adminUserId,
+      },
+      deviceType: 'web',
+    });
+
+    // Hard delete: Suppression complète du document
+    const userRef = doc(db, USERS_COLLECTION, userId);
+    await deleteDoc(userRef);
+
+    // Note: Les sous-collections (actionHistory, membershipHistory) ne sont pas automatiquement supprimées
+    // Elles seront toujours présentes mais orphelines. Pour une suppression complète, il faudrait
+    // supprimer manuellement ces sous-collections ou utiliser une Cloud Function.
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw error;
+  }
+}
+
+/**
+ * Supprime un utilisateur en soft delete (bloque le compte)
+ */
+export async function softDeleteUser(
+  userId: string,
+  adminUserId: string
+): Promise<void> {
+  try {
     await updateUser(
       userId,
       {
@@ -433,12 +463,8 @@ export async function deleteUser(
       },
       adminUserId
     );
-
-    // Pour un hard delete:
-    // const userRef = doc(db, USERS_COLLECTION, userId);
-    // await deleteDoc(userRef);
   } catch (error) {
-    console.error('Error deleting user:', error);
+    console.error('Error soft deleting user:', error);
     throw error;
   }
 }

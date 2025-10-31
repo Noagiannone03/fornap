@@ -362,6 +362,16 @@ export interface UpdateUserData {
 }
 
 /**
+ * Type union pour SignupFormData (peut être basic ou extended)
+ */
+export type SignupFormData = BasicSignupFormData | ExtendedSignupFormData;
+
+/**
+ * Alias pour UserProfile (utilise User)
+ */
+export type UserProfile = User;
+
+/**
  * Filtres pour la liste des utilisateurs (admin)
  */
 export interface UserFilters {

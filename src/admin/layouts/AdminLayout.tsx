@@ -49,6 +49,7 @@ const navigationItems: NavItem[] = [
       { icon: IconCurrencyEuro, label: 'Comptabilité', path: '/admin/analytics/financial' },
       { icon: IconMapPin, label: 'Démographie', path: '/admin/analytics/demographics' },
       { icon: IconHeart, label: 'Engagement', path: '/admin/analytics/engagement' },
+      { icon: IconCalendar, label: 'Événements', path: '/admin/analytics/events' },
     ],
   },
   { icon: IconSettings, label: 'Paramètres', path: '/admin/settings' },

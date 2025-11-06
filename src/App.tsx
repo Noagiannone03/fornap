@@ -11,21 +11,13 @@ import { Profile } from './app/pages/Profile';
 import { QRCodeSuccess } from './app/pages/QRCodeSuccess';
 import { CheckIn } from './app/pages/CheckIn';
 import { AdminRoutes } from './admin/routes';
-import { AdminProtectedRoute } from './admin/components/AdminProtectedRoute';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         {/* Routes Admin - Panel d'administration */}
-        <Route
-          path="/admin/*"
-          element={
-            <AdminProtectedRoute>
-              <AdminRoutes />
-            </AdminProtectedRoute>
-          }
-        />
+        <Route path="/admin/*" element={<AdminRoutes />} />
 
         {/* Routes sans navbar (inscription et QR login) */}
         <Route path="/signup" element={<EnhancedSignup />} />

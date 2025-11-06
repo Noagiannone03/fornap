@@ -1,6 +1,6 @@
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import type { UserFilters } from '../../types/user';
+import type { UserFilters, User } from '../../types/user';
 import { getTransactionsForPeriod } from './financialAnalytics';
 import { getSkillsAnalytics } from './engagementAnalytics';
 import { MEMBERSHIP_TYPE_LABELS, MEMBERSHIP_STATUS_LABELS } from '../../types/user';
@@ -118,7 +118,7 @@ export async function exportMembersDetailCSV(filters?: UserFilters): Promise<Blo
     }
 
     const data = snapshot.docs.map((doc) => {
-      const user = doc.data();
+      const user = doc.data() as User;
       return {
         ID: doc.id,
         Nom: user.lastName,
@@ -127,8 +127,8 @@ export async function exportMembersDetailCSV(filters?: UserFilters): Promise<Blo
         Telephone: user.phone,
         Code_Postal: user.postalCode,
         Date_Naissance: user.birthDate ? user.birthDate.toDate().toISOString().split('T')[0] : '',
-        Type_Abonnement: MEMBERSHIP_TYPE_LABELS[user.currentMembership.planType as any],
-        Statut_Abonnement: MEMBERSHIP_STATUS_LABELS[user.currentMembership.status as any],
+        Type_Abonnement: MEMBERSHIP_TYPE_LABELS[user.currentMembership.planType],
+        Statut_Abonnement: MEMBERSHIP_STATUS_LABELS[user.currentMembership.status],
         Date_Inscription: user.createdAt ? user.createdAt.toDate().toISOString().split('T')[0] : '',
         Date_Expiration: user.currentMembership.expiryDate
           ? user.currentMembership.expiryDate.toDate().toISOString().split('T')[0]

@@ -3,27 +3,23 @@ import {
   doc,
   getDoc,
   getDocs,
-  addDoc,
   updateDoc,
   query,
   where,
   orderBy,
   Timestamp,
-  writeBatch,
   increment,
   runTransaction,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type {
   EventPurchase,
-  PurchaseStatus,
   PaymentStatus,
   EventPurchaseListItem,
   PurchaseFilters,
 } from '../types/event';
 import type { Event } from '../types/event';
-import { getEventById } from './eventService';
-import { getUserById, addActionHistory } from './userService';
+import { addActionHistory } from './userService';
 import {
   generateTicketNumber,
   generateTicketQRCode,
@@ -718,7 +714,6 @@ export async function checkInAttendee(
       });
 
       // Add to user action history
-      const userRef = doc(db, USERS_COLLECTION, purchase.userId);
       // This will be handled separately after transaction
     });
 

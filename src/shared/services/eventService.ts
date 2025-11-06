@@ -11,8 +11,6 @@ import {
   orderBy,
   limit,
   Timestamp,
-  writeBatch,
-  increment,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type {
@@ -21,7 +19,6 @@ import type {
   EventListItem,
   EventFilters,
   TicketCategory,
-  TicketCategoryFormData,
   EventStatus,
 } from '../types/event';
 
@@ -120,7 +117,6 @@ function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T>
  */
 function formDataToEvent(
   formData: EventFormData,
-  eventId?: string,
   createdBy?: string
 ): Omit<Event, 'id'> {
   const now = Timestamp.now();
@@ -489,7 +485,7 @@ export async function createEvent(
 ): Promise<string> {
   try {
     const eventsRef = collection(db, EVENTS_COLLECTION);
-    const eventData = formDataToEvent(formData, undefined, createdBy);
+    const eventData = formDataToEvent(formData, createdBy);
 
     const docRef = await addDoc(eventsRef, cleanUndefinedFields(eventData));
 
@@ -667,7 +663,7 @@ export async function deleteEvent(eventId: string): Promise<void> {
 export async function cancelEvent(
   eventId: string,
   cancellationReason: string,
-  cancelledBy: string
+  _cancelledBy: string
 ): Promise<void> {
   try {
     const eventRef = doc(db, EVENTS_COLLECTION, eventId);

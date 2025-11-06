@@ -58,7 +58,6 @@ export async function getOverviewKPIs(): Promise<OverviewKPIs> {
     const twoMonthsAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
     let newPreviousWeek = 0;
     let newPreviousMonth = 0;
-    let activeMembersPrevious = 0;
 
     snapshot.forEach((doc) => {
       const data = doc.data();

@@ -1,10 +1,6 @@
 import {
   collection,
   getDocs,
-  query,
-  where,
-  Timestamp,
-  orderBy,
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import type { FinancialKPIs, RevenueEvolutionData, TransactionData } from '../../types/user';

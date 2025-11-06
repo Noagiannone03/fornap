@@ -815,19 +815,20 @@ export function CampaignCreatePage() {
                       description="Programmez l'envoi de votre campagne à une date ultérieure"
                       placeholder="Sélectionner une date et heure"
                       value={scheduledDate}
-                      onChange={(value: string | Date | null) => {
-                        if (value instanceof Date) {
-                          setScheduledDate(value);
-                        } else if (typeof value === 'string') {
+                      onChange={(value) => {
+                        if (typeof value === 'string') {
                           setScheduledDate(new Date(value));
                         } else {
-                          setScheduledDate(null);
+                          setScheduledDate(value);
                         }
                       }}
                       minDate={new Date()}
-                      valueFormat="DD/MM/YYYY à HH:mm"
+                      valueFormat="DD/MM/YYYY HH:mm"
                       size="md"
                       clearable
+                      withSeconds={false}
+                      popoverProps={{ withinPortal: true }}
+                      leftSection={<IconCalendarEvent size={18} />}
                     />
                   )}
 
@@ -982,19 +983,40 @@ export function CampaignCreatePage() {
                 Suivant
               </Button>
             ) : (
-              <Button
-                onClick={handleSubmit}
-                leftSection={sendImmediately ? <IconSend size={18} /> : <IconCheck size={18} />}
-                color={sendImmediately ? 'green' : 'blue'}
-                loading={loading}
-                size="md"
-              >
-                {sendImmediately
-                  ? 'Créer et envoyer'
-                  : scheduledDate
-                  ? 'Créer et planifier'
-                  : 'Créer en brouillon'}
-              </Button>
+              <Group>
+                <Button
+                  onClick={async () => {
+                    // Sauvegarder en brouillon sans date ni envoi immédiat
+                    const originalSendImmediately = sendImmediately;
+                    const originalScheduledDate = scheduledDate;
+                    setSendImmediately(false);
+                    setScheduledDate(null);
+                    await handleSubmit();
+                    // Restaurer les valeurs originales en cas d'erreur
+                    setSendImmediately(originalSendImmediately);
+                    setScheduledDate(originalScheduledDate);
+                  }}
+                  variant="default"
+                  leftSection={<IconFileText size={18} />}
+                  loading={loading}
+                  size="md"
+                >
+                  Sauvegarder en brouillon
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  leftSection={sendImmediately ? <IconSend size={18} /> : <IconCheck size={18} />}
+                  color={sendImmediately ? 'green' : 'blue'}
+                  loading={loading}
+                  size="md"
+                >
+                  {sendImmediately
+                    ? 'Créer et envoyer'
+                    : scheduledDate
+                    ? 'Créer et planifier'
+                    : 'Créer en brouillon'}
+                </Button>
+              </Group>
             )}
           </Group>
         </Paper>

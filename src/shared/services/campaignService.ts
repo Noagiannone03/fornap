@@ -36,13 +36,23 @@ const RECIPIENTS_SUBCOLLECTION = 'recipients';
 // ============================================================================
 
 /**
- * Nettoie les champs undefined d'un objet
+ * Nettoie les champs undefined d'un objet de manière récursive
  */
 function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T> {
   const cleaned: Partial<T> = {};
   for (const key in obj) {
-    if (obj[key] !== undefined) {
-      cleaned[key] = obj[key];
+    const value = obj[key];
+    if (value !== undefined) {
+      // Si c'est un objet (mais pas un Timestamp ou Date ou Array), nettoyer récursivement
+      const isTimestamp = value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function';
+      const isDate = Object.prototype.toString.call(value) === '[object Date]';
+      const isArray = Array.isArray(value);
+
+      if (value && typeof value === 'object' && !isArray && !isTimestamp && !isDate) {
+        cleaned[key] = cleanUndefinedFields(value) as any;
+      } else {
+        cleaned[key] = value;
+      }
     }
   }
   return cleaned;

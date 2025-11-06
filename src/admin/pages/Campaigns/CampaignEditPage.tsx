@@ -786,19 +786,20 @@ export function CampaignEditPage() {
                       description="Programmez l'envoi de votre campagne à une date ultérieure"
                       placeholder="Sélectionner une date et heure"
                       value={scheduledDate}
-                      onChange={(value: string | Date | null) => {
-                        if (value instanceof Date) {
-                          setScheduledDate(value);
-                        } else if (typeof value === 'string') {
+                      onChange={(value) => {
+                        if (typeof value === 'string') {
                           setScheduledDate(new Date(value));
                         } else {
-                          setScheduledDate(null);
+                          setScheduledDate(value);
                         }
                       }}
                       minDate={new Date()}
-                      valueFormat="DD/MM/YYYY à HH:mm"
+                      valueFormat="DD/MM/YYYY HH:mm"
                       size="md"
                       clearable
+                      withSeconds={false}
+                      popoverProps={{ withinPortal: true }}
+                      leftSection={<IconCalendarEvent size={18} />}
                     />
                   )}
 

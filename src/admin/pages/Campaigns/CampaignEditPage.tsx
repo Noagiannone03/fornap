@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Paper,
   Title,
@@ -26,16 +26,16 @@ import {
   IconMail,
   IconUsers,
   IconEdit,
-  IconSend,
   IconClock,
   IconInfoCircle,
 } from '@tabler/icons-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import { DateTimePicker } from '@mantine/dates';
-import type { CreateCampaignData, TargetingMode, TargetingFilters } from '../../../shared/types/campaign';
+import type { TargetingMode, TargetingFilters, UpdateCampaignData } from '../../../shared/types/campaign';
 import {
-  createCampaign,
+  getCampaignById,
+  updateCampaign,
   prepareCampaignForSending,
 } from '../../../shared/services/campaignService';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
@@ -43,14 +43,16 @@ import { Timestamp } from 'firebase/firestore';
 import { UserTargetingSelector, EmailEditorModal } from './components';
 import type { EmailEditorModalHandle } from './components';
 
-export function CampaignCreatePage() {
+export function CampaignEditPage() {
+  const { campaignId } = useParams<{ campaignId: string }>();
   const navigate = useNavigate();
   const { adminProfile } = useAdminAuth();
   const emailEditorModalRef = useRef<EmailEditorModalHandle>(null);
 
   // State pour le stepper
   const [active, setActive] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Étape 1: Informations de base
   const [name, setName] = useState('');
@@ -77,6 +79,74 @@ export function CampaignCreatePage() {
   // Étape 4: Planification
   const [sendImmediately, setSendImmediately] = useState(false);
   const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (campaignId) {
+      loadCampaign();
+    }
+  }, [campaignId]);
+
+  const loadCampaign = async () => {
+    if (!campaignId) return;
+
+    try {
+      setLoading(true);
+      const campaign = await getCampaignById(campaignId);
+
+      if (!campaign) {
+        notifications.show({
+          title: 'Erreur',
+          message: 'Campagne introuvable',
+          color: 'red',
+        });
+        navigate('/admin/campaigns');
+        return;
+      }
+
+      // Vérifier que la campagne est modifiable
+      if (campaign.status !== 'draft' && campaign.status !== 'scheduled') {
+        notifications.show({
+          title: 'Erreur',
+          message: 'Cette campagne ne peut plus être modifiée',
+          color: 'red',
+        });
+        navigate(`/admin/campaigns/${campaignId}`);
+        return;
+      }
+
+      // Charger les données
+      setName(campaign.name);
+      setDescription(campaign.description || '');
+      setSubject(campaign.content.subject);
+      setPreheader(campaign.content.preheader || '');
+      setFromName(campaign.content.fromName);
+      setFromEmail(campaign.content.fromEmail);
+      setReplyTo(campaign.content.replyTo || '');
+
+      setTargetingMode(campaign.targeting.mode);
+      setFilters(campaign.targeting.filters || { includeBlocked: false });
+      setSelectedUserIds(campaign.targeting.manualUserIds || []);
+      setEstimatedCount(campaign.targeting.estimatedRecipients);
+
+      setEmailDesign(campaign.content.design);
+      setEmailHtml(campaign.content.html);
+
+      setSendImmediately(campaign.sendImmediately);
+      setScheduledDate(campaign.scheduledAt ? campaign.scheduledAt.toDate() : null);
+
+      setInitialLoadDone(true);
+    } catch (error: any) {
+      console.error('Error loading campaign:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de charger la campagne',
+        color: 'red',
+      });
+      navigate('/admin/campaigns');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleNext = async () => {
     // Validation selon l'étape
@@ -156,7 +226,7 @@ export function CampaignCreatePage() {
   };
 
   const handleSubmit = async () => {
-    if (!adminProfile) {
+    if (!adminProfile || !campaignId) {
       notifications.show({
         title: 'Erreur',
         message: 'Vous devez être connecté',
@@ -168,8 +238,8 @@ export function CampaignCreatePage() {
     try {
       setLoading(true);
 
-      // Créer les données de la campagne
-      const campaignData: CreateCampaignData = {
+      // Mettre à jour les données de la campagne
+      const updateData: UpdateCampaignData = {
         name,
         description,
         content: {
@@ -191,30 +261,26 @@ export function CampaignCreatePage() {
         sendImmediately,
       };
 
-      // Créer la campagne
-      const campaign = await createCampaign(adminProfile.uid, campaignData);
+      // Mettre à jour la campagne
+      await updateCampaign(campaignId, updateData);
 
       // Si envoi immédiat ou planifié, préparer l'envoi
       if (sendImmediately || scheduledDate) {
-        await prepareCampaignForSending(campaign.id);
+        await prepareCampaignForSending(campaignId);
       }
 
       notifications.show({
         title: 'Succès',
-        message: sendImmediately
-          ? 'Campagne créée et prête pour l\'envoi'
-          : scheduledDate
-          ? 'Campagne créée et planifiée avec succès'
-          : 'Campagne créée en brouillon',
+        message: 'Campagne mise à jour avec succès',
         color: 'green',
       });
 
       navigate('/admin/campaigns');
     } catch (error: any) {
-      console.error('Error creating campaign:', error);
+      console.error('Error updating campaign:', error);
       notifications.show({
         title: 'Erreur',
-        message: error.message || 'Impossible de créer la campagne',
+        message: error.message || 'Impossible de mettre à jour la campagne',
         color: 'red',
       });
     } finally {
@@ -231,7 +297,7 @@ export function CampaignCreatePage() {
               Informations de la campagne
             </Text>
             <Text c="dimmed" size="sm">
-              Définissez les paramètres de base de votre campagne d'emailing
+              Modifiez les paramètres de base de votre campagne d'emailing
             </Text>
           </div>
 
@@ -360,19 +426,21 @@ export function CampaignCreatePage() {
               Ciblage des destinataires
             </Text>
             <Text c="dimmed" size="sm">
-              Sélectionnez qui recevra votre campagne d'emailing
+              Modifiez qui recevra votre campagne d'emailing
             </Text>
           </div>
 
-          <UserTargetingSelector
-            targetingMode={targetingMode}
-            onTargetingModeChange={setTargetingMode}
-            filters={filters}
-            onFiltersChange={setFilters}
-            selectedUserIds={selectedUserIds}
-            onSelectedUsersChange={setSelectedUserIds}
-            onEstimatedCountChange={setEstimatedCount}
-          />
+          {initialLoadDone && (
+            <UserTargetingSelector
+              targetingMode={targetingMode}
+              onTargetingModeChange={setTargetingMode}
+              filters={filters}
+              onFiltersChange={setFilters}
+              selectedUserIds={selectedUserIds}
+              onSelectedUsersChange={setSelectedUserIds}
+              onEstimatedCountChange={setEstimatedCount}
+            />
+          )}
         </Stack>
       </Grid.Col>
 
@@ -423,7 +491,7 @@ export function CampaignCreatePage() {
               Contenu de l'email
             </Text>
             <Text c="dimmed" size="sm">
-              Créez le contenu de votre email avec notre éditeur professionnel
+              Modifiez le contenu de votre email
             </Text>
           </div>
 
@@ -435,10 +503,10 @@ export function CampaignCreatePage() {
                     <IconCheck size={32} />
                   </ThemeIcon>
                   <Text fw={600} size="lg">
-                    Email créé avec succès
+                    Email configuré
                   </Text>
                   <Text size="sm" c="dimmed" ta="center">
-                    Votre email a été enregistré. Vous pouvez le modifier ou continuer.
+                    Votre email est enregistré. Vous pouvez le modifier ou continuer.
                   </Text>
                   <Group>
                     <Button
@@ -531,7 +599,7 @@ export function CampaignCreatePage() {
               Planification de l'envoi
             </Text>
             <Text c="dimmed" size="sm">
-              Choisissez quand envoyer votre campagne
+              Modifiez la planification de votre campagne
             </Text>
           </div>
 
@@ -588,8 +656,8 @@ export function CampaignCreatePage() {
 
                 <Stack gap="md">
                   <Switch
-                    label="Envoyer immédiatement après la création"
-                    description="La campagne sera mise en file d'attente d'envoi dès sa création"
+                    label="Envoyer immédiatement après la sauvegarde"
+                    description="La campagne sera mise en file d'attente d'envoi dès sa sauvegarde"
                     checked={sendImmediately}
                     onChange={(e) => setSendImmediately(e.currentTarget.checked)}
                     size="md"
@@ -619,7 +687,7 @@ export function CampaignCreatePage() {
 
                   {!sendImmediately && !scheduledDate && (
                     <Text size="sm" c="dimmed">
-                      💡 Si vous ne sélectionnez pas de date, la campagne sera sauvegardée en brouillon
+                      💡 Si vous ne sélectionnez pas de date, la campagne restera en brouillon
                     </Text>
                   )}
                 </Stack>
@@ -641,7 +709,7 @@ export function CampaignCreatePage() {
                     ? 'La campagne sera envoyée immédiatement. Vérifiez bien tous les détails.'
                     : scheduledDate
                     ? `La campagne sera envoyée le ${scheduledDate.toLocaleString('fr-FR')}.`
-                    : 'La campagne sera sauvegardée en brouillon. Vous pourrez la modifier et l\'envoyer plus tard.'}
+                    : 'La campagne restera en brouillon. Vous pourrez la modifier et l\'envoyer plus tard.'}
                 </Text>
               </Stack>
             </Group>
@@ -679,9 +747,13 @@ export function CampaignCreatePage() {
     </Grid>
   );
 
+  if (!initialLoadDone) {
+    return <LoadingOverlay visible={loading} />;
+  }
+
   return (
     <div style={{ position: 'relative' }}>
-      <LoadingOverlay visible={loading} />
+      <LoadingOverlay visible={loading && initialLoadDone} />
 
       <Stack gap="xl">
         {/* Header */}
@@ -696,9 +768,9 @@ export function CampaignCreatePage() {
                 Retour
               </Button>
             </Group>
-            <Title order={1}>Nouvelle campagne email</Title>
+            <Title order={1}>Modifier la campagne</Title>
             <Text c="dimmed" size="sm" mt="xs">
-              Créez et configurez votre campagne d'emailing professionnelle
+              Modifiez les paramètres de votre campagne d'emailing
             </Text>
           </div>
         </Group>
@@ -729,7 +801,7 @@ export function CampaignCreatePage() {
 
             <Stepper.Step
               label="Contenu"
-              description="Créer l'email"
+              description="Modifier l'email"
               icon={<IconEdit size={20} />}
             >
               {renderEmailEditorStep()}
@@ -767,16 +839,12 @@ export function CampaignCreatePage() {
             ) : (
               <Button
                 onClick={handleSubmit}
-                leftSection={sendImmediately ? <IconSend size={18} /> : <IconCheck size={18} />}
-                color={sendImmediately ? 'green' : 'blue'}
+                leftSection={<IconCheck size={18} />}
+                color="blue"
                 loading={loading}
                 size="md"
               >
-                {sendImmediately
-                  ? 'Créer et envoyer'
-                  : scheduledDate
-                  ? 'Créer et planifier'
-                  : 'Créer en brouillon'}
+                Sauvegarder les modifications
               </Button>
             )}
           </Group>

@@ -20,7 +20,7 @@ import { FinancialAnalyticsPage } from './pages/Analytics/FinancialAnalyticsPage
 import { DemographicsAnalyticsPage } from './pages/Analytics/DemographicsAnalyticsPage';
 import { EngagementAnalyticsPage } from './pages/Analytics/EngagementAnalyticsPage';
 import { EventStatsPage } from './pages/Analytics/EventStatsPage';
-import { CampaignsListPage, CampaignCreatePage, CampaignDetailPage } from './pages/Campaigns';
+import { CampaignsListPage, CampaignCreatePage, CampaignEditPage, CampaignDetailPage } from './pages/Campaigns';
 
 export function AdminRoutes() {
   return (
@@ -57,6 +57,7 @@ export function AdminRoutes() {
           <Route path="campaigns" element={<CampaignsListPage />} />
           <Route path="campaigns/create" element={<CampaignCreatePage />} />
           <Route path="campaigns/:campaignId" element={<CampaignDetailPage />} />
+          <Route path="campaigns/:campaignId/edit" element={<CampaignEditPage />} />
 
           {/* Routes Analytics */}
           <Route path="analytics" element={<Navigate to="analytics/overview" replace />} />

@@ -234,10 +234,9 @@ export async function createCampaign(
     // Construire l'objet campaign
     const campaign: any = {
       name: data.name,
-      description: data.description,
       status: 'draft',
-      content: data.content,
-      targeting: data.targeting,
+      content: cleanUndefinedFields(data.content),
+      targeting: cleanUndefinedFields(data.targeting),
       sendImmediately: data.sendImmediately,
       stats: createInitialStats(),
       createdBy: adminId,
@@ -245,16 +244,24 @@ export async function createCampaign(
       updatedAt: now,
     };
 
+    // Ajouter description seulement si elle existe
+    if (data.description && data.description.trim()) {
+      campaign.description = data.description;
+    }
+
     // Ajouter scheduledAt seulement s'il existe
     if (data.scheduledAt) {
       campaign.scheduledAt = data.scheduledAt;
     }
 
+    // Nettoyer les champs undefined de l'objet complet
+    const cleanedCampaign = cleanUndefinedFields(campaign);
+
     const campaignsRef = collection(db, CAMPAIGNS_COLLECTION);
-    const docRef = await addDoc(campaignsRef, campaign);
+    const docRef = await addDoc(campaignsRef, cleanedCampaign);
 
     return {
-      ...campaign,
+      ...cleanedCampaign,
       id: docRef.id,
     } as Campaign;
   } catch (error) {

@@ -93,7 +93,7 @@ export interface EmailContent {
   preheader?: string; // Texte de prévisualisation
 
   // Design Unlayer
-  design: any; // JSON du design Unlayer
+  design?: any; // JSON du design Unlayer (optionnel pour les emails HTML simples)
   html: string; // HTML généré
 
   // Personnalisation

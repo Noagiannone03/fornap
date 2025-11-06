@@ -207,14 +207,18 @@ export function CampaignCreatePage() {
 </html>`.trim();
       }
 
-      // Créer les données de la campagne
+      // Créer le contenu de l'email en ne incluant que les champs définis
       const content: any = {
         subject,
-        preheader,
         fromName,
         fromEmail,
         html: finalHtml,
       };
+
+      // Ajouter preheader seulement s'il est défini
+      if (preheader && preheader.trim()) {
+        content.preheader = preheader;
+      }
 
       // Ajouter design seulement s'il existe
       if (emailDesign) {
@@ -226,25 +230,31 @@ export function CampaignCreatePage() {
         content.replyTo = replyTo;
       }
 
+      // Créer le ciblage en ne incluant que les champs pertinents
       const targeting: any = {
         mode: targetingMode,
         estimatedRecipients: estimatedCount,
       };
 
       // Ajouter les champs optionnels seulement s'ils sont pertinents
-      if (targetingMode === 'manual') {
+      if (targetingMode === 'manual' && selectedUserIds.length > 0) {
         targeting.manualUserIds = selectedUserIds;
-      } else if (targetingMode === 'filtered') {
+      } else if (targetingMode === 'filtered' && filters) {
         targeting.filters = filters;
       }
 
+      // Créer les données de la campagne
       const campaignData: any = {
         name,
-        description,
         content,
         targeting,
         sendImmediately,
       };
+
+      // Ajouter description seulement si elle existe
+      if (description && description.trim()) {
+        campaignData.description = description;
+      }
 
       // Ajouter scheduledAt seulement si une date est définie
       if (scheduledDate) {

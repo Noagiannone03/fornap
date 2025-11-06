@@ -36,26 +36,120 @@ const RECIPIENTS_SUBCOLLECTION = 'recipients';
 // ============================================================================
 
 /**
+ * Vérifie si un objet contient des valeurs undefined (récursif)
+ */
+function hasUndefinedValues(obj: any, path = ''): string | null {
+  if (obj === undefined) {
+    return path || 'root';
+  }
+
+  if (!obj || typeof obj !== 'object') {
+    return null;
+  }
+
+  // Ignorer les Timestamps et Dates
+  if ((obj.toDate && typeof obj.toDate === 'function') || Object.prototype.toString.call(obj) === '[object Date]') {
+    return null;
+  }
+
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      const result = hasUndefinedValues(obj[i], `${path}[${i}]`);
+      if (result) return result;
+    }
+    return null;
+  }
+
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const value = obj[key];
+      const currentPath = path ? `${path}.${key}` : key;
+      
+      if (value === undefined) {
+        return currentPath;
+      }
+      
+      const result = hasUndefinedValues(value, currentPath);
+      if (result) return result;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Nettoie les champs undefined d'un objet de manière récursive
+ * Retourne un nouvel objet sans aucune valeur undefined, même dans les objets et tableaux imbriqués
  */
 function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T> {
-  const cleaned: Partial<T> = {};
-  for (const key in obj) {
-    const value = obj[key];
-    if (value !== undefined) {
-      // Si c'est un objet (mais pas un Timestamp ou Date ou Array), nettoyer récursivement
-      const isTimestamp = value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function';
-      const isDate = Object.prototype.toString.call(value) === '[object Date]';
-      const isArray = Array.isArray(value);
+  if (!obj || typeof obj !== 'object') {
+    return obj;
+  }
 
-      if (value && typeof value === 'object' && !isArray && !isTimestamp && !isDate) {
-        cleaned[key] = cleanUndefinedFields(value) as any;
+  // Vérifier si c'est un Timestamp Firestore
+  const isTimestamp = obj && typeof obj === 'object' && 'toDate' in obj && typeof obj.toDate === 'function';
+  if (isTimestamp) {
+    return obj;
+  }
+
+  // Vérifier si c'est une Date
+  const isDate = Object.prototype.toString.call(obj) === '[object Date]';
+  if (isDate) {
+    return obj;
+  }
+
+  // Si c'est un tableau, nettoyer chaque élément et filtrer les undefined
+  if (Array.isArray(obj)) {
+    const cleaned = obj
+      .filter(item => item !== undefined)
+      .map(item => {
+        if (item && typeof item === 'object') {
+          return cleanUndefinedFields(item);
+        }
+        return item;
+      });
+    return cleaned.filter(item => item !== undefined) as any;
+  }
+
+  // Si c'est un objet, nettoyer récursivement
+  const cleaned: Record<string, any> = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const value = obj[key];
+      
+      // Ignorer uniquement les valeurs undefined (null est accepté par Firebase)
+      if (value === undefined) {
+        continue;
+      }
+
+      // Nettoyer récursivement les objets et tableaux
+      if (value && typeof value === 'object') {
+        const cleanedValue = cleanUndefinedFields(value);
+        
+        // Ne pas ajouter des objets vides ou des tableaux vides issus du nettoyage
+        if (Array.isArray(cleanedValue)) {
+          if (cleanedValue.length > 0) {
+            cleaned[key] = cleanedValue;
+          }
+        } else if (typeof cleanedValue === 'object') {
+          // Vérifier si c'est un Timestamp ou une Date
+          const isSpecialObject = 
+            (cleanedValue.toDate && typeof cleanedValue.toDate === 'function') ||
+            Object.prototype.toString.call(cleanedValue) === '[object Date]';
+          
+          if (isSpecialObject || Object.keys(cleanedValue).length > 0) {
+            cleaned[key] = cleanedValue;
+          }
+        } else {
+          cleaned[key] = cleanedValue;
+        }
       } else {
         cleaned[key] = value;
       }
     }
   }
-  return cleaned;
+  
+  return cleaned as Partial<T>;
 }
 
 /**
@@ -256,6 +350,17 @@ export async function createCampaign(
 
     // Nettoyer les champs undefined de l'objet complet
     const cleanedCampaign = cleanUndefinedFields(campaign);
+
+    // Vérification finale pour s'assurer qu'il n'y a aucun undefined
+    const undefinedPath = hasUndefinedValues(cleanedCampaign);
+    if (undefinedPath) {
+      console.error('❌ Valeur undefined trouvée dans:', undefinedPath);
+      console.error('Objet complet avant nettoyage:', campaign);
+      console.error('Objet après nettoyage:', cleanedCampaign);
+      throw new Error(`Données invalides: valeur undefined trouvée dans ${undefinedPath}`);
+    }
+
+    console.log('✅ Données de campagne validées et nettoyées');
 
     const campaignsRef = collection(db, CAMPAIGNS_COLLECTION);
     const docRef = await addDoc(campaignsRef, cleanedCampaign);

@@ -5,7 +5,7 @@
  * Modal pour créer un nouveau compte administrateur
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Modal,
   TextInput,
@@ -21,7 +21,8 @@ import {
 import { useForm } from '@mantine/form';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
-import { AdminRole, ADMIN_ROLES_CONFIG, CreateAdminData } from '../../../shared/types/admin';
+import { AdminRole, ADMIN_ROLES_CONFIG } from '../../../shared/types/admin';
+import type { CreateAdminData } from '../../../shared/types/admin';
 import { createAdmin, getAssignableRoles } from '../../../shared/services/adminService';
 import { notifications } from '@mantine/notifications';
 
@@ -168,16 +169,21 @@ export function CreateAdminModal({ opened, onClose, onSuccess }: CreateAdminModa
             data={assignableRoles}
             required
             {...form.getInputProps('role')}
-            renderOption={({ option }) => (
-              <div>
-                <Text size="sm" fw={500}>
-                  {option.label}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {option.description}
-                </Text>
-              </div>
-            )}
+            renderOption={({ option }) => {
+              const roleOption = option as typeof option & { description?: string };
+              return (
+                <div>
+                  <Text size="sm" fw={500}>
+                    {roleOption.label}
+                  </Text>
+                  {roleOption.description && (
+                    <Text size="xs" c="dimmed">
+                      {roleOption.description}
+                    </Text>
+                  )}
+                </div>
+              );
+            }}
           />
 
           {/* Métadonnées optionnelles */}

@@ -5,7 +5,7 @@
  * Composant principal pour gérer les administrateurs
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Stack,
   Button,
@@ -36,7 +36,8 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
-import { AdminPermission, AdminRole, AdminUser, ADMIN_ROLES_CONFIG } from '../../../shared/types/admin';
+import { AdminPermission, AdminRole, ADMIN_ROLES_CONFIG } from '../../../shared/types/admin';
+import type { AdminUser, AdminUserWithStats } from '../../../shared/types/admin';
 import {
   getAllAdminsWithStats,
   toggleAdminActive,
@@ -49,7 +50,7 @@ import { modals } from '@mantine/modals';
 
 export function AdminManagementPanel() {
   const { adminProfile, checkPermission } = useAdminAuth();
-  const [admins, setAdmins] = useState<any[]>([]);
+  const [admins, setAdmins] = useState<AdminUserWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalOpened, setCreateModalOpened] = useState(false);
   const [editModalOpened, setEditModalOpened] = useState(false);

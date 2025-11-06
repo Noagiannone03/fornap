@@ -24,26 +24,24 @@ import {
 } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
   signOut,
-  updatePassword,
-  User as FirebaseUser,
 } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 import {
-  AdminUser,
-  CreateAdminData,
-  UpdateAdminData,
   AdminRole,
   AdminPermission,
   AdminActionType,
-  AdminActionHistory,
   ROLE_PERMISSIONS,
   ADMIN_ROLES_CONFIG,
+} from '../types/admin';
+import type {
+  AdminUser,
+  CreateAdminData,
+  UpdateAdminData,
+  AdminActionHistory,
   AdminUserWithStats,
   AdminFilters,
   AdminStats,
-  AdminActionTarget,
 } from '../types/admin';
 
 // ============================================

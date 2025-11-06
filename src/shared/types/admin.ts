@@ -16,19 +16,21 @@ import { Timestamp } from 'firebase/firestore';
  * Rôles disponibles pour les administrateurs
  * Système hiérarchique du plus élevé au plus bas
  */
-export enum AdminRole {
+export const AdminRole = {
   /** Accès complet à toutes les fonctionnalités */
-  ADMINISTRATEUR = 'administrateur',
+  ADMINISTRATEUR: 'administrateur',
 
   /** Peut créer des admins (sauf administrateur), accès complet aux données */
-  CO_ADMINISTRATEUR = 'co-administrateur',
+  CO_ADMINISTRATEUR: 'co-administrateur',
 
   /** Peut modifier users et events, lecture seule sur analytics */
-  MODERATEUR = 'moderateur',
+  MODERATEUR: 'moderateur',
 
   /** Lecture + édition basique des users uniquement */
-  SUPPORT = 'support',
-}
+  SUPPORT: 'support',
+} as const;
+
+export type AdminRole = typeof AdminRole[keyof typeof AdminRole];
 
 /**
  * Configuration des rôles avec leurs métadonnées
@@ -89,59 +91,61 @@ export const ADMIN_ROLES_CONFIG: Record<AdminRole, RoleConfig> = {
  * Permissions granulaires pour chaque fonctionnalité
  * Format: RESSOURCE_ACTION
  */
-export enum AdminPermission {
+export const AdminPermission = {
   // Gestion des utilisateurs
-  USERS_VIEW = 'users_view',
-  USERS_CREATE = 'users_create',
-  USERS_EDIT = 'users_edit',
-  USERS_DELETE = 'users_delete',
-  USERS_BLOCK = 'users_block',
-  USERS_EXPORT = 'users_export',
+  USERS_VIEW: 'users_view',
+  USERS_CREATE: 'users_create',
+  USERS_EDIT: 'users_edit',
+  USERS_DELETE: 'users_delete',
+  USERS_BLOCK: 'users_block',
+  USERS_EXPORT: 'users_export',
 
   // Gestion des événements
-  EVENTS_VIEW = 'events_view',
-  EVENTS_CREATE = 'events_create',
-  EVENTS_EDIT = 'events_edit',
-  EVENTS_DELETE = 'events_delete',
-  EVENTS_PUBLISH = 'events_publish',
-  EVENTS_EXPORT = 'events_export',
+  EVENTS_VIEW: 'events_view',
+  EVENTS_CREATE: 'events_create',
+  EVENTS_EDIT: 'events_edit',
+  EVENTS_DELETE: 'events_delete',
+  EVENTS_PUBLISH: 'events_publish',
+  EVENTS_EXPORT: 'events_export',
 
   // Gestion des abonnements
-  MEMBERSHIPS_VIEW = 'memberships_view',
-  MEMBERSHIPS_CREATE = 'memberships_create',
-  MEMBERSHIPS_EDIT = 'memberships_edit',
-  MEMBERSHIPS_DELETE = 'memberships_delete',
-  MEMBERSHIPS_RENEW = 'memberships_renew',
+  MEMBERSHIPS_VIEW: 'memberships_view',
+  MEMBERSHIPS_CREATE: 'memberships_create',
+  MEMBERSHIPS_EDIT: 'memberships_edit',
+  MEMBERSHIPS_DELETE: 'memberships_delete',
+  MEMBERSHIPS_RENEW: 'memberships_renew',
 
   // Gestion du coworking
-  COWORKING_VIEW = 'coworking_view',
-  COWORKING_MANAGE = 'coworking_manage',
+  COWORKING_VIEW: 'coworking_view',
+  COWORKING_MANAGE: 'coworking_manage',
 
   // Analytics
-  ANALYTICS_VIEW = 'analytics_view',
-  ANALYTICS_FINANCIAL = 'analytics_financial',
-  ANALYTICS_EXPORT = 'analytics_export',
+  ANALYTICS_VIEW: 'analytics_view',
+  ANALYTICS_FINANCIAL: 'analytics_financial',
+  ANALYTICS_EXPORT: 'analytics_export',
 
   // Gestion des admins
-  ADMINS_VIEW = 'admins_view',
-  ADMINS_CREATE = 'admins_create',
-  ADMINS_EDIT = 'admins_edit',
-  ADMINS_DELETE = 'admins_delete',
-  ADMINS_CHANGE_ROLE = 'admins_change_role',
+  ADMINS_VIEW: 'admins_view',
+  ADMINS_CREATE: 'admins_create',
+  ADMINS_EDIT: 'admins_edit',
+  ADMINS_DELETE: 'admins_delete',
+  ADMINS_CHANGE_ROLE: 'admins_change_role',
 
   // Paramètres
-  SETTINGS_VIEW = 'settings_view',
-  SETTINGS_EDIT = 'settings_edit',
-  SETTINGS_SECURITY = 'settings_security',
+  SETTINGS_VIEW: 'settings_view',
+  SETTINGS_EDIT: 'settings_edit',
+  SETTINGS_SECURITY: 'settings_security',
 
   // QR Code & Check-in
-  CHECKIN_SCAN = 'checkin_scan',
-  CHECKIN_VIEW_HISTORY = 'checkin_view_history',
+  CHECKIN_SCAN: 'checkin_scan',
+  CHECKIN_VIEW_HISTORY: 'checkin_view_history',
 
   // Historique et logs
-  LOGS_VIEW = 'logs_view',
-  LOGS_EXPORT = 'logs_export',
-}
+  LOGS_VIEW: 'logs_view',
+  LOGS_EXPORT: 'logs_export',
+} as const;
+
+export type AdminPermission = typeof AdminPermission[keyof typeof AdminPermission];
 
 /**
  * Mapping des permissions par rôle
@@ -335,47 +339,49 @@ export interface UpdateAdminData {
 /**
  * Types d'actions trackées
  */
-export enum AdminActionType {
+export const AdminActionType = {
   // Utilisateurs
-  USER_CREATED = 'user_created',
-  USER_UPDATED = 'user_updated',
-  USER_DELETED = 'user_deleted',
-  USER_BLOCKED = 'user_blocked',
-  USER_UNBLOCKED = 'user_unblocked',
+  USER_CREATED: 'user_created',
+  USER_UPDATED: 'user_updated',
+  USER_DELETED: 'user_deleted',
+  USER_BLOCKED: 'user_blocked',
+  USER_UNBLOCKED: 'user_unblocked',
 
   // Événements
-  EVENT_CREATED = 'event_created',
-  EVENT_UPDATED = 'event_updated',
-  EVENT_DELETED = 'event_deleted',
-  EVENT_PUBLISHED = 'event_published',
-  EVENT_CANCELLED = 'event_cancelled',
+  EVENT_CREATED: 'event_created',
+  EVENT_UPDATED: 'event_updated',
+  EVENT_DELETED: 'event_deleted',
+  EVENT_PUBLISHED: 'event_published',
+  EVENT_CANCELLED: 'event_cancelled',
 
   // Abonnements
-  MEMBERSHIP_CREATED = 'membership_created',
-  MEMBERSHIP_UPDATED = 'membership_updated',
-  MEMBERSHIP_DELETED = 'membership_deleted',
-  MEMBERSHIP_RENEWED = 'membership_renewed',
+  MEMBERSHIP_CREATED: 'membership_created',
+  MEMBERSHIP_UPDATED: 'membership_updated',
+  MEMBERSHIP_DELETED: 'membership_deleted',
+  MEMBERSHIP_RENEWED: 'membership_renewed',
 
   // Admins
-  ADMIN_CREATED = 'admin_created',
-  ADMIN_UPDATED = 'admin_updated',
-  ADMIN_DELETED = 'admin_deleted',
-  ADMIN_ROLE_CHANGED = 'admin_role_changed',
-  ADMIN_ACTIVATED = 'admin_activated',
-  ADMIN_DEACTIVATED = 'admin_deactivated',
+  ADMIN_CREATED: 'admin_created',
+  ADMIN_UPDATED: 'admin_updated',
+  ADMIN_DELETED: 'admin_deleted',
+  ADMIN_ROLE_CHANGED: 'admin_role_changed',
+  ADMIN_ACTIVATED: 'admin_activated',
+  ADMIN_DEACTIVATED: 'admin_deactivated',
 
   // Authentification
-  ADMIN_LOGIN = 'admin_login',
-  ADMIN_LOGOUT = 'admin_logout',
-  ADMIN_LOGIN_FAILED = 'admin_login_failed',
+  ADMIN_LOGIN: 'admin_login',
+  ADMIN_LOGOUT: 'admin_logout',
+  ADMIN_LOGIN_FAILED: 'admin_login_failed',
 
   // Paramètres
-  SETTINGS_UPDATED = 'settings_updated',
+  SETTINGS_UPDATED: 'settings_updated',
 
   // Autres
-  DATA_EXPORTED = 'data_exported',
-  BULK_ACTION = 'bulk_action',
-}
+  DATA_EXPORTED: 'data_exported',
+  BULK_ACTION: 'bulk_action',
+} as const;
+
+export type AdminActionType = typeof AdminActionType[keyof typeof AdminActionType];
 
 /**
  * Cible d'une action admin
@@ -426,7 +432,7 @@ export interface AdminActionHistory {
  */
 export interface AdminUserWithStats extends AdminUser {
   totalActions?: number;
-  lastActionAt?: Timestamp;
+  lastActionAt?: Timestamp | null;
   roleConfig: RoleConfig;
 }
 

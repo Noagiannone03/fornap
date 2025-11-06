@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import type {
   EventAnalyticsKPIs,
@@ -128,7 +128,6 @@ export async function getEventAnalyticsKPIs(): Promise<EventAnalyticsKPIs> {
     const eventsSnapshot = await getDocs(eventsRef);
 
     const now = new Date();
-    const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     let totalEvents = 0;

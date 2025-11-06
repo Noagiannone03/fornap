@@ -11,10 +11,7 @@ import {
   where,
   orderBy,
   limit,
-  startAfter,
   Timestamp,
-  writeBatch,
-  DocumentSnapshot,
   QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -30,8 +27,6 @@ import type {
   ActionHistory,
   MembershipHistory,
   ActionType,
-  ActionDetails,
-  DeviceType,
 } from '../types/user';
 import { getMembershipPlanById } from './membershipService';
 

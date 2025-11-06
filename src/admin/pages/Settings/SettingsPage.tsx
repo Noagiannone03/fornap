@@ -10,10 +10,11 @@ import {
   Text,
 } from '@mantine/core';
 import { IconSettings, IconUser, IconBell, IconShield } from '@tabler/icons-react';
+import { AdminManagementPanel } from '../../components/admins';
 
 export function SettingsPage() {
   return (
-    <Container size="md">
+    <Container size="xl">
       <Title order={1} mb="xl">
         Paramètres
       </Title>
@@ -49,12 +50,7 @@ export function SettingsPage() {
           </Tabs.Panel>
 
           <Tabs.Panel value="admins" p="md">
-            <Stack gap="md">
-              <Text size="sm" c="dimmed">
-                Gérer les utilisateurs administrateurs
-              </Text>
-              <Button>Ajouter un administrateur</Button>
-            </Stack>
+            <AdminManagementPanel />
           </Tabs.Panel>
 
           <Tabs.Panel value="notifications" p="md">

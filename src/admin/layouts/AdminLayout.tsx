@@ -1,4 +1,4 @@
-import { AppShell, Burger, Group, Text, Avatar, Menu, ActionIcon, Indicator, ScrollArea, UnstyledButton, rem, Collapse } from '@mantine/core';
+import { AppShell, Burger, Group, Text, Avatar, Menu, ActionIcon, Indicator, ScrollArea, UnstyledButton, rem, Collapse, Badge } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
   IconDashboard,
@@ -16,9 +16,13 @@ import {
   IconCurrencyEuro,
   IconMapPin,
   IconHeart,
+  IconUser,
 } from '@tabler/icons-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import { useAdminAuth } from '../../shared/contexts/AdminAuthContext';
+import { notifications } from '@mantine/notifications';
+import { ADMIN_ROLES_CONFIG } from '../../shared/types/admin';
 
 interface SubMenuItem {
   icon: React.ComponentType<any>;
@@ -61,6 +65,7 @@ export function AdminLayout() {
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { adminProfile, logout } = useAdminAuth();
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -70,6 +75,44 @@ export function AdminLayout() {
   const toggleSubmenu = (label: string) => {
     setOpenSubmenu(openSubmenu === label ? null : label);
   };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      notifications.show({
+        title: 'Déconnexion réussie',
+        message: 'À bientôt !',
+        color: 'green',
+      });
+      navigate('/admin/login', { replace: true });
+    } catch (error: any) {
+      notifications.show({
+        title: 'Erreur',
+        message: error.message || 'Erreur lors de la déconnexion',
+        color: 'red',
+      });
+    }
+  };
+
+  // Récupérer les initiales de l'admin
+  const getInitials = () => {
+    if (!adminProfile) return 'A';
+    return `${adminProfile.firstName.charAt(0)}${adminProfile.lastName.charAt(0)}`.toUpperCase();
+  };
+
+  // Récupérer le nom complet
+  const getFullName = () => {
+    if (!adminProfile) return 'Admin';
+    return `${adminProfile.firstName} ${adminProfile.lastName}`;
+  };
+
+  // Récupérer la config du rôle
+  const getRoleInfo = () => {
+    if (!adminProfile) return null;
+    return ADMIN_ROLES_CONFIG[adminProfile.role];
+  };
+
+  const roleInfo = getRoleInfo();
 
   return (
     <AppShell
@@ -106,30 +149,53 @@ export function AdminLayout() {
             </Indicator>
 
             {/* User Menu */}
-            <Menu shadow="md" width={200}>
+            <Menu shadow="md" width={260}>
               <Menu.Target>
                 <UnstyledButton>
                   <Group gap="xs">
-                    <Avatar color="indigo" radius="xl" size="sm">
-                      A
+                    <Avatar color={roleInfo?.color || 'indigo'} radius="xl" size="sm">
+                      {getInitials()}
                     </Avatar>
-                    <Text size="sm" fw={500}>
-                      Admin
-                    </Text>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                      <Text size="sm" fw={500}>
+                        {getFullName()}
+                      </Text>
+                      {roleInfo && (
+                        <Badge size="xs" color={roleInfo.color} variant="light">
+                          {roleInfo.label}
+                        </Badge>
+                      )}
+                    </div>
                   </Group>
                 </UnstyledButton>
               </Menu.Target>
 
               <Menu.Dropdown>
-                <Menu.Label>Administration</Menu.Label>
-                <Menu.Item leftSection={<IconSettings style={{ width: rem(14) }} />}>
+                <Menu.Label>
+                  <Group gap="xs">
+                    <Text size="xs" fw={700}>
+                      {adminProfile?.email}
+                    </Text>
+                  </Group>
+                </Menu.Label>
+                <Menu.Divider />
+                <Menu.Item
+                  leftSection={<IconUser style={{ width: rem(14) }} />}
+                  onClick={() => handleNavigation('/admin/settings')}
+                >
+                  Mon profil
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconSettings style={{ width: rem(14) }} />}
+                  onClick={() => handleNavigation('/admin/settings')}
+                >
                   Paramètres
                 </Menu.Item>
                 <Menu.Divider />
                 <Menu.Item
                   color="red"
                   leftSection={<IconLogout style={{ width: rem(14) }} />}
-                  onClick={() => navigate('/admin/logout')}
+                  onClick={handleLogout}
                 >
                   Déconnexion
                 </Menu.Item>

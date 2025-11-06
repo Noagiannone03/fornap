@@ -28,7 +28,9 @@ import {
   IconDots,
   IconX,
   IconCopy,
+  IconMail,
 } from '@tabler/icons-react';
+import { ThemeIcon } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import type { Campaign, CampaignStatus } from '../../../shared/types/campaign';
@@ -362,21 +364,33 @@ export function CampaignsListPage() {
                 rows
               ) : (
                 <Table.Tr>
-                  <Table.Td colSpan={5} style={{ textAlign: 'center' }}>
-                    <Text c="dimmed" py="xl">
-                      {searchTerm || statusFilter
-                        ? 'Aucune campagne trouvée avec ces filtres'
-                        : 'Aucune campagne créée pour le moment'}
-                    </Text>
-                    {!searchTerm && !statusFilter && (
-                      <Button
-                        mt="md"
-                        leftSection={<IconPlus size={18} />}
-                        onClick={() => navigate('/admin/campaigns/create')}
-                      >
-                        Créer votre première campagne
-                      </Button>
-                    )}
+                  <Table.Td colSpan={5}>
+                    <Stack align="center" py="xl" gap="md">
+                      <ThemeIcon size={80} radius="xl" variant="light" color="gray">
+                        <IconMail size={40} />
+                      </ThemeIcon>
+                      <div style={{ textAlign: 'center' }}>
+                        <Text fw={600} size="lg" mb="xs">
+                          {searchTerm || statusFilter
+                            ? 'Aucune campagne trouvée'
+                            : 'Aucune campagne créée'}
+                        </Text>
+                        <Text c="dimmed" size="sm" maw={400} mx="auto">
+                          {searchTerm || statusFilter
+                            ? 'Essayez de modifier vos filtres de recherche pour trouver ce que vous cherchez'
+                            : 'Commencez à communiquer avec vos membres en créant votre première campagne d\'emailing'}
+                        </Text>
+                      </div>
+                      {!searchTerm && !statusFilter && (
+                        <Button
+                          size="md"
+                          leftSection={<IconPlus size={18} />}
+                          onClick={() => navigate('/admin/campaigns/create')}
+                        >
+                          Créer ma première campagne
+                        </Button>
+                      )}
+                    </Stack>
                   </Table.Td>
                 </Table.Tr>
               )}

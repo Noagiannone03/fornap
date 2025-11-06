@@ -19,7 +19,17 @@ import {
   LoadingOverlay,
   Divider,
 } from '@mantine/core';
-import { IconUsers, IconFilter, IconSearch } from '@tabler/icons-react';
+import {
+  IconUsers,
+  IconFilter,
+  IconSearch,
+  IconCreditCard,
+  IconUser,
+  IconTags,
+  IconStar,
+  IconBriefcase,
+  IconSettings,
+} from '@tabler/icons-react';
 import type { TargetingMode, TargetingFilters } from '../../../../shared/types/campaign';
 import type { User, MembershipType, MembershipStatus } from '../../../../shared/types/user';
 import {
@@ -158,9 +168,9 @@ export function UserTargetingSelector({
         label="Mode de ciblage"
         description="Choisissez comment sélectionner vos destinataires"
         data={[
-          { value: 'all', label: '🌐 Tous les utilisateurs actifs' },
-          { value: 'filtered', label: '🎯 Filtrer par critères avancés' },
-          { value: 'manual', label: '👥 Sélection manuelle' },
+          { value: 'all', label: 'Tous les utilisateurs actifs' },
+          { value: 'filtered', label: 'Filtrer par critères avancés' },
+          { value: 'manual', label: 'Sélection manuelle' },
         ]}
         value={targetingMode}
         onChange={(value) => onTargetingModeChange(value as TargetingMode)}
@@ -181,7 +191,8 @@ export function UserTargetingSelector({
               <Accordion.Item value="membership">
                 <Accordion.Control>
                   <Group>
-                    <Text fw={500}>💳 Abonnement</Text>
+                    <IconCreditCard size={18} />
+                    <Text fw={500}>Abonnement</Text>
                     {(filters.membershipTypes?.length || filters.membershipStatus?.length) && (
                       <Badge size="sm">{(filters.membershipTypes?.length || 0) + (filters.membershipStatus?.length || 0)} filtres actifs</Badge>
                     )}
@@ -224,7 +235,8 @@ export function UserTargetingSelector({
               <Accordion.Item value="demographics">
                 <Accordion.Control>
                   <Group>
-                    <Text fw={500}>👤 Démographie</Text>
+                    <IconUser size={18} />
+                    <Text fw={500}>Démographie</Text>
                     {(filters.ageRange || filters.postalCodes?.length) && (
                       <Badge size="sm">Actif</Badge>
                     )}
@@ -285,7 +297,8 @@ export function UserTargetingSelector({
               <Accordion.Item value="tags">
                 <Accordion.Control>
                   <Group>
-                    <Text fw={500}>🏷️ Tags</Text>
+                    <IconTags size={18} />
+                    <Text fw={500}>Tags</Text>
                     {(filters.includeTags?.length || filters.excludeTags?.length) && (
                       <Badge size="sm">{(filters.includeTags?.length || 0) + (filters.excludeTags?.length || 0)} tags</Badge>
                     )}
@@ -326,7 +339,8 @@ export function UserTargetingSelector({
               <Accordion.Item value="loyalty">
                 <Accordion.Control>
                   <Group>
-                    <Text fw={500}>⭐ Points de fidélité</Text>
+                    <IconStar size={18} />
+                    <Text fw={500}>Points de fidélité</Text>
                     {filters.loyaltyPointsRange && (
                       <Badge size="sm">Actif</Badge>
                     )}
@@ -372,7 +386,8 @@ export function UserTargetingSelector({
               <Accordion.Item value="extended">
                 <Accordion.Control>
                   <Group>
-                    <Text fw={500}>📋 Profils étendus</Text>
+                    <IconBriefcase size={18} />
+                    <Text fw={500}>Profils étendus</Text>
                     {(filters.hasExtendedProfile !== undefined ||
                       filters.professionalStatus?.length ||
                       filters.eventTypes?.length ||
@@ -451,7 +466,10 @@ export function UserTargetingSelector({
               {/* Options supplémentaires */}
               <Accordion.Item value="options">
                 <Accordion.Control>
-                  <Text fw={500}>⚙️ Options</Text>
+                  <Group>
+                    <IconSettings size={18} />
+                    <Text fw={500}>Options</Text>
+                  </Group>
                 </Accordion.Control>
                 <Accordion.Panel>
                   <Checkbox

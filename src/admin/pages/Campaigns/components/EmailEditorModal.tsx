@@ -1,5 +1,5 @@
 import { useRef, forwardRef, useImperativeHandle } from 'react';
-import { Modal, Button, Group, Stack, Text, Paper } from '@mantine/core';
+import { Modal, Button, Group, Text, Paper } from '@mantine/core';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import EmailEditor from 'react-email-editor';
 import type { EditorRef } from 'react-email-editor';
@@ -72,18 +72,20 @@ export const EmailEditorModal = forwardRef<EmailEditorModalHandle, EmailEditorMo
         size="100%"
         padding={0}
         withCloseButton={false}
+        fullScreen
         styles={{
-          body: { height: '100vh', padding: 0 },
-          content: { height: '100vh' },
+          body: { height: '100vh', padding: 0, overflow: 'hidden' },
+          content: { height: '100vh', overflow: 'hidden' },
+          inner: { padding: 0 },
         }}
       >
-        <Stack gap={0} style={{ height: '100vh' }}>
+        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* Header */}
-          <Paper p="md" shadow="sm" style={{ borderBottom: '1px solid #e0e0e0' }}>
+          <Paper p="md" shadow="sm" style={{ borderBottom: '1px solid #e0e0e0', flexShrink: 0 }}>
             <Group justify="space-between">
               <div>
                 <Text fw={700} size="lg">
-                  Éditeur d'email
+                  Éditeur d'email visuel
                 </Text>
                 <Text size="sm" c="dimmed">
                   Créez votre email en glissant-déposant des éléments
@@ -109,11 +111,11 @@ export const EmailEditorModal = forwardRef<EmailEditorModalHandle, EmailEditorMo
           </Paper>
 
           {/* Editor */}
-          <Box style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
             <EmailEditor
               ref={emailEditorRef}
               onReady={onEmailEditorReady}
-              minHeight="calc(100vh - 80px)"
+              style={{ height: '100%', width: '100%' }}
               options={{
                 displayMode: 'email',
                 locale: 'fr-FR',
@@ -145,16 +147,11 @@ export const EmailEditorModal = forwardRef<EmailEditorModalHandle, EmailEditorMo
                 },
               }}
             />
-          </Box>
-        </Stack>
+          </div>
+        </div>
       </Modal>
     );
   }
 );
 
 EmailEditorModal.displayName = 'EmailEditorModal';
-
-// Helper component for Box (if not imported from mantine)
-function Box({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <div style={style}>{children}</div>;
-}

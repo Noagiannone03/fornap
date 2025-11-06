@@ -27,7 +27,11 @@ import {
   IconUsers,
   IconEdit,
   IconClock,
-  IconInfoCircle,
+  IconFileText,
+  IconBulb,
+  IconFilter,
+  IconCalendarEvent,
+  IconAlertCircle,
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -303,7 +307,10 @@ export function CampaignEditPage() {
 
           <Card withBorder p="lg">
             <Stack gap="md">
-              <Text fw={600}>📋 Détails de la campagne</Text>
+              <Group gap="xs">
+                <IconFileText size={20} />
+                <Text fw={600}>Détails de la campagne</Text>
+              </Group>
 
               <TextInput
                 label="Nom de la campagne"
@@ -329,7 +336,10 @@ export function CampaignEditPage() {
 
           <Card withBorder p="lg">
             <Stack gap="md">
-              <Text fw={600}>✉️ Configuration de l'email</Text>
+              <Group gap="xs">
+                <IconMail size={20} />
+                <Text fw={600}>Configuration de l'email</Text>
+              </Group>
 
               <TextInput
                 label="Sujet de l'email"
@@ -391,13 +401,13 @@ export function CampaignEditPage() {
         <Card withBorder p="lg" bg="blue.0">
           <Stack gap="md">
             <Group>
-              <ThemeIcon size="lg" variant="light">
-                <IconInfoCircle size={20} />
+              <ThemeIcon size="lg" variant="light" color="blue">
+                <IconBulb size={20} />
               </ThemeIcon>
               <Text fw={600}>Conseils</Text>
             </Group>
 
-            <List spacing="sm" size="sm">
+            <List spacing="sm" size="sm" icon={<IconCheck size={16} />}>
               <List.Item>
                 Choisissez un sujet clair et engageant
               </List.Item>
@@ -455,26 +465,35 @@ export function CampaignEditPage() {
             </Group>
 
             <Stack gap="sm">
-              <div>
-                <Text size="sm" fw={600}>🌐 Tous les utilisateurs</Text>
-                <Text size="xs" c="dimmed">
-                  Envoie à tous les membres actifs
-                </Text>
-              </div>
+              <Group gap="xs">
+                <IconUsers size={16} />
+                <div>
+                  <Text size="sm" fw={600}>Tous les utilisateurs</Text>
+                  <Text size="xs" c="dimmed">
+                    Envoie à tous les membres actifs
+                  </Text>
+                </div>
+              </Group>
 
-              <div>
-                <Text size="sm" fw={600}>🎯 Filtrage avancé</Text>
-                <Text size="xs" c="dimmed">
-                  Ciblez par âge, abonnement, tags, etc.
-                </Text>
-              </div>
+              <Group gap="xs">
+                <IconFilter size={16} />
+                <div>
+                  <Text size="sm" fw={600}>Filtrage avancé</Text>
+                  <Text size="xs" c="dimmed">
+                    Ciblez par âge, abonnement, tags, etc.
+                  </Text>
+                </div>
+              </Group>
 
-              <div>
-                <Text size="sm" fw={600}>👥 Sélection manuelle</Text>
-                <Text size="xs" c="dimmed">
-                  Choisissez individuellement chaque destinataire
-                </Text>
-              </div>
+              <Group gap="xs">
+                <IconUsers size={16} />
+                <div>
+                  <Text size="sm" fw={600}>Sélection manuelle</Text>
+                  <Text size="xs" c="dimmed">
+                    Choisissez individuellement chaque destinataire
+                  </Text>
+                </div>
+              </Group>
             </Stack>
           </Stack>
         </Card>
@@ -571,7 +590,7 @@ export function CampaignEditPage() {
           <Stack gap="md">
             <Group>
               <ThemeIcon size="lg" variant="light" color="yellow">
-                <IconInfoCircle size={20} />
+                <IconBulb size={20} />
               </ThemeIcon>
               <Text fw={600}>Fonctionnalités</Text>
             </Group>
@@ -606,9 +625,10 @@ export function CampaignEditPage() {
           <Card withBorder p="lg">
             <Stack gap="lg">
               <div>
-                <Text fw={600} mb="md">
-                  📊 Récapitulatif de la campagne
-                </Text>
+                <Group gap="xs" mb="md">
+                  <IconFileText size={20} />
+                  <Text fw={600}>Récapitulatif de la campagne</Text>
+                </Group>
 
                 <Stack gap="sm">
                   <Group>
@@ -638,11 +658,11 @@ export function CampaignEditPage() {
                     <Text fw={500} size="sm" w={140}>
                       Mode de ciblage :
                     </Text>
-                    <Text size="sm">
-                      {targetingMode === 'all' && '🌐 Tous les utilisateurs'}
-                      {targetingMode === 'filtered' && '🎯 Filtrage avancé'}
-                      {targetingMode === 'manual' && '👥 Sélection manuelle'}
-                    </Text>
+                    <Group gap="xs">
+                      {targetingMode === 'all' && <><IconUsers size={16} /><Text size="sm">Tous les utilisateurs</Text></>}
+                      {targetingMode === 'filtered' && <><IconFilter size={16} /><Text size="sm">Filtrage avancé</Text></>}
+                      {targetingMode === 'manual' && <><IconUsers size={16} /><Text size="sm">Sélection manuelle</Text></>}
+                    </Group>
                   </Group>
                 </Stack>
               </div>
@@ -650,9 +670,10 @@ export function CampaignEditPage() {
               <Divider />
 
               <div>
-                <Text fw={600} mb="md">
-                  ⏰ Programmation
-                </Text>
+                <Group gap="xs" mb="md">
+                  <IconCalendarEvent size={20} />
+                  <Text fw={600}>Programmation</Text>
+                </Group>
 
                 <Stack gap="md">
                   <Switch
@@ -686,9 +707,12 @@ export function CampaignEditPage() {
                   )}
 
                   {!sendImmediately && !scheduledDate && (
-                    <Text size="sm" c="dimmed">
-                      💡 Si vous ne sélectionnez pas de date, la campagne restera en brouillon
-                    </Text>
+                    <Group gap="xs">
+                      <IconBulb size={16} />
+                      <Text size="sm" c="dimmed">
+                        Si vous ne sélectionnez pas de date, la campagne restera en brouillon
+                      </Text>
+                    </Group>
                   )}
                 </Stack>
               </div>
@@ -698,11 +722,11 @@ export function CampaignEditPage() {
           <Card withBorder p="md" bg="orange.0">
             <Group>
               <ThemeIcon color="orange" variant="light">
-                <IconInfoCircle size={20} />
+                <IconAlertCircle size={20} />
               </ThemeIcon>
               <Stack gap={4}>
                 <Text fw={600} size="sm">
-                  ⚠️ Avant de continuer
+                  Avant de continuer
                 </Text>
                 <Text size="sm">
                   {sendImmediately
@@ -727,7 +751,7 @@ export function CampaignEditPage() {
               <Text fw={600}>Conseils d'envoi</Text>
             </Group>
 
-            <List spacing="sm" size="sm">
+            <List spacing="sm" size="sm" icon={<IconCheck size={14} />}>
               <List.Item>
                 Les meilleurs jours : mardi, mercredi, jeudi
               </List.Item>

@@ -28,7 +28,13 @@ import {
   IconEdit,
   IconSend,
   IconClock,
-  IconInfoCircle,
+  IconFileText,
+  IconAlertCircle,
+  IconCalendarEvent,
+  IconBulb,
+  IconFilter,
+  IconCode,
+  IconPalette,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -70,6 +76,7 @@ export function CampaignCreatePage() {
   const [estimatedCount, setEstimatedCount] = useState(0);
 
   // Étape 3: Contenu email
+  const [emailType, setEmailType] = useState<'html' | 'design'>('design');
   const [emailDesign, setEmailDesign] = useState<any>(null);
   const [emailHtml, setEmailHtml] = useState('');
   const [editorOpened, setEditorOpened] = useState(false);
@@ -237,7 +244,10 @@ export function CampaignCreatePage() {
 
           <Card withBorder p="lg">
             <Stack gap="md">
-              <Text fw={600}>📋 Détails de la campagne</Text>
+              <Group gap="xs">
+                <IconFileText size={20} />
+                <Text fw={600}>Détails de la campagne</Text>
+              </Group>
 
               <TextInput
                 label="Nom de la campagne"
@@ -263,7 +273,10 @@ export function CampaignCreatePage() {
 
           <Card withBorder p="lg">
             <Stack gap="md">
-              <Text fw={600}>✉️ Configuration de l'email</Text>
+              <Group gap="xs">
+                <IconMail size={20} />
+                <Text fw={600}>Configuration de l'email</Text>
+              </Group>
 
               <TextInput
                 label="Sujet de l'email"
@@ -325,13 +338,13 @@ export function CampaignCreatePage() {
         <Card withBorder p="lg" bg="blue.0">
           <Stack gap="md">
             <Group>
-              <ThemeIcon size="lg" variant="light">
-                <IconInfoCircle size={20} />
+              <ThemeIcon size="lg" variant="light" color="blue">
+                <IconBulb size={20} />
               </ThemeIcon>
               <Text fw={600}>Conseils</Text>
             </Group>
 
-            <List spacing="sm" size="sm">
+            <List spacing="sm" size="sm" icon={<IconCheck size={16} />}>
               <List.Item>
                 Choisissez un sujet clair et engageant
               </List.Item>
@@ -387,26 +400,35 @@ export function CampaignCreatePage() {
             </Group>
 
             <Stack gap="sm">
-              <div>
-                <Text size="sm" fw={600}>🌐 Tous les utilisateurs</Text>
-                <Text size="xs" c="dimmed">
-                  Envoie à tous les membres actifs
-                </Text>
-              </div>
+              <Group gap="xs">
+                <IconUsers size={16} />
+                <div>
+                  <Text size="sm" fw={600}>Tous les utilisateurs</Text>
+                  <Text size="xs" c="dimmed">
+                    Envoie à tous les membres actifs
+                  </Text>
+                </div>
+              </Group>
 
-              <div>
-                <Text size="sm" fw={600}>🎯 Filtrage avancé</Text>
-                <Text size="xs" c="dimmed">
-                  Ciblez par âge, abonnement, tags, etc.
-                </Text>
-              </div>
+              <Group gap="xs">
+                <IconFilter size={16} />
+                <div>
+                  <Text size="sm" fw={600}>Filtrage avancé</Text>
+                  <Text size="xs" c="dimmed">
+                    Ciblez par âge, abonnement, tags, etc.
+                  </Text>
+                </div>
+              </Group>
 
-              <div>
-                <Text size="sm" fw={600}>👥 Sélection manuelle</Text>
-                <Text size="xs" c="dimmed">
-                  Choisissez individuellement chaque destinataire
-                </Text>
-              </div>
+              <Group gap="xs">
+                <IconUsers size={16} />
+                <div>
+                  <Text size="sm" fw={600}>Sélection manuelle</Text>
+                  <Text size="xs" c="dimmed">
+                    Choisissez individuellement chaque destinataire
+                  </Text>
+                </div>
+              </Group>
             </Stack>
           </Stack>
         </Card>
@@ -423,57 +445,150 @@ export function CampaignCreatePage() {
               Contenu de l'email
             </Text>
             <Text c="dimmed" size="sm">
-              Créez le contenu de votre email avec notre éditeur professionnel
+              Créez le contenu de votre email
             </Text>
           </div>
 
-          <Card withBorder p="xl">
-            <Stack gap="md" align="center">
-              {emailHtml ? (
-                <>
-                  <ThemeIcon size={60} radius="xl" variant="light" color="green">
-                    <IconCheck size={32} />
-                  </ThemeIcon>
-                  <Text fw={600} size="lg">
-                    Email créé avec succès
-                  </Text>
-                  <Text size="sm" c="dimmed" ta="center">
-                    Votre email a été enregistré. Vous pouvez le modifier ou continuer.
-                  </Text>
-                  <Group>
-                    <Button
-                      variant="light"
-                      leftSection={<IconEdit size={18} />}
-                      onClick={handleOpenEmailEditor}
-                      size="lg"
+          {!emailHtml ? (
+            <Card withBorder p="lg">
+              <Stack gap="md">
+                <Text fw={600}>Choisissez le type d'email</Text>
+
+                <Grid>
+                  <Grid.Col span={6}>
+                    <Card
+                      withBorder
+                      p="lg"
+                      style={{
+                        cursor: 'pointer',
+                        border: emailType === 'html' ? '2px solid var(--mantine-color-blue-6)' : undefined,
+                        backgroundColor: emailType === 'html' ? 'var(--mantine-color-blue-0)' : undefined,
+                      }}
+                      onClick={() => setEmailType('html')}
                     >
-                      Modifier l'email
+                      <Stack gap="md" align="center">
+                        <ThemeIcon size={48} radius="xl" variant="light" color="blue">
+                          <IconCode size={24} />
+                        </ThemeIcon>
+                        <Text fw={600} ta="center">Email HTML classique</Text>
+                        <Text size="sm" c="dimmed" ta="center">
+                          Éditez directement le code HTML de votre email
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+
+                  <Grid.Col span={6}>
+                    <Card
+                      withBorder
+                      p="lg"
+                      style={{
+                        cursor: 'pointer',
+                        border: emailType === 'design' ? '2px solid var(--mantine-color-green-6)' : undefined,
+                        backgroundColor: emailType === 'design' ? 'var(--mantine-color-green-0)' : undefined,
+                      }}
+                      onClick={() => setEmailType('design')}
+                    >
+                      <Stack gap="md" align="center">
+                        <ThemeIcon size={48} radius="xl" variant="light" color="green">
+                          <IconPalette size={24} />
+                        </ThemeIcon>
+                        <Text fw={600} ta="center">Éditeur visuel</Text>
+                        <Text size="sm" c="dimmed" ta="center">
+                          Créez un email design avec notre éditeur drag & drop
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                </Grid>
+
+                {emailType === 'html' ? (
+                  <Textarea
+                    label="Code HTML de l'email"
+                    description="Entrez le code HTML complet de votre email"
+                    placeholder="<html>...</html>"
+                    value={emailHtml}
+                    onChange={(e) => setEmailHtml(e.currentTarget.value)}
+                    minRows={15}
+                    styles={{
+                      input: {
+                        fontFamily: 'monospace',
+                        fontSize: '13px',
+                      },
+                    }}
+                  />
+                ) : (
+                  <Box ta="center" py="xl">
+                    <Button
+                      size="lg"
+                      leftSection={<IconPalette size={20} />}
+                      onClick={handleOpenEmailEditor}
+                    >
+                      Ouvrir l'éditeur visuel
                     </Button>
-                  </Group>
-                </>
-              ) : (
-                <>
-                  <ThemeIcon size={60} radius="xl" variant="light">
-                    <IconMail size={32} />
-                  </ThemeIcon>
-                  <Text fw={600} size="lg">
-                    Créez votre email
-                  </Text>
-                  <Text size="sm" c="dimmed" ta="center" maw={400}>
-                    Utilisez notre éditeur professionnel pour créer un email attrayant
-                    en glissant-déposant des éléments
-                  </Text>
+                  </Box>
+                )}
+              </Stack>
+            </Card>
+          ) : (
+            <Card withBorder p="xl">
+              <Stack gap="md" align="center">
+                <ThemeIcon size={60} radius="xl" variant="light" color="green">
+                  <IconCheck size={32} />
+                </ThemeIcon>
+                <Text fw={600} size="lg">
+                  Email créé avec succès
+                </Text>
+                <Text size="sm" c="dimmed" ta="center">
+                  Votre email a été enregistré. Vous pouvez le modifier ou continuer.
+                </Text>
+                <Group>
                   <Button
-                    leftSection={<IconEdit size={18} />}
-                    onClick={handleOpenEmailEditor}
+                    variant="light"
+                    leftSection={emailType === 'html' ? <IconCode size={18} /> : <IconPalette size={18} />}
+                    onClick={() => {
+                      if (emailType === 'design') {
+                        handleOpenEmailEditor();
+                      }
+                    }}
                     size="lg"
                   >
-                    Ouvrir l'éditeur d'email
+                    {emailType === 'html' ? 'Modifier le HTML' : 'Modifier avec l\'éditeur'}
                   </Button>
-                </>
-              )}
-            </Stack>
-          </Card>
+                  <Button
+                    variant="subtle"
+                    onClick={() => {
+                      setEmailHtml('');
+                      setEmailDesign(null);
+                    }}
+                  >
+                    Recommencer
+                  </Button>
+                </Group>
+              </Stack>
+            </Card>
+          )}
+
+          {emailType === 'html' && emailHtml && (
+            <Card withBorder p="xl">
+              <Stack gap="md" align="center">
+                <ThemeIcon size={60} radius="xl" variant="light" color="green">
+                  <IconCheck size={32} />
+                </ThemeIcon>
+                <Text fw={600} size="lg">
+                  Email HTML configuré
+                </Text>
+                <Button
+                  variant="light"
+                  leftSection={<IconCode size={18} />}
+                  onClick={() => {}}
+                  size="lg"
+                >
+                  Modifier le HTML
+                </Button>
+              </Stack>
+            </Card>
+          )}
 
           {emailHtml && (
             <Card withBorder>
@@ -503,19 +618,39 @@ export function CampaignCreatePage() {
           <Stack gap="md">
             <Group>
               <ThemeIcon size="lg" variant="light" color="yellow">
-                <IconInfoCircle size={20} />
+                <IconBulb size={20} />
               </ThemeIcon>
-              <Text fw={600}>Fonctionnalités</Text>
+              <Text fw={600}>Deux options disponibles</Text>
             </Group>
 
-            <List spacing="sm" size="sm">
-              <List.Item>Glisser-déposer intuitif</List.Item>
-              <List.Item>Templates professionnels</List.Item>
-              <List.Item>Personnalisation complète</List.Item>
-              <List.Item>Variables de fusion (prénom, email...)</List.Item>
-              <List.Item>Prévisualisation en temps réel</List.Item>
-              <List.Item>Responsive automatique</List.Item>
-            </List>
+            <Stack gap="md">
+              <div>
+                <Group gap="xs" mb="xs">
+                  <IconCode size={18} />
+                  <Text fw={600} size="sm">Email HTML</Text>
+                </Group>
+                <List spacing="xs" size="xs">
+                  <List.Item>Contrôle total du code</List.Item>
+                  <List.Item>Pour développeurs</List.Item>
+                  <List.Item>Personnalisation maximale</List.Item>
+                </List>
+              </div>
+
+              <Divider />
+
+              <div>
+                <Group gap="xs" mb="xs">
+                  <IconPalette size={18} />
+                  <Text fw={600} size="sm">Éditeur Visuel</Text>
+                </Group>
+                <List spacing="xs" size="xs">
+                  <List.Item>Glisser-déposer</List.Item>
+                  <List.Item>Templates pros</List.Item>
+                  <List.Item>Variables de fusion</List.Item>
+                  <List.Item>Responsive auto</List.Item>
+                </List>
+              </div>
+            </Stack>
           </Stack>
         </Card>
       </Grid.Col>
@@ -538,9 +673,10 @@ export function CampaignCreatePage() {
           <Card withBorder p="lg">
             <Stack gap="lg">
               <div>
-                <Text fw={600} mb="md">
-                  📊 Récapitulatif de la campagne
-                </Text>
+                <Group gap="xs" mb="md">
+                  <IconFileText size={20} />
+                  <Text fw={600}>Récapitulatif de la campagne</Text>
+                </Group>
 
                 <Stack gap="sm">
                   <Group>
@@ -570,11 +706,11 @@ export function CampaignCreatePage() {
                     <Text fw={500} size="sm" w={140}>
                       Mode de ciblage :
                     </Text>
-                    <Text size="sm">
-                      {targetingMode === 'all' && '🌐 Tous les utilisateurs'}
-                      {targetingMode === 'filtered' && '🎯 Filtrage avancé'}
-                      {targetingMode === 'manual' && '👥 Sélection manuelle'}
-                    </Text>
+                    <Group gap="xs">
+                      {targetingMode === 'all' && <><IconUsers size={16} /><Text size="sm">Tous les utilisateurs</Text></>}
+                      {targetingMode === 'filtered' && <><IconFilter size={16} /><Text size="sm">Filtrage avancé</Text></>}
+                      {targetingMode === 'manual' && <><IconUsers size={16} /><Text size="sm">Sélection manuelle</Text></>}
+                    </Group>
                   </Group>
                 </Stack>
               </div>
@@ -582,9 +718,10 @@ export function CampaignCreatePage() {
               <Divider />
 
               <div>
-                <Text fw={600} mb="md">
-                  ⏰ Programmation
-                </Text>
+                <Group gap="xs" mb="md">
+                  <IconCalendarEvent size={20} />
+                  <Text fw={600}>Programmation</Text>
+                </Group>
 
                 <Stack gap="md">
                   <Switch
@@ -618,9 +755,12 @@ export function CampaignCreatePage() {
                   )}
 
                   {!sendImmediately && !scheduledDate && (
-                    <Text size="sm" c="dimmed">
-                      💡 Si vous ne sélectionnez pas de date, la campagne sera sauvegardée en brouillon
-                    </Text>
+                    <Group gap="xs">
+                      <IconBulb size={16} />
+                      <Text size="sm" c="dimmed">
+                        Si vous ne sélectionnez pas de date, la campagne sera sauvegardée en brouillon
+                      </Text>
+                    </Group>
                   )}
                 </Stack>
               </div>
@@ -630,11 +770,11 @@ export function CampaignCreatePage() {
           <Card withBorder p="md" bg="orange.0">
             <Group>
               <ThemeIcon color="orange" variant="light">
-                <IconInfoCircle size={20} />
+                <IconAlertCircle size={20} />
               </ThemeIcon>
               <Stack gap={4}>
                 <Text fw={600} size="sm">
-                  ⚠️ Avant de continuer
+                  Avant de continuer
                 </Text>
                 <Text size="sm">
                   {sendImmediately
@@ -659,7 +799,7 @@ export function CampaignCreatePage() {
               <Text fw={600}>Conseils d'envoi</Text>
             </Group>
 
-            <List spacing="sm" size="sm">
+            <List spacing="sm" size="sm" icon={<IconCheck size={14} />}>
               <List.Item>
                 Les meilleurs jours : mardi, mercredi, jeudi
               </List.Item>

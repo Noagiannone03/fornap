@@ -36,7 +36,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import { DateTimePicker } from '@mantine/dates';
-import type { TargetingMode, TargetingFilters, UpdateCampaignData } from '../../../shared/types/campaign';
+import type { TargetingMode, TargetingFilters } from '../../../shared/types/campaign';
 import {
   getCampaignById,
   updateCampaign,
@@ -284,27 +284,48 @@ export function CampaignEditPage() {
       }
 
       // Mettre à jour les données de la campagne
-      const updateData: UpdateCampaignData = {
+      const content: any = {
+        subject,
+        preheader,
+        fromName,
+        fromEmail,
+        html: finalHtml,
+      };
+
+      // Ajouter design seulement s'il existe
+      if (emailDesign) {
+        content.design = emailDesign;
+      }
+
+      // Ajouter replyTo seulement s'il n'est pas vide
+      if (replyTo && replyTo.trim()) {
+        content.replyTo = replyTo;
+      }
+
+      const targeting: any = {
+        mode: targetingMode,
+        estimatedRecipients: estimatedCount,
+      };
+
+      // Ajouter les champs optionnels seulement s'ils sont pertinents
+      if (targetingMode === 'manual') {
+        targeting.manualUserIds = selectedUserIds;
+      } else if (targetingMode === 'filtered') {
+        targeting.filters = filters;
+      }
+
+      const updateData: any = {
         name,
         description,
-        content: {
-          subject,
-          preheader,
-          design: emailDesign,
-          html: finalHtml,
-          fromName,
-          fromEmail,
-          replyTo: replyTo || undefined,
-        },
-        targeting: {
-          mode: targetingMode,
-          manualUserIds: targetingMode === 'manual' ? selectedUserIds : undefined,
-          filters: targetingMode === 'filtered' ? filters : undefined,
-          estimatedRecipients: estimatedCount,
-        },
-        scheduledAt: scheduledDate ? Timestamp.fromDate(scheduledDate) : undefined,
+        content,
+        targeting,
         sendImmediately,
       };
+
+      // Ajouter scheduledAt seulement si une date est définie
+      if (scheduledDate) {
+        updateData.scheduledAt = Timestamp.fromDate(scheduledDate);
+      }
 
       // Mettre à jour la campagne
       await updateCampaign(campaignId, updateData);

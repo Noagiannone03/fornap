@@ -231,13 +231,13 @@ export async function createCampaign(
   try {
     const now = Timestamp.now();
 
-    // Construire l'objet campaign en excluant les champs undefined
+    // Construire l'objet campaign
     const campaign: any = {
       name: data.name,
       description: data.description,
       status: 'draft',
-      content: cleanUndefinedFields(data.content),
-      targeting: cleanUndefinedFields(data.targeting),
+      content: data.content,
+      targeting: data.targeting,
       sendImmediately: data.sendImmediately,
       stats: createInitialStats(),
       createdBy: adminId,
@@ -245,41 +245,13 @@ export async function createCampaign(
       updatedAt: now,
     };
 
-    // Ajouter scheduledAt seulement s'il n'est pas undefined
-    if (data.scheduledAt !== undefined) {
+    // Ajouter scheduledAt seulement s'il existe
+    if (data.scheduledAt) {
       campaign.scheduledAt = data.scheduledAt;
     }
 
-    // Log pour debug
-    console.log('Campaign data before save:', campaign);
-    console.log('Campaign content:', campaign.content);
-    console.log('Campaign targeting:', campaign.targeting);
-
     const campaignsRef = collection(db, CAMPAIGNS_COLLECTION);
-    const cleanedCampaign = cleanUndefinedFields(campaign);
-    console.log('Campaign data after cleaning:', cleanedCampaign);
-
-    // Vérifier s'il reste des undefined
-    const hasUndefined = (obj: any, path = ''): string[] => {
-      const undefinedPaths: string[] = [];
-      for (const key in obj) {
-        const value = obj[key];
-        const currentPath = path ? `${path}.${key}` : key;
-        if (value === undefined) {
-          undefinedPaths.push(currentPath);
-        } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-          undefinedPaths.push(...hasUndefined(value, currentPath));
-        }
-      }
-      return undefinedPaths;
-    };
-
-    const undefinedFields = hasUndefined(cleanedCampaign);
-    if (undefinedFields.length > 0) {
-      console.error('Found undefined fields:', undefinedFields);
-    }
-
-    const docRef = await addDoc(campaignsRef, cleanedCampaign);
+    const docRef = await addDoc(campaignsRef, campaign);
 
     return {
       ...campaign,

@@ -1,5 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { AdminAuthProvider } from '../shared/contexts/AdminAuthContext';
+import { AdminProtectedRoute } from './components/AdminProtectedRoute';
 import { AdminLayout } from './layouts/AdminLayout';
+import { AdminLogin } from './pages/AdminLogin';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { EnhancedUsersListPage } from './pages/Users/EnhancedUsersListPage';
 import { UserDetailPage } from './pages/Users/UserDetailPage';
@@ -20,34 +23,46 @@ import { EventStatsPage } from './pages/Analytics/EventStatsPage';
 
 export function AdminRoutes() {
   return (
-    <Routes>
-      <Route element={<AdminLayout />}>
-        <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="users" element={<EnhancedUsersListPage />} />
-        <Route path="users/new" element={<UserCreatePage />} />
-        <Route path="users/:uid" element={<UserDetailPage />} />
-        <Route path="users/:uid/edit" element={<UserEditPage />} />
-        <Route path="memberships" element={<MembershipsPage />} />
+    <AdminAuthProvider>
+      <Routes>
+        {/* Route de login non protégée */}
+        <Route path="login" element={<AdminLogin />} />
 
-        {/* Routes Events */}
-        <Route path="events" element={<EventsListPage />} />
-        <Route path="events/create" element={<EventCreatePage />} />
-        <Route path="events/:eventId" element={<EventDetailPage />} />
-        <Route path="events/:eventId/edit" element={<EventEditPage />} />
+        {/* Routes protégées avec AdminLayout */}
+        <Route
+          element={
+            <AdminProtectedRoute>
+              <AdminLayout />
+            </AdminProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="users" element={<EnhancedUsersListPage />} />
+          <Route path="users/new" element={<UserCreatePage />} />
+          <Route path="users/:uid" element={<UserDetailPage />} />
+          <Route path="users/:uid/edit" element={<UserEditPage />} />
+          <Route path="memberships" element={<MembershipsPage />} />
 
-        <Route path="coworking" element={<CoworkingListPage />} />
+          {/* Routes Events */}
+          <Route path="events" element={<EventsListPage />} />
+          <Route path="events/create" element={<EventCreatePage />} />
+          <Route path="events/:eventId" element={<EventDetailPage />} />
+          <Route path="events/:eventId/edit" element={<EventEditPage />} />
 
-        {/* Routes Analytics */}
-        <Route path="analytics" element={<Navigate to="analytics/overview" replace />} />
-        <Route path="analytics/overview" element={<AnalyticsOverviewPage />} />
-        <Route path="analytics/financial" element={<FinancialAnalyticsPage />} />
-        <Route path="analytics/demographics" element={<DemographicsAnalyticsPage />} />
-        <Route path="analytics/engagement" element={<EngagementAnalyticsPage />} />
-        <Route path="analytics/events" element={<EventStatsPage />} />
+          <Route path="coworking" element={<CoworkingListPage />} />
 
-        <Route path="settings" element={<SettingsPage />} />
-      </Route>
-    </Routes>
+          {/* Routes Analytics */}
+          <Route path="analytics" element={<Navigate to="analytics/overview" replace />} />
+          <Route path="analytics/overview" element={<AnalyticsOverviewPage />} />
+          <Route path="analytics/financial" element={<FinancialAnalyticsPage />} />
+          <Route path="analytics/demographics" element={<DemographicsAnalyticsPage />} />
+          <Route path="analytics/engagement" element={<EngagementAnalyticsPage />} />
+          <Route path="analytics/events" element={<EventStatsPage />} />
+
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
+      </Routes>
+    </AdminAuthProvider>
   );
 }

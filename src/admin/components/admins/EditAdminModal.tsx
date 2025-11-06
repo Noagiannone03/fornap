@@ -5,7 +5,7 @@
  * Modal pour modifier un compte administrateur
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   TextInput,
@@ -21,7 +21,8 @@ import {
 import { useForm } from '@mantine/form';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
-import { AdminRole, ADMIN_ROLES_CONFIG, UpdateAdminData, AdminUser } from '../../../shared/types/admin';
+import { ADMIN_ROLES_CONFIG } from '../../../shared/types/admin';
+import type { UpdateAdminData, AdminUser } from '../../../shared/types/admin';
 import { updateAdmin, getAssignableRoles } from '../../../shared/services/adminService';
 import { notifications } from '@mantine/notifications';
 
@@ -162,16 +163,21 @@ export function EditAdminModal({ opened, onClose, admin, onSuccess }: EditAdminM
             data={assignableRoles}
             required
             {...form.getInputProps('role')}
-            renderOption={({ option }) => (
-              <div>
-                <Text size="sm" fw={500}>
-                  {option.label}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {option.description}
-                </Text>
-              </div>
-            )}
+            renderOption={({ option }) => {
+              const roleOption = option as typeof option & { description?: string };
+              return (
+                <div>
+                  <Text size="sm" fw={500}>
+                    {roleOption.label}
+                  </Text>
+                  {roleOption.description && (
+                    <Text size="xs" c="dimmed">
+                      {roleOption.description}
+                    </Text>
+                  )}
+                </div>
+              );
+            }}
           />
 
           <Switch

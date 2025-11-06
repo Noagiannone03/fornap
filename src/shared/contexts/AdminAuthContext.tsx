@@ -6,13 +6,14 @@
  * Complètement indépendant du AuthContext utilisateur
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  User as FirebaseUser,
 } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import {
   getAdminById,
@@ -23,9 +24,9 @@ import {
   hasAllPermissions,
   hasAnyPermission,
   getRolePermissions,
-  getRoleConfig,
 } from '../services/adminService';
-import { AdminUser, AdminPermission, AdminRole } from '../types/admin';
+import { AdminPermission, AdminRole } from '../types/admin';
+import type { AdminUser } from '../types/admin';
 
 // ============================================
 // TYPES

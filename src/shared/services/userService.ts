@@ -265,7 +265,6 @@ export async function createUser(
 
     // Créer une entrée dans l'historique d'abonnement
     await addMembershipHistory(docId, {
-      id: '',
       planId: userData.currentMembership.planId,
       planName: userData.currentMembership.planName,
       planType: userData.currentMembership.planType,
@@ -350,7 +349,7 @@ export async function createUserByAdmin(
       },
 
       loyaltyPoints: 0,
-      extendedProfile: userData.extendedProfile,
+      extendedProfile: userData.extendedProfile as any,
     };
 
     const userId = await createUser(newUserData);
@@ -1231,7 +1230,6 @@ export async function renewMembership(
 
     // Ajouter une entrée dans l'historique avec les infos de renouvellement
     const historyId = await addMembershipHistory(userId, {
-      id: '',
       planId: newPlan.id,
       planName: newPlan.name,
       planType: membershipType, // ✅ Type standardisé

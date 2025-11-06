@@ -26,7 +26,6 @@ import {
   IconMapPin,
   IconTicket,
   IconUsers,
-  IconChartBar,
   IconCheck,
   IconX,
   IconCurrencyEuro,

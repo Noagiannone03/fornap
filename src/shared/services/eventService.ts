@@ -89,7 +89,7 @@ function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T>
 
     // Handle arrays
     if (Array.isArray(value)) {
-      cleaned[key] = value.map(item => {
+      cleaned[key] = value.map((item: any) => {
         // If array item is an object, clean it recursively
         if (item !== null && typeof item === 'object' && !(item instanceof Timestamp)) {
           return cleanUndefinedFields(item);
@@ -100,7 +100,7 @@ function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T>
     }
 
     // Recursively clean nested objects (but not Timestamps)
-    if (typeof value === 'object' && !(value instanceof Timestamp)) {
+    if (typeof value === 'object' && !(value as any instanceof Timestamp)) {
       // Check if it's a plain object
       if (value.constructor === Object) {
         cleaned[key] = cleanUndefinedFields(value);

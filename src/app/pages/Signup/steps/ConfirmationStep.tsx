@@ -1,4 +1,4 @@
-import { Stack, Title, Text, Button, Group, Paper, Badge, Divider } from '@mantine/core';
+import { Stack, Title, Text, Button, Group, Paper, Divider } from '@mantine/core';
 import type { UseFormReturnType } from '@mantine/form';
 import type { SignupFormData } from '../../../../shared/types';
 
@@ -80,47 +80,6 @@ export const ConfirmationStep = ({
                 <Text size="xs" fw={600}>{form.values.phone}</Text>
               </Group>
             </Stack>
-
-            {/* Centres d'intérêt si présents */}
-            {form.values.interests && form.values.interests.length > 0 && (
-              <>
-                <Divider color="#e0e0e0" />
-                <div>
-                  <Text size="xs" fw={700} c="gray.6" mb={6} tt="uppercase">
-                    Centres d'intérêt
-                  </Text>
-                  <Group gap={4}>
-                    {form.values.interests.slice(0, 3).map((interest) => (
-                      <Badge
-                        key={interest}
-                        variant="filled"
-                        color="dark"
-                        size="xs"
-                        style={{
-                          borderRadius: '6px',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {interest}
-                      </Badge>
-                    ))}
-                    {form.values.interests.length > 3 && (
-                      <Badge
-                        variant="outline"
-                        color="dark"
-                        size="xs"
-                        style={{
-                          borderRadius: '6px',
-                          fontWeight: 600,
-                        }}
-                      >
-                        +{form.values.interests.length - 3}
-                      </Badge>
-                    )}
-                  </Group>
-                </div>
-              </>
-            )}
           </Stack>
         </Paper>
 

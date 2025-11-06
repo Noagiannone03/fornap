@@ -22,7 +22,7 @@ import { useMembershipPlans } from '../../shared/hooks/useMembershipPlans';
 export const Membership = () => {
   const navigate = useNavigate();
   const { plans, loading, error } = useMembershipPlans(true); // Seulement les formules actives
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [, setSelectedPlan] = useState<string | null>(null);
 
   const handleSelectPlan = (planId: string) => {
     setSelectedPlan(planId);

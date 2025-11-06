@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Title,
-  Paper,
   Group,
   Button,
   Stack,
@@ -101,9 +100,9 @@ export function EventCreatePage() {
   ]);
 
   // Media
-  const [coverImage, setCoverImage] = useState('');
-  const [images, setImages] = useState<string[]>([]);
-  const [videoUrl, setVideoUrl] = useState('');
+  const [coverImage] = useState('');
+  const [images] = useState<string[]>([]);
+  const [videoUrl] = useState('');
 
   // Settings
   const [status, setStatus] = useState<EventStatus>('draft');
@@ -116,12 +115,12 @@ export function EventCreatePage() {
   const [minAge, setMinAge] = useState<number | undefined>(undefined);
 
   // Additional info
-  const [termsAndConditions, setTermsAndConditions] = useState('');
-  const [refundPolicy, setRefundPolicy] = useState('');
+  const [termsAndConditions] = useState('');
+  const [refundPolicy] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
-  const [websiteUrl, setWebsiteUrl] = useState('');
-  const [facebookEventUrl, setFacebookEventUrl] = useState('');
+  const [websiteUrl] = useState('');
+  const [facebookEventUrl] = useState('');
 
   // Add artist
   const handleAddArtist = () => {
@@ -718,7 +717,7 @@ export function EventCreatePage() {
                   <NumberInput
                     label="Nombre maximum de billets par utilisateur"
                     value={maxTicketsPerUser}
-                    onChange={(value) => setMaxTicketsPerUser(value || 10)}
+                    onChange={(value) => setMaxTicketsPerUser(typeof value === 'number' ? value : 10)}
                     min={1}
                   />
                 </Grid.Col>
@@ -727,7 +726,7 @@ export function EventCreatePage() {
                     label="Âge minimum (optionnel)"
                     placeholder="Ex: 18"
                     value={minAge}
-                    onChange={(value) => setMinAge(value || undefined)}
+                    onChange={(value) => setMinAge(typeof value === 'number' ? value : undefined)}
                     min={0}
                   />
                 </Grid.Col>

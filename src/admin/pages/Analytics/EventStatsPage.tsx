@@ -43,7 +43,7 @@ import { EVENT_TYPE_LABELS } from '../../../shared/types/event';
 export function EventStatsPage() {
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState<EventAnalyticsKPIs | null>(null);
-  const [revenueData, setRevenueData] = useState<EventRevenueData[]>([]);
+  const [, setRevenueData] = useState<EventRevenueData[]>([]);
   const [typeDistribution, setTypeDistribution] = useState<EventTypeDistribution[]>([]);
   const [topEvents, setTopEvents] = useState<TopEvent[]>([]);
   const [attendeeProfile, setAttendeeProfile] = useState<AttendeeProfile | null>(null);

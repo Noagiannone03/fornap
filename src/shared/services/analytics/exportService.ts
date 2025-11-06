@@ -127,8 +127,8 @@ export async function exportMembersDetailCSV(filters?: UserFilters): Promise<Blo
         Telephone: user.phone,
         Code_Postal: user.postalCode,
         Date_Naissance: user.birthDate ? user.birthDate.toDate().toISOString().split('T')[0] : '',
-        Type_Abonnement: MEMBERSHIP_TYPE_LABELS[user.currentMembership.planType],
-        Statut_Abonnement: MEMBERSHIP_STATUS_LABELS[user.currentMembership.status],
+        Type_Abonnement: MEMBERSHIP_TYPE_LABELS[user.currentMembership.planType as any],
+        Statut_Abonnement: MEMBERSHIP_STATUS_LABELS[user.currentMembership.status as any],
         Date_Inscription: user.createdAt ? user.createdAt.toDate().toISOString().split('T')[0] : '',
         Date_Expiration: user.currentMembership.expiryDate
           ? user.currentMembership.expiryDate.toDate().toISOString().split('T')[0]

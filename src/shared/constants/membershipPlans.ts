@@ -1,11 +1,15 @@
-import type { MembershipPlan } from '../types/user';
+import type { MembershipPlan } from '../types/membership';
 
 export const MEMBERSHIP_PLANS: MembershipPlan[] = [
   {
     id: 'monthly',
     name: 'Membre Mensuel',
+    description: 'Abonnement mensuel flexible',
     price: 15,
     period: 'month',
+    isActive: true,
+    isPrimary: false,
+    order: 1,
     features: [
       'Accès prioritaire aux événements',
       'Accès au lieu et aux installations',
@@ -17,9 +21,12 @@ export const MEMBERSHIP_PLANS: MembershipPlan[] = [
   {
     id: 'annual',
     name: 'Membre Annuel',
+    description: 'Abonnement annuel avec avantages',
     price: 150,
     period: 'year',
-    highlighted: true,
+    isActive: true,
+    isPrimary: true,
+    order: 2,
     features: [
       'Tous les avantages du Membre Mensuel',
       'Programme de fidélité actif',
@@ -33,8 +40,12 @@ export const MEMBERSHIP_PLANS: MembershipPlan[] = [
   {
     id: 'honorary',
     name: "Membre d'Honneur",
+    description: 'Adhésion à vie',
     price: 500,
     period: 'lifetime',
+    isActive: true,
+    isPrimary: false,
+    order: 3,
     features: [
       'Tous les avantages du Membre Annuel',
       'Adhésion à vie sans renouvellement',
@@ -46,4 +57,4 @@ export const MEMBERSHIP_PLANS: MembershipPlan[] = [
       'Participation aux décisions communautaires',
     ],
   },
-];
+] as MembershipPlan[];

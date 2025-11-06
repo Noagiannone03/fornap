@@ -501,18 +501,16 @@ export async function addPurchaseToUserHistory(
     }
 
     await addActionHistory(userId, {
-      actionType: 'event_registration',
+      actionType: 'event_registration' as any,
       details: {
         eventId: purchase.eventId,
-        eventTitle: purchase.eventTitle,
         ticketCategoryName: purchase.ticketCategoryName,
         quantity: purchase.quantity,
         totalPrice: purchase.totalPrice,
         ticketNumber: purchase.ticketNumber,
         purchaseId,
-      },
-      timestamp: purchase.createdAt,
-    });
+      } as any,
+    } as any);
 
     console.log('Purchase added to user action history');
   } catch (error) {
@@ -731,12 +729,10 @@ export async function checkInAttendee(
         actionType: 'event_checkin',
         details: {
           eventId: purchase.eventId,
-          eventTitle: purchase.eventTitle,
           ticketNumber: purchase.ticketNumber,
           checkedInBy,
-        },
-        timestamp: Timestamp.now(),
-      });
+        } as any,
+      } as any);
     }
 
     console.log('Attendee checked in:', purchaseId);

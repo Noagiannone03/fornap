@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Container,
   Title,
-  Paper,
   SimpleGrid,
   Grid,
   Group,
@@ -24,7 +23,6 @@ import {
   IconTrash,
   IconDots,
   IconCheck,
-  IconX,
   IconTrendingUp,
   IconUsers,
   IconCurrencyEuro,

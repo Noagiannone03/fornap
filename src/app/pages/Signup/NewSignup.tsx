@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Container, Paper, Stack, Button } from '@mantine/core';
+import { Box, Container, Paper, Stack } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../shared/contexts/AuthContext';
@@ -47,9 +47,6 @@ export const NewSignup = () => {
       phone: '',
       postalCode: '',
       planId: planId, // Correction: Renommé de membershipType
-      interests: [],
-      howDidYouHearAboutUs: '',
-      preferredAmbiance: '',
     },
     validate: {
       email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Email invalide'),
@@ -113,7 +110,7 @@ export const NewSignup = () => {
       case 1:
         return (
           <CredentialsStep
-            form={form}
+            form={form as any}
             onNext={handleNext}
             onBack={handleBack}
           />
@@ -121,7 +118,7 @@ export const NewSignup = () => {
       case 2:
         return (
           <PersonalInfoStep
-            form={form}
+            form={form as any}
             onNext={handleNext}
             onBack={handleBack}
           />
@@ -129,7 +126,7 @@ export const NewSignup = () => {
       case 3:
         return (
           <BirthdayStep
-            form={form}
+            form={form as any}
             onNext={handleNext}
             onBack={handleBack}
           />
@@ -137,7 +134,7 @@ export const NewSignup = () => {
       case 4:
         return (
           <ContactStep
-            form={form}
+            form={form as any}
             onNext={handleNext}
             onBack={handleBack}
           />
@@ -145,7 +142,7 @@ export const NewSignup = () => {
       case 5:
         return (
           <InterestsStep
-            form={form}
+            form={form as any}
             onNext={handleNext}
             onBack={handleBack}
           />
@@ -153,7 +150,7 @@ export const NewSignup = () => {
       case 6:
         return (
           <ConfirmationStep
-            form={form}
+            form={form as any}
             onSubmit={handleSubmit}
             onBack={handleBack}
             loading={loading}

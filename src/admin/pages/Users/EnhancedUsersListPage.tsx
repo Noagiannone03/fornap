@@ -46,15 +46,12 @@ import {
 } from '../../../shared/services/userService';
 import type {
   UserListItem,
-  UserFilters,
   MembershipType,
   MembershipStatus,
-  MemberTag,
 } from '../../../shared/types/user';
 import {
   MEMBERSHIP_TYPE_LABELS,
   MEMBERSHIP_STATUS_LABELS,
-  REGISTRATION_SOURCE_LABELS,
   AVAILABLE_TAGS,
 } from '../../../shared/types/user';
 

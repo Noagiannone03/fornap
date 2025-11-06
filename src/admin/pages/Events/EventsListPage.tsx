@@ -46,7 +46,7 @@ import {
   toggleEventFeatured,
   duplicateEvent,
 } from '../../../shared/services/eventService';
-import type { EventListItem, EventType, EventStatus } from '../../../shared/types/event';
+import type { EventListItem, EventStatus } from '../../../shared/types/event';
 import {
   EVENT_TYPE_LABELS,
   EVENT_STATUS_LABELS,

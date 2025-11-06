@@ -2,7 +2,6 @@ import { Container, Title, SimpleGrid, Grid, Paper, Text, Group, Badge, Avatar, 
 import { StatCard } from '../../components/stats/StatCard';
 import { LineChart } from '../../components/charts/LineChart';
 import { PieChart } from '../../components/charts/PieChart';
-import { BarChart } from '../../components/charts/BarChart';
 import {
   IconUsers,
   IconCurrencyEuro,

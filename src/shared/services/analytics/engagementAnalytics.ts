@@ -136,9 +136,9 @@ export async function getInterestsAnalytics(): Promise<InterestsAnalytics> {
 
     return {
       eventTypes: convertToArray(eventTypesMap),
-      artisticDomains: convertToArray(artisticDomainsMap),
-      musicGenres: convertToArray(musicGenresMap),
-      conferenceThemes: convertToArray(conferenceThemesMap),
+      artisticDomains: convertToArray(artisticDomainsMap).map(item => ({ domain: item.type, count: item.count, percentage: item.percentage })),
+      musicGenres: convertToArray(musicGenresMap).map(item => ({ genre: item.type, count: item.count, percentage: item.percentage })),
+      conferenceThemes: convertToArray(conferenceThemesMap).map(item => ({ theme: item.type, count: item.count, percentage: item.percentage })),
     };
   } catch (error) {
     console.error('Error getting interests analytics:', error);

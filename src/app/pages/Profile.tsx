@@ -35,9 +35,9 @@ export const Profile = () => {
     initialValues: {
       firstName: userProfile?.firstName || '',
       lastName: userProfile?.lastName || '',
-      dateOfBirth: userProfile?.dateOfBirth || '',
+      dateOfBirth: userProfile?.birthDate ? userProfile.birthDate.toDate().toISOString().split('T')[0] : '',
       phone: userProfile?.phone || '',
-      interests: userProfile?.interests || [],
+      interests: userProfile?.extendedProfile?.interests?.eventTypes || [],
     },
     validate: {
       firstName: (value) => (value ? null : 'Prénom requis'),

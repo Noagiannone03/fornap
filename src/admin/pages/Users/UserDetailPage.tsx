@@ -13,9 +13,7 @@ import {
   LoadingOverlay,
   Divider,
   Avatar,
-  Card,
   Timeline,
-  Table,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -88,7 +86,7 @@ export function UserDetailPage() {
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [actionHistory, setActionHistory] = useState<ActionHistory[]>([]);
-  const [membershipHistory, setMembershipHistory] = useState<MembershipHistory[]>([]);
+  const [, setMembershipHistory] = useState<MembershipHistory[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

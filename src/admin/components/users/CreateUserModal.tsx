@@ -1,9 +1,9 @@
-import { Modal, Stack, Stepper, Button, Group } from '@mantine/core';
+import { Modal, Stepper, Button, Group } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useState } from 'react';
 import { createUserByAdmin } from '../../../shared/services/userService';
-import type { AdminCreateUserData, PaymentStatus, MemberTag, ProfessionalStatus, PreferredContact, PublicProfileLevel } from '../../../shared/types/user';
+import type { AdminCreateUserData, PaymentStatus, MemberTag } from '../../../shared/types/user';
 import { BasicInfoForm } from './CreateUserForms/BasicInfoForm';
 import { MembershipForm } from './CreateUserForms/MembershipForm';
 import { ExtendedProfileForm } from './CreateUserForms/ExtendedProfileForm';
@@ -121,7 +121,7 @@ export function CreateUserModal({
       closeOnClickOutside={!loading}
       closeOnEscape={!loading}
     >
-      <Stepper active={active} onStepClick={setActive} breakpoint="sm">
+      <Stepper active={active} onStepClick={setActive}>
         <Stepper.Step label="Informations de base" description="Données personnelles">
           <BasicInfoForm form={form} />
         </Stepper.Step>

@@ -63,9 +63,10 @@ export function ReusablePieChart({
               outerRadius={80}
               fill="#8884d8"
               dataKey="value"
-              label={({ name, percent }: { name: string; percent: number }) =>
-                `${name}: ${(percent * 100).toFixed(0)}%`
-              }
+              label={(props: any) => {
+                const { name, percent } = props;
+                return `${name}: ${(percent * 100).toFixed(0)}%`;
+              }}
               labelLine={false}
             >
               {data.map((entry, index) => (

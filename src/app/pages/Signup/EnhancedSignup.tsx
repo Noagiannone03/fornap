@@ -208,17 +208,17 @@ export const EnhancedSignup = () => {
         case 0:
           return <WelcomeStep onNext={handleNext} planName={selectedPlan.name} />;
         case 1:
-          return <CredentialsStep form={form} onNext={handleNext} onBack={handleBack} />;
+          return <CredentialsStep form={form as any} onNext={handleNext} onBack={handleBack} />;
         case 2:
-          return <PersonalInfoStep form={form} onNext={handleNext} onBack={handleBack} />;
+          return <PersonalInfoStep form={form as any} onNext={handleNext} onBack={handleBack} />;
         case 3:
-          return <BirthdayStep form={form} onNext={handleNext} onBack={handleBack} />;
+          return <BirthdayStep form={form as any} onNext={handleNext} onBack={handleBack} />;
         case 4:
-          return <ContactStep form={form} onNext={handleNext} onBack={handleBack} />;
+          return <ContactStep form={form as any} onNext={handleNext} onBack={handleBack} />;
         case 5:
           return (
             <ConfirmationStep
-              form={form}
+              form={form as any}
               onSubmit={handleSubmit}
               onBack={handleBack}
               loading={loading}
@@ -236,25 +236,25 @@ export const EnhancedSignup = () => {
       case 0:
         return <WelcomeStep onNext={handleNext} planName={selectedPlan.name} />;
       case 1:
-        return <CredentialsStep form={form} onNext={handleNext} onBack={handleBack} />;
+        return <CredentialsStep form={form as any} onNext={handleNext} onBack={handleBack} />;
       case 2:
-        return <PersonalInfoStep form={form} onNext={handleNext} onBack={handleBack} />;
+        return <PersonalInfoStep form={form as any} onNext={handleNext} onBack={handleBack} />;
       case 3:
-        return <BirthdayStep form={form} onNext={handleNext} onBack={handleBack} />;
+        return <BirthdayStep form={form as any} onNext={handleNext} onBack={handleBack} />;
       case 4:
-        return <ContactStep form={form} onNext={handleNext} onBack={handleBack} />;
+        return <ContactStep form={form as any} onNext={handleNext} onBack={handleBack} />;
       case 5:
-        return <ProfessionalInfoStep form={form} onNext={handleNext} onBack={handleBack} />;
+        return <ProfessionalInfoStep form={form as any} onNext={handleNext} onBack={handleBack} />;
       case 6:
-        return <ExtendedInterestsStep form={form} onNext={handleNext} onBack={handleBack} />;
+        return <ExtendedInterestsStep form={form as any} onNext={handleNext} onBack={handleBack} />;
       case 7:
-        return <CommunicationPreferencesStep form={form} onNext={handleNext} onBack={handleBack} />;
+        return <CommunicationPreferencesStep form={form as any} onNext={handleNext} onBack={handleBack} />;
       case 8:
-        return <EngagementStep form={form} onNext={handleNext} onBack={handleBack} />;
+        return <EngagementStep form={form as any} onNext={handleNext} onBack={handleBack} />;
       case 9:
         return (
           <ConfirmationStep
-            form={form}
+            form={form as any}
             onSubmit={handleSubmit}
             onBack={handleBack}
             loading={loading}

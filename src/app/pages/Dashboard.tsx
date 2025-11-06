@@ -24,8 +24,8 @@ export const Dashboard = () => {
 
   // Calculer les jours restants pour l'abonnement
   const getDaysRemaining = () => {
-    if (!userProfile.subscription?.endDate) return null;
-    const endDate = new Date(userProfile.subscription.endDate);
+    if (!userProfile.currentMembership?.expiryDate) return null;
+    const endDate = userProfile.currentMembership.expiryDate.toDate();
     const today = new Date();
     const diffTime = endDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -33,7 +33,7 @@ export const Dashboard = () => {
   };
 
   const daysRemaining = getDaysRemaining();
-  const isActive = userProfile.subscription?.status === 'active';
+  const isActive = userProfile.currentMembership?.status === 'active';
 
   return (
     <Container size="lg" py={40}>
@@ -121,11 +121,11 @@ export const Dashboard = () => {
                     </Group>
                   )}
 
-                  {userProfile.dateOfBirth && (
+                  {userProfile.birthDate && (
                     <Group justify="space-between">
                       <Text fw={700}>Date de naissance</Text>
                       <Text c="dimmed">
-                        {new Date(userProfile.dateOfBirth).toLocaleDateString(
+                        {userProfile.birthDate.toDate().toLocaleDateString(
                           'fr-FR'
                         )}
                       </Text>
@@ -162,9 +162,9 @@ export const Dashboard = () => {
                   MES CENTRES D'INTÉRÊT
                 </Title>
 
-                {userProfile.interests && userProfile.interests.length > 0 ? (
+                {userProfile.extendedProfile?.interests?.eventTypes && userProfile.extendedProfile.interests.eventTypes.length > 0 ? (
                   <Group gap="xs">
-                    {userProfile.interests.map((interest) => (
+                    {userProfile.extendedProfile.interests.eventTypes.map((interest: string) => (
                       <Badge
                         key={interest}
                         variant="outline"
@@ -213,7 +213,7 @@ export const Dashboard = () => {
                   MON ABONNEMENT
                 </Title>
 
-                {userProfile.subscription ? (
+                {userProfile.currentMembership ? (
                   <Stack gap="lg">
                     <Group justify="space-between">
                       <Text fw={700}>Type</Text>
@@ -224,7 +224,7 @@ export const Dashboard = () => {
                         radius="md"
                         fw={900}
                       >
-                        {userProfile.subscription.type.toUpperCase()}
+                        {userProfile.currentMembership.planType.toUpperCase()}
                       </Badge>
                     </Group>
                     <Group justify="space-between">
@@ -241,7 +241,7 @@ export const Dashboard = () => {
                       </Badge>
                     </Group>
 
-                    {daysRemaining !== null && isActive && (
+                    {daysRemaining !== null && isActive && userProfile.currentMembership.expiryDate && (
                       <Box
                         p="lg"
                         style={{
@@ -259,9 +259,7 @@ export const Dashboard = () => {
                           </Text>
                           <Text size="xs" c="dimmed" mt="xs">
                             Expire le{' '}
-                            {new Date(
-                              userProfile.subscription.endDate
-                            ).toLocaleDateString('fr-FR')}
+                            {userProfile.currentMembership.expiryDate.toDate().toLocaleDateString('fr-FR')}
                           </Text>
                         </Stack>
                       </Box>

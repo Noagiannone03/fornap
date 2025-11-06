@@ -42,7 +42,7 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
               <TextInput
                 label="Profession"
                 placeholder="Ex: Développeur web, Enseignant..."
-                value={form.values.extendedProfile?.professional.profession || ''}
+                value={form.values.extendedProfile?.professional?.profession || ''}
                 onChange={(e) =>
                   form.setFieldValue('extendedProfile.professional.profession', e.currentTarget.value)
                 }
@@ -51,7 +51,7 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
               <TextInput
                 label="Domaine d'activité"
                 placeholder="Ex: Technologie, Éducation..."
-                value={form.values.extendedProfile?.professional.activityDomain || ''}
+                value={form.values.extendedProfile?.professional?.activityDomain || ''}
                 onChange={(e) =>
                   form.setFieldValue('extendedProfile.professional.activityDomain', e.currentTarget.value)
                 }
@@ -66,9 +66,9 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
                   { value: 'retired', label: 'Retraité' },
                   { value: 'unemployed', label: 'Sans emploi' },
                 ]}
-                value={form.values.extendedProfile?.professional.status || 'salaried'}
+                value={form.values.extendedProfile?.professional?.status || 'salaried'}
                 onChange={(value) =>
-                  form.setFieldValue('extendedProfile.professional.status', value)
+                  form.setFieldValue('extendedProfile.professional.status', (value || 'salaried') as any)
                 }
               />
 
@@ -77,7 +77,7 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
                 placeholder="Sélectionnez les compétences"
                 data={skillOptions}
                 searchable
-                value={form.values.extendedProfile?.professional.skills || []}
+                value={form.values.extendedProfile?.professional?.skills || []}
                 onChange={(value) =>
                   form.setFieldValue('extendedProfile.professional.skills', value)
                 }
@@ -94,7 +94,7 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
                 label="Types d'événements préférés"
                 data={eventTypeOptions}
                 searchable
-                value={form.values.extendedProfile?.interests.eventTypes || []}
+                value={form.values.extendedProfile?.interests?.eventTypes || []}
                 onChange={(value) =>
                   form.setFieldValue('extendedProfile.interests.eventTypes', value)
                 }
@@ -104,7 +104,7 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
                 label="Domaines artistiques"
                 data={artisticDomainOptions}
                 searchable
-                value={form.values.extendedProfile?.interests.artisticDomains || []}
+                value={form.values.extendedProfile?.interests?.artisticDomains || []}
                 onChange={(value) =>
                   form.setFieldValue('extendedProfile.interests.artisticDomains', value)
                 }
@@ -114,7 +114,7 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
                 label="Genres musicaux"
                 data={musicGenreOptions}
                 searchable
-                value={form.values.extendedProfile?.interests.musicGenres || []}
+                value={form.values.extendedProfile?.interests?.musicGenres || []}
                 onChange={(value) =>
                   form.setFieldValue('extendedProfile.interests.musicGenres', value)
                 }
@@ -135,16 +135,16 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
                   { value: 'social', label: 'Réseaux sociaux' },
                   { value: 'app', label: 'Application mobile' },
                 ]}
-                value={form.values.extendedProfile?.communication.preferredContact || 'email'}
+                value={form.values.extendedProfile?.communication?.preferredContact || 'email'}
                 onChange={(value) =>
-                  form.setFieldValue('extendedProfile.communication.preferredContact', value)
+                  form.setFieldValue('extendedProfile.communication.preferredContact', (value || 'email') as any)
                 }
               />
 
               <TextInput
                 label="Instagram"
                 placeholder="@username"
-                value={form.values.extendedProfile?.communication.socialMedia?.instagram || ''}
+                value={form.values.extendedProfile?.communication?.socialMedia?.instagram || ''}
                 onChange={(e) =>
                   form.setFieldValue('extendedProfile.communication.socialMedia.instagram', e.currentTarget.value)
                 }
@@ -153,7 +153,7 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
               <TextInput
                 label="Facebook"
                 placeholder="@username"
-                value={form.values.extendedProfile?.communication.socialMedia?.facebook || ''}
+                value={form.values.extendedProfile?.communication?.socialMedia?.facebook || ''}
                 onChange={(e) =>
                   form.setFieldValue('extendedProfile.communication.socialMedia.facebook', e.currentTarget.value)
                 }
@@ -168,7 +168,7 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
             <Stack gap="md">
               <TextInput
                 label="Comment nous avez-vous connus ?"
-                value={form.values.extendedProfile?.engagement.howDidYouKnowUs || ''}
+                value={form.values.extendedProfile?.engagement?.howDidYouKnowUs || ''}
                 onChange={(e) =>
                   form.setFieldValue('extendedProfile.engagement.howDidYouKnowUs', e.currentTarget.value)
                 }
@@ -176,7 +176,7 @@ export function ExtendedProfileForm({ form }: ExtendedProfileFormProps) {
 
               <Textarea
                 label="Suggestions"
-                value={form.values.extendedProfile?.engagement.suggestions || ''}
+                value={form.values.extendedProfile?.engagement?.suggestions || ''}
                 onChange={(e) =>
                   form.setFieldValue('extendedProfile.engagement.suggestions', e.currentTarget.value)
                 }

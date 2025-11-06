@@ -1,4 +1,4 @@
-import { Stack, Title, Text, TextInput, MultiSelect, Group, Button, Textarea } from '@mantine/core';
+import { Stack, Title, Text, MultiSelect, Group, Button, Textarea } from '@mantine/core';
 import type { UseFormReturnType } from '@mantine/form';
 import { IconHeart } from '@tabler/icons-react';
 import type { ExtendedSignupFormData } from '../../../../shared/types/user';

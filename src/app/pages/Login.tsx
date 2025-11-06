@@ -20,8 +20,6 @@ import {
   authPaperStyles,
   authTitleStyles,
   authSubtitleStyles,
-  authButtonStyles,
-  authButtonOutlineStyles,
   authLinkStyles,
 } from '../../shared/styles/authStyles';
 

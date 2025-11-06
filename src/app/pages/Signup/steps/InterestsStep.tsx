@@ -31,17 +31,14 @@ const AVAILABLE_INTERESTS = [
   'Musique',
 ];
 
-export const InterestsStep = ({ form, onNext, onBack }: InterestsStepProps) => {
-  const [selectedInterests, setSelectedInterests] = useState<string[]>(
-    form.values.interests || []
-  );
+export const InterestsStep = ({ onNext, onBack }: InterestsStepProps) => {
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
   const toggleInterest = (interest: string) => {
     const newInterests = selectedInterests.includes(interest)
       ? selectedInterests.filter((i) => i !== interest)
       : [...selectedInterests, interest];
     setSelectedInterests(newInterests);
-    form.setFieldValue('interests', newInterests);
   };
 
   const handleNext = () => {

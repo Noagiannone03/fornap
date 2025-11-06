@@ -96,7 +96,7 @@ export function UserCreatePage() {
   const [linkedin, setLinkedin] = useState('');
   const [tiktok, setTiktok] = useState('');
   const [youtube, setYoutube] = useState('');
-  const [blog, setBlog] = useState('');
+  const [blog] = useState('');
   const [website, setWebsite] = useState('');
   const [publicProfileConsent, setPublicProfileConsent] = useState(false);
   const [publicProfileLevel, setPublicProfileLevel] = useState<PublicProfileLevel>('none');

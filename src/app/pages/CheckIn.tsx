@@ -20,7 +20,7 @@ import { IconUser, IconMail, IconPhone, IconCalendar } from '@tabler/icons-react
 export const CheckIn = () => {
   const [memberProfile, setMemberProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
 
   const handleScan = async (uid: string) => {
     try {
@@ -52,7 +52,7 @@ export const CheckIn = () => {
     setError(null);
   };
 
-  const isSubscriptionActive = memberProfile?.subscription?.status === 'active';
+  const isSubscriptionActive = memberProfile?.currentMembership?.status === 'active';
 
   return (
     <Container size="md" py={40}>
@@ -181,12 +181,12 @@ export const CheckIn = () => {
                     </Group>
                   )}
 
-                  {memberProfile.dateOfBirth && (
+                  {memberProfile.birthDate && (
                     <Group gap="sm">
                       <IconCalendar size={20} />
                       <Text fw={600}>Date de naissance:</Text>
                       <Text c="dimmed">
-                        {new Date(memberProfile.dateOfBirth).toLocaleDateString(
+                        {memberProfile.birthDate.toDate().toLocaleDateString(
                           'fr-FR'
                         )}
                       </Text>
@@ -203,7 +203,7 @@ export const CheckIn = () => {
                   ABONNEMENT
                 </Title>
 
-                {memberProfile.subscription ? (
+                {memberProfile.currentMembership ? (
                   <Stack gap="sm">
                     <Group justify="space-between">
                       <Text fw={600}>Type:</Text>
@@ -213,7 +213,7 @@ export const CheckIn = () => {
                         size="lg"
                         styles={{ root: { borderWidth: 2, fontWeight: 700 } }}
                       >
-                        {memberProfile.subscription.type.toUpperCase()}
+                        {memberProfile.currentMembership.planType.toUpperCase()}
                       </Badge>
                     </Group>
 
@@ -229,13 +229,11 @@ export const CheckIn = () => {
                       </Badge>
                     </Group>
 
-                    {memberProfile.subscription.endDate && (
+                    {memberProfile.currentMembership.expiryDate && (
                       <Group justify="space-between">
                         <Text fw={600}>Date d'expiration:</Text>
                         <Text c="dimmed">
-                          {new Date(
-                            memberProfile.subscription.endDate
-                          ).toLocaleDateString('fr-FR')}
+                          {memberProfile.currentMembership.expiryDate.toDate().toLocaleDateString('fr-FR')}
                         </Text>
                       </Group>
                     )}

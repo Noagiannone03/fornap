@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Container,
   Title,
-  Paper,
   Group,
   Button,
   Stack,
@@ -57,7 +56,7 @@ export function EventEditPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [event, setEvent] = useState<Event | null>(null);
+  const [, setEvent] = useState<Event | null>(null);
 
   // Basic info
   const [title, setTitle] = useState('');
@@ -812,7 +811,7 @@ export function EventEditPage() {
                   <NumberInput
                     label="Nombre maximum de billets par utilisateur"
                     value={maxTicketsPerUser}
-                    onChange={(value) => setMaxTicketsPerUser(value || 10)}
+                    onChange={(value) => setMaxTicketsPerUser(typeof value === 'number' ? value : 10)}
                     min={1}
                   />
                 </Grid.Col>
@@ -820,7 +819,7 @@ export function EventEditPage() {
                   <NumberInput
                     label="Âge minimum (optionnel)"
                     value={minAge}
-                    onChange={(value) => setMinAge(value || undefined)}
+                    onChange={(value) => setMinAge(typeof value === 'number' ? value : undefined)}
                     min={0}
                   />
                 </Grid.Col>

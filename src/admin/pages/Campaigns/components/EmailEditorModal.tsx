@@ -79,9 +79,18 @@ export const EmailEditorModal = forwardRef<EmailEditorModalHandle, EmailEditorMo
           inner: { padding: 0 },
         }}
       >
-        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: 'white',
+        }}>
           {/* Header */}
-          <Paper p="md" shadow="sm" style={{ borderBottom: '1px solid #e0e0e0', flexShrink: 0 }}>
+          <Paper p="md" shadow="sm" style={{ borderBottom: '1px solid #e0e0e0', flexShrink: 0, zIndex: 10 }}>
             <Group justify="space-between">
               <div>
                 <Text fw={700} size="lg">
@@ -111,11 +120,18 @@ export const EmailEditorModal = forwardRef<EmailEditorModalHandle, EmailEditorMo
           </Paper>
 
           {/* Editor */}
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          <div style={{
+            position: 'absolute',
+            top: '80px',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            overflow: 'hidden',
+          }}>
             <EmailEditor
               ref={emailEditorRef}
               onReady={onEmailEditorReady}
-              style={{ height: '100%', width: '100%' }}
+              minHeight="100%"
               options={{
                 displayMode: 'email',
                 locale: 'fr-FR',

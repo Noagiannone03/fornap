@@ -76,8 +76,10 @@ export function CampaignEditPage() {
   const [estimatedCount, setEstimatedCount] = useState(0);
 
   // Étape 3: Contenu email
+  const [emailType, setEmailType] = useState<'html' | 'design'>('design');
   const [emailDesign, setEmailDesign] = useState<any>(null);
   const [emailHtml, setEmailHtml] = useState('');
+  const [emailBody, setEmailBody] = useState('');
   const [editorOpened, setEditorOpened] = useState(false);
 
   // Étape 4: Planification
@@ -134,6 +136,25 @@ export function CampaignEditPage() {
 
       setEmailDesign(campaign.content.design);
       setEmailHtml(campaign.content.html);
+
+      // Détecter si c'est un email simple ou design
+      if (!campaign.content.design && campaign.content.html) {
+        // Essayer d'extraire le corps simple si c'est un email basique
+        const match = campaign.content.html.match(/<div[^>]*>([\s\S]*?)<\/div>/);
+        if (match) {
+          const bodyText = match[1].replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
+          if (bodyText.trim()) {
+            setEmailType('html');
+            setEmailBody(bodyText);
+          } else {
+            setEmailType('design');
+          }
+        } else {
+          setEmailType('design');
+        }
+      } else {
+        setEmailType('design');
+      }
 
       setSendImmediately(campaign.sendImmediately);
       setScheduledDate(campaign.scheduledAt ? campaign.scheduledAt.toDate() : null);
@@ -242,6 +263,26 @@ export function CampaignEditPage() {
     try {
       setLoading(true);
 
+      // Générer le HTML pour l'email simple si nécessaire
+      let finalHtml = emailHtml;
+      if (emailType === 'html' && emailBody) {
+        // Convertir le texte simple en HTML basique
+        const bodyWithBreaks = emailBody.replace(/\n/g, '<br>');
+        finalHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+    ${bodyWithBreaks}
+  </div>
+</body>
+</html>`.trim();
+      }
+
       // Mettre à jour les données de la campagne
       const updateData: UpdateCampaignData = {
         name,
@@ -250,7 +291,7 @@ export function CampaignEditPage() {
           subject,
           preheader,
           design: emailDesign,
-          html: emailHtml,
+          html: finalHtml,
           fromName,
           fromEmail,
           replyTo: replyTo || undefined,
@@ -514,55 +555,110 @@ export function CampaignEditPage() {
             </Text>
           </div>
 
-          <Card withBorder p="xl">
-            <Stack gap="md" align="center">
-              {emailHtml ? (
-                <>
-                  <ThemeIcon size={60} radius="xl" variant="light" color="green">
-                    <IconCheck size={32} />
+          {emailType === 'html' ? (
+            <Card withBorder p="lg">
+              <Stack gap="md">
+                <Group>
+                  <ThemeIcon size="lg" variant="light" color="blue">
+                    <IconMail size={20} />
                   </ThemeIcon>
-                  <Text fw={600} size="lg">
-                    Email configuré
-                  </Text>
-                  <Text size="sm" c="dimmed" ta="center">
-                    Votre email est enregistré. Vous pouvez le modifier ou continuer.
-                  </Text>
-                  <Group>
+                  <Text fw={600}>Email classique</Text>
+                </Group>
+                <TextInput
+                  label="Sujet de l'email"
+                  placeholder="Ex: Nouvelle fonctionnalité disponible"
+                  value={subject}
+                  onChange={(e) => setSubject(e.currentTarget.value)}
+                  required
+                  leftSection={<IconMail size={18} />}
+                />
+                <Textarea
+                  label="Corps du message"
+                  description="Rédigez le contenu de votre email"
+                  placeholder="Bonjour,&#10;&#10;Nous sommes ravis de vous annoncer...&#10;&#10;Cordialement,&#10;L'équipe FORNAP"
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.currentTarget.value)}
+                  minRows={12}
+                  required
+                />
+              </Stack>
+            </Card>
+          ) : (
+            <Card withBorder p="xl">
+              <Stack gap="md" align="center">
+                {emailHtml ? (
+                  <>
+                    <ThemeIcon size={60} radius="xl" variant="light" color="green">
+                      <IconCheck size={32} />
+                    </ThemeIcon>
+                    <Text fw={600} size="lg">
+                      Email configuré
+                    </Text>
+                    <Text size="sm" c="dimmed" ta="center">
+                      Votre email est enregistré. Vous pouvez le modifier ou continuer.
+                    </Text>
+                    <Group>
+                      <Button
+                        variant="light"
+                        leftSection={<IconEdit size={18} />}
+                        onClick={handleOpenEmailEditor}
+                        size="lg"
+                      >
+                        Modifier l'email
+                      </Button>
+                    </Group>
+                  </>
+                ) : (
+                  <>
+                    <ThemeIcon size={60} radius="xl" variant="light">
+                      <IconMail size={32} />
+                    </ThemeIcon>
+                    <Text fw={600} size="lg">
+                      Créez votre email
+                    </Text>
+                    <Text size="sm" c="dimmed" ta="center" maw={400}>
+                      Utilisez l'éditeur drag & drop pour créer un email design
+                    </Text>
                     <Button
-                      variant="light"
                       leftSection={<IconEdit size={18} />}
                       onClick={handleOpenEmailEditor}
                       size="lg"
                     >
-                      Modifier l'email
+                      Ouvrir l'éditeur d'email
                     </Button>
-                  </Group>
-                </>
-              ) : (
-                <>
-                  <ThemeIcon size={60} radius="xl" variant="light">
-                    <IconMail size={32} />
-                  </ThemeIcon>
-                  <Text fw={600} size="lg">
-                    Créez votre email
-                  </Text>
-                  <Text size="sm" c="dimmed" ta="center" maw={400}>
-                    Utilisez notre éditeur professionnel pour créer un email attrayant
-                    en glissant-déposant des éléments
-                  </Text>
-                  <Button
-                    leftSection={<IconEdit size={18} />}
-                    onClick={handleOpenEmailEditor}
-                    size="lg"
-                  >
-                    Ouvrir l'éditeur d'email
-                  </Button>
-                </>
-              )}
-            </Stack>
-          </Card>
+                  </>
+                )}
+              </Stack>
+            </Card>
+          )}
 
-          {emailHtml && (
+          {emailType === 'html' && emailBody && (
+            <Card withBorder>
+              <Stack gap="xs">
+                <Text fw={600} size="sm">
+                  Aperçu de l'email
+                </Text>
+                <Box
+                  p="md"
+                  style={{
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '8px',
+                    border: '1px solid #dee2e6',
+                  }}
+                >
+                  <Text size="sm" fw={600} mb="xs">
+                    Sujet: {subject}
+                  </Text>
+                  <Divider my="sm" />
+                  <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+                    {emailBody}
+                  </Text>
+                </Box>
+              </Stack>
+            </Card>
+          )}
+
+          {emailType === 'design' && emailHtml && (
             <Card withBorder>
               <Stack gap="xs">
                 <Text fw={600} size="sm">

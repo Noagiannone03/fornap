@@ -79,6 +79,7 @@ export function CampaignCreatePage() {
   const [emailType, setEmailType] = useState<'html' | 'design'>('design');
   const [emailDesign, setEmailDesign] = useState<any>(null);
   const [emailHtml, setEmailHtml] = useState('');
+  const [emailBody, setEmailBody] = useState('');
   const [editorOpened, setEditorOpened] = useState(false);
 
   // Étape 4: Planification
@@ -122,13 +123,24 @@ export function CampaignCreatePage() {
         return;
       }
     } else if (active === 2) {
-      if (!emailHtml || emailHtml.trim() === '') {
-        notifications.show({
-          title: 'Erreur',
-          message: 'Le contenu de l\'email est requis. Veuillez créer votre email.',
-          color: 'red',
-        });
-        return;
+      if (emailType === 'html') {
+        if (!subject.trim() || !emailBody.trim()) {
+          notifications.show({
+            title: 'Erreur',
+            message: 'Le sujet et le corps de l\'email sont requis.',
+            color: 'red',
+          });
+          return;
+        }
+      } else {
+        if (!emailHtml || emailHtml.trim() === '') {
+          notifications.show({
+            title: 'Erreur',
+            message: 'Le contenu de l\'email est requis. Veuillez créer votre email.',
+            color: 'red',
+          });
+          return;
+        }
       }
     } else if (active === 3) {
       if (!sendImmediately && !scheduledDate) {
@@ -175,6 +187,26 @@ export function CampaignCreatePage() {
     try {
       setLoading(true);
 
+      // Générer le HTML pour l'email simple si nécessaire
+      let finalHtml = emailHtml;
+      if (emailType === 'html' && emailBody) {
+        // Convertir le texte simple en HTML basique
+        const bodyWithBreaks = emailBody.replace(/\n/g, '<br>');
+        finalHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+    ${bodyWithBreaks}
+  </div>
+</body>
+</html>`.trim();
+      }
+
       // Créer les données de la campagne
       const campaignData: CreateCampaignData = {
         name,
@@ -183,7 +215,7 @@ export function CampaignCreatePage() {
           subject,
           preheader,
           design: emailDesign,
-          html: emailHtml,
+          html: finalHtml,
           fromName,
           fromEmail,
           replyTo: replyTo || undefined,
@@ -449,7 +481,7 @@ export function CampaignCreatePage() {
             </Text>
           </div>
 
-          {!emailHtml ? (
+          {(emailType === 'html' && !emailBody) || (emailType === 'design' && !emailHtml) ? (
             <Card withBorder p="lg">
               <Stack gap="md">
                 <Text fw={600}>Choisissez le type d'email</Text>
@@ -468,11 +500,11 @@ export function CampaignCreatePage() {
                     >
                       <Stack gap="md" align="center">
                         <ThemeIcon size={48} radius="xl" variant="light" color="blue">
-                          <IconCode size={24} />
+                          <IconMail size={24} />
                         </ThemeIcon>
-                        <Text fw={600} ta="center">Email HTML classique</Text>
+                        <Text fw={600} ta="center">Email classique</Text>
                         <Text size="sm" c="dimmed" ta="center">
-                          Éditez directement le code HTML de votre email
+                          Composez un email simple avec sujet et message
                         </Text>
                       </Stack>
                     </Card>
@@ -503,20 +535,25 @@ export function CampaignCreatePage() {
                 </Grid>
 
                 {emailType === 'html' ? (
-                  <Textarea
-                    label="Code HTML de l'email"
-                    description="Entrez le code HTML complet de votre email"
-                    placeholder="<html>...</html>"
-                    value={emailHtml}
-                    onChange={(e) => setEmailHtml(e.currentTarget.value)}
-                    minRows={15}
-                    styles={{
-                      input: {
-                        fontFamily: 'monospace',
-                        fontSize: '13px',
-                      },
-                    }}
-                  />
+                  <Stack gap="md">
+                    <TextInput
+                      label="Sujet de l'email"
+                      placeholder="Ex: Nouvelle fonctionnalité disponible"
+                      value={subject}
+                      onChange={(e) => setSubject(e.currentTarget.value)}
+                      required
+                      leftSection={<IconMail size={18} />}
+                    />
+                    <Textarea
+                      label="Corps du message"
+                      description="Rédigez le contenu de votre email"
+                      placeholder="Bonjour,&#10;&#10;Nous sommes ravis de vous annoncer...&#10;&#10;Cordialement,&#10;L'équipe FORNAP"
+                      value={emailBody}
+                      onChange={(e) => setEmailBody(e.currentTarget.value)}
+                      minRows={12}
+                      required
+                    />
+                  </Stack>
                 ) : (
                   <Box ta="center" py="xl">
                     <Button
@@ -528,6 +565,41 @@ export function CampaignCreatePage() {
                     </Button>
                   </Box>
                 )}
+              </Stack>
+            </Card>
+          ) : emailType === 'html' && emailBody ? (
+            <Card withBorder p="xl">
+              <Stack gap="md" align="center">
+                <ThemeIcon size={60} radius="xl" variant="light" color="green">
+                  <IconCheck size={32} />
+                </ThemeIcon>
+                <Text fw={600} size="lg">
+                  Email créé avec succès
+                </Text>
+                <Text size="sm" c="dimmed" ta="center">
+                  Votre email a été enregistré. Vous pouvez le modifier ou continuer.
+                </Text>
+                <Group>
+                  <Button
+                    variant="light"
+                    leftSection={<IconMail size={18} />}
+                    onClick={() => {
+                      // Scroll back to form
+                    }}
+                    size="lg"
+                  >
+                    Modifier l'email
+                  </Button>
+                  <Button
+                    variant="subtle"
+                    onClick={() => {
+                      setEmailBody('');
+                      setSubject('');
+                    }}
+                  >
+                    Recommencer
+                  </Button>
+                </Group>
               </Stack>
             </Card>
           ) : (
@@ -545,7 +617,7 @@ export function CampaignCreatePage() {
                 <Group>
                   <Button
                     variant="light"
-                    leftSection={emailType === 'html' ? <IconCode size={18} /> : <IconPalette size={18} />}
+                    leftSection={<IconPalette size={18} />}
                     onClick={() => {
                       if (emailType === 'design') {
                         handleOpenEmailEditor();
@@ -553,7 +625,7 @@ export function CampaignCreatePage() {
                     }}
                     size="lg"
                   >
-                    {emailType === 'html' ? 'Modifier le HTML' : 'Modifier avec l\'éditeur'}
+                    Modifier avec l'éditeur
                   </Button>
                   <Button
                     variant="subtle"
@@ -569,28 +641,33 @@ export function CampaignCreatePage() {
             </Card>
           )}
 
-          {emailType === 'html' && emailHtml && (
-            <Card withBorder p="xl">
-              <Stack gap="md" align="center">
-                <ThemeIcon size={60} radius="xl" variant="light" color="green">
-                  <IconCheck size={32} />
-                </ThemeIcon>
-                <Text fw={600} size="lg">
-                  Email HTML configuré
+          {emailType === 'html' && emailBody && (
+            <Card withBorder>
+              <Stack gap="xs">
+                <Text fw={600} size="sm">
+                  Aperçu de l'email
                 </Text>
-                <Button
-                  variant="light"
-                  leftSection={<IconCode size={18} />}
-                  onClick={() => {}}
-                  size="lg"
+                <Box
+                  p="md"
+                  style={{
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '8px',
+                    border: '1px solid #dee2e6',
+                  }}
                 >
-                  Modifier le HTML
-                </Button>
+                  <Text size="sm" fw={600} mb="xs">
+                    Sujet: {subject}
+                  </Text>
+                  <Divider my="sm" />
+                  <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+                    {emailBody}
+                  </Text>
+                </Box>
               </Stack>
             </Card>
           )}
 
-          {emailHtml && (
+          {emailType === 'design' && emailHtml && (
             <Card withBorder>
               <Stack gap="xs">
                 <Text fw={600} size="sm">

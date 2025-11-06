@@ -185,9 +185,6 @@ export async function createAdmin(
     }
 
     // Vérifier les permissions du créateur
-    let creatorEmail: string | null = null;
-    let creatorPassword: string | null = null;
-
     if (creatorUid) {
       const creator = await getAdminById(creatorUid);
       if (!creator) {
@@ -201,9 +198,6 @@ export async function createAdmin(
       if (!canCreateAdminWithRole(creator.role, adminData.role)) {
         throw new Error('Vous ne pouvez pas créer un administrateur avec ce rôle');
       }
-
-      // Sauvegarder l'email du créateur pour se reconnecter après
-      creatorEmail = auth.currentUser?.email || null;
     }
 
     // Créer le compte Firebase Auth

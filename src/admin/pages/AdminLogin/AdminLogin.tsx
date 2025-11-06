@@ -77,7 +77,7 @@ export function AdminLogin() {
     <Box
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: '#f8f9fa',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -85,15 +85,15 @@ export function AdminLogin() {
       }}
     >
       <Container size={460}>
-        <Paper shadow="xl" p={40} radius="md" withBorder>
+        <Paper shadow="md" p={40} radius="lg" withBorder style={{ backgroundColor: 'white' }}>
           {/* Header avec icône */}
           <Center mb="xl">
-            <ThemeIcon size={80} radius={80} variant="gradient" gradient={{ from: 'indigo', to: 'violet' }}>
+            <ThemeIcon size={80} radius={80} variant="light" color="blue">
               <IconShield size={50} />
             </ThemeIcon>
           </Center>
 
-          <Title order={2} ta="center" mb="xs">
+          <Title order={2} ta="center" mb="xs" style={{ color: '#1a1b1e' }}>
             Panel Administrateur
           </Title>
 

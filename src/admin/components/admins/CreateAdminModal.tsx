@@ -76,14 +76,20 @@ export function CreateAdminModal({ opened, onClose, onSuccess }: CreateAdminModa
       await createAdmin(adminProfile.uid, values);
 
       notifications.show({
-        title: 'Succès',
-        message: 'Administrateur créé avec succès',
-        color: 'green',
+        title: 'Admin créé !',
+        message: 'Vous allez être déconnecté. Reconnectez-vous avec vos identifiants.',
+        color: 'blue',
+        autoClose: 5000,
       });
 
       form.reset();
       onSuccess();
       onClose();
+
+      // Informer l'utilisateur qu'il va être déconnecté
+      setTimeout(() => {
+        window.location.href = '/admin/login';
+      }, 2000);
     } catch (err: any) {
       console.error('Create admin error:', err);
       setError(err.message || 'Erreur lors de la création de l\'administrateur');

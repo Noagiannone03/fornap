@@ -63,7 +63,7 @@ export async function sendSingleEmail(
       to: [options.to],
       subject: options.subject,
       html: finalHtml,
-      reply_to: options.replyTo,
+      replyTo: options.replyTo,
       headers,
       tags,
     });
@@ -195,7 +195,8 @@ export async function testResendConnection(): Promise<{
   error?: string;
 }> {
   try {
-    const resend = getResendClient();
+    // Vérifier que le client peut être initialisé
+    getResendClient();
 
     // Essayer d'obtenir des informations sur le compte
     // Resend ne fournit pas d'endpoint de test, donc on simule

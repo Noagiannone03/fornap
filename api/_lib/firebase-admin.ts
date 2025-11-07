@@ -25,23 +25,30 @@ export function getFirebaseAdmin(): admin.app.App {
   } catch (error) {
     // Pas d'app existante, on l'initialise
 
-    // Sur Vercel, on peut utiliser les variables d'environnement
-    // ou les credentials par défaut
     const projectId = process.env.VITE_FIREBASE_PROJECT_ID;
 
     if (!projectId) {
       throw new Error('VITE_FIREBASE_PROJECT_ID non configurée');
     }
 
-    // Initialiser avec les credentials par défaut
-    // Sur Vercel, définir GOOGLE_APPLICATION_CREDENTIALS
-    // ou utiliser les variables d'environnement individuelles
-    app = admin.initializeApp({
-      projectId,
-      // credential: admin.credential.applicationDefault(), // Utilise GOOGLE_APPLICATION_CREDENTIALS
-    });
+    // Initialiser avec les credentials
+    // Option 1: GOOGLE_APPLICATION_CREDENTIALS (fichier JSON)
+    // Option 2: Variables d'environnement individuelles pour Vercel
 
-    console.log('Firebase Admin initialisé');
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      // Utiliser le fichier service account (local)
+      app = admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+        projectId,
+      });
+    } else {
+      // Utiliser les credentials par défaut (Vercel)
+      app = admin.initializeApp({
+        projectId,
+      });
+    }
+
+    console.log('Firebase Admin initialisé avec succès');
 
     return app;
   }

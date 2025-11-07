@@ -13,7 +13,7 @@ dist-ssr
 *.local
 
 # Environment variables (contient des clés API sensibles)
-.env
+# .env  # Commenté pour permettre le commit
 .env.local
 .env.*.local
 

@@ -26,6 +26,7 @@ import {
   IconEye,
   IconClick,
   IconCheck,
+  IconSend,
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -44,6 +45,7 @@ export function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [recipients, setRecipients] = useState<CampaignRecipient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (campaignId) {
@@ -112,6 +114,58 @@ export function CampaignDetailPage() {
         message: 'Impossible d\'annuler la campagne',
         color: 'red',
       });
+    }
+  };
+
+  const handleSendNow = async () => {
+    if (!campaign || !campaignId) return;
+
+    const confirmed = window.confirm(
+      `Êtes-vous sûr de vouloir envoyer la campagne "${campaign.name}" maintenant ?\n\n` +
+      `Cela enverra ${campaign.stats.totalRecipients} emails.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setSending(true);
+
+      // Appeler l'API d'envoi
+      const apiUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      const response = await fetch(`${apiUrl}/api/campaigns/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ campaignId }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        notifications.show({
+          title: 'Envoi démarré',
+          message: `L'envoi de ${campaign.stats.totalRecipients} emails a été démarré avec succès`,
+          color: 'green',
+          autoClose: 5000,
+        });
+
+        // Recharger la campagne pour voir le nouveau statut
+        await loadCampaign();
+        await loadRecipients();
+      } else {
+        throw new Error(data.message || 'Erreur lors du démarrage de l\'envoi');
+      }
+    } catch (error: any) {
+      console.error('Error sending campaign:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: error.message || 'Impossible de démarrer l\'envoi de la campagne',
+        color: 'red',
+        autoClose: 10000,
+      });
+    } finally {
+      setSending(false);
     }
   };
 
@@ -186,13 +240,24 @@ export function CampaignDetailPage() {
           </div>
           <Group>
             {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
-              <Button
-                leftSection={<IconEdit size={18} />}
-                variant="light"
-                onClick={() => navigate(`/admin/campaigns/${campaignId}/edit`)}
-              >
-                Modifier
-              </Button>
+              <>
+                <Button
+                  leftSection={<IconSend size={18} />}
+                  color="green"
+                  onClick={handleSendNow}
+                  loading={sending}
+                  disabled={campaign.stats.totalRecipients === 0}
+                >
+                  Envoyer maintenant
+                </Button>
+                <Button
+                  leftSection={<IconEdit size={18} />}
+                  variant="light"
+                  onClick={() => navigate(`/admin/campaigns/${campaignId}/edit`)}
+                >
+                  Modifier
+                </Button>
+              </>
             )}
             {(campaign.status === 'scheduled' || campaign.status === 'sending') && (
               <Button

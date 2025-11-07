@@ -75,11 +75,14 @@ export async function publishEmailBatch(
     // Publier le message
     const response = await client.publishJSON(publishOptions);
 
-    console.log(`Batch publié avec succès - Message ID: ${response.messageId}`);
+    // Extraire le messageId de manière sûre
+    const messageId = 'messageId' in response ? response.messageId : undefined;
+
+    console.log(`Batch publié avec succès - Message ID: ${messageId}`);
 
     return {
       success: true,
-      messageId: response.messageId,
+      messageId,
     };
   } catch (error) {
     console.error('Erreur lors de la publication dans QStash:', error);
@@ -170,7 +173,7 @@ export async function verifyQStashSignature(
 
     // QStash envoie deux signatures: current et next
     // Format: "current_signature next_signature"
-    const [currentSig, nextSig] = signature.split(' ');
+    const [currentSig] = signature.split(' ');
 
     if (!currentSig) {
       return {

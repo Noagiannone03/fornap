@@ -130,8 +130,8 @@ export function CampaignDetailPage() {
     try {
       setSending(true);
 
-      // Appeler l'API d'envoi
-      const apiUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      // Appeler l'API d'envoi (toujours utiliser l'origin actuel)
+      const apiUrl = window.location.origin;
       const response = await fetch(`${apiUrl}/api/campaigns/send`, {
         method: 'POST',
         headers: {

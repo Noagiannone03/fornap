@@ -97,7 +97,8 @@ export function EmailDiagnosticsPage() {
     setConfigChecks(checks);
 
     try {
-      const apiUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      // Toujours utiliser l'origin de la page actuelle (production ou dev)
+      const apiUrl = window.location.origin;
       const response = await fetch(`${apiUrl}/api/diagnostics/config`);
       const data = await response.json();
 
@@ -141,7 +142,7 @@ export function EmailDiagnosticsPage() {
     setServiceStatuses(initialStatuses);
 
     try {
-      const apiUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      const apiUrl = window.location.origin;
       const response = await fetch(`${apiUrl}/api/diagnostics/services`);
       const data = await response.json();
 
@@ -211,7 +212,7 @@ export function EmailDiagnosticsPage() {
     setLastTestResult(null);
 
     try {
-      const apiUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      const apiUrl = window.location.origin;
       const response = await fetch(`${apiUrl}/api/diagnostics/test-email`, {
         method: 'POST',
         headers: {

@@ -21,6 +21,7 @@ import { DemographicsAnalyticsPage } from './pages/Analytics/DemographicsAnalyti
 import { EngagementAnalyticsPage } from './pages/Analytics/EngagementAnalyticsPage';
 import { EventStatsPage } from './pages/Analytics/EventStatsPage';
 import { CampaignsListPage, CampaignCreatePage, CampaignEditPage, CampaignDetailPage } from './pages/Campaigns';
+import { EmailDiagnosticsPage } from './pages/EmailDiagnostics';
 
 export function AdminRoutes() {
   return (
@@ -58,6 +59,7 @@ export function AdminRoutes() {
           <Route path="campaigns/create" element={<CampaignCreatePage />} />
           <Route path="campaigns/:campaignId" element={<CampaignDetailPage />} />
           <Route path="campaigns/:campaignId/edit" element={<CampaignEditPage />} />
+          <Route path="campaigns/diagnostics" element={<EmailDiagnosticsPage />} />
 
           {/* Routes Analytics */}
           <Route path="analytics" element={<Navigate to="analytics/overview" replace />} />

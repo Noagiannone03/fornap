@@ -29,6 +29,7 @@ import {
   IconX,
   IconCopy,
   IconMail,
+  IconBug,
 } from '@tabler/icons-react';
 import { ThemeIcon } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
@@ -307,12 +308,21 @@ export function CampaignsListPage() {
               Gérez vos campagnes d'emailing et suivez leurs performances
             </Text>
           </div>
-          <Button
-            leftSection={<IconPlus size={18} />}
-            onClick={() => navigate('/admin/campaigns/create')}
-          >
-            Nouvelle campagne
-          </Button>
+          <Group>
+            <Button
+              variant="light"
+              leftSection={<IconBug size={18} />}
+              onClick={() => navigate('/admin/campaigns/diagnostics')}
+            >
+              Diagnostics
+            </Button>
+            <Button
+              leftSection={<IconPlus size={18} />}
+              onClick={() => navigate('/admin/campaigns/create')}
+            >
+              Nouvelle campagne
+            </Button>
+          </Group>
         </Group>
 
         {/* Filters */}

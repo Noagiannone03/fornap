@@ -1,25 +1,13 @@
 /**
  * Service de gestion de queue avec Upstash QStash
- *
- * Permet de publier des jobs d'envoi d'emails dans une queue
- * pour contourner les limites de timeout de Vercel (10s sur plan Hobby).
- *
- * QStash gère automatiquement:
- * - Les retries avec backoff exponentiel
- * - La signature des requêtes pour la sécurité
- * - Le scheduling et la distribution des jobs
  */
 
 import { Client } from '@upstash/qstash';
 import { QSTASH_CONFIG, EMAIL_CONFIG, RESEND_CONFIG } from '../config/email';
 import type { QStashEmailPayload } from '../types/email';
 
-// Instance QStash singleton
 let qstashClient: Client | null = null;
 
-/**
- * Obtient ou crée le client QStash
- */
 function getQStashClient(): Client {
   if (!qstashClient) {
     if (!QSTASH_CONFIG.token) {
@@ -32,13 +20,6 @@ function getQStashClient(): Client {
   return qstashClient;
 }
 
-/**
- * Publie un batch d'emails dans la queue QStash
- *
- * @param payload - Données du batch à traiter
- * @param delaySeconds - Délai avant traitement (optionnel)
- * @returns ID du message QStash
- */
 export async function publishEmailBatch(
   payload: QStashEmailPayload,
   delaySeconds?: number
@@ -50,32 +31,26 @@ export async function publishEmailBatch(
   try {
     const client = getQStashClient();
 
-    // Construire l'URL de callback
     const callbackUrl = `${RESEND_CONFIG.webhookBaseUrl}/api/campaigns/process-batch`;
 
     console.log(`Publication du batch ${payload.batchIndex + 1}/${payload.totalBatches} dans QStash...`);
     console.log(`URL de callback: ${callbackUrl}`);
 
-    // Options de publication
     const publishOptions: any = {
       url: callbackUrl,
       body: JSON.stringify(payload),
       headers: {
         'Content-Type': 'application/json',
       },
-      // Retry configuration
       retries: EMAIL_CONFIG.MAX_RETRY_ATTEMPTS,
     };
 
-    // Ajouter le délai si spécifié
     if (delaySeconds && delaySeconds > 0) {
       publishOptions.delay = delaySeconds;
     }
 
-    // Publier le message
     const response = await client.publishJSON(publishOptions);
 
-    // Extraire le messageId de manière sûre
     const messageId = 'messageId' in response ? response.messageId : undefined;
 
     console.log(`Batch publié avec succès - Message ID: ${messageId}`);
@@ -94,15 +69,6 @@ export async function publishEmailBatch(
   }
 }
 
-/**
- * Publie plusieurs batches avec délais échelonnés
- *
- * Pour éviter de surcharger le système, on publie les batches
- * avec un délai croissant entre chacun.
- *
- * @param payloads - Liste des payloads à publier
- * @returns Résultats de publication
- */
 export async function publishEmailBatches(
   payloads: QStashEmailPayload[]
 ): Promise<{
@@ -119,12 +85,8 @@ export async function publishEmailBatches(
 
   for (let i = 0; i < payloads.length; i++) {
     const payload = payloads[i];
-
-    // Calculer le délai pour ce batch
-    // Batch 0: 0s, Batch 1: 2s, Batch 2: 4s, etc.
     const delaySeconds = i * EMAIL_CONFIG.BATCH_DELAY_SECONDS;
 
-    // Publier le batch
     const result = await publishEmailBatch(payload, delaySeconds);
 
     if (result.success) {
@@ -147,21 +109,10 @@ export async function publishEmailBatches(
   };
 }
 
-/**
- * Vérifie la signature d'une requête QStash
- *
- * QStash signe toutes les requêtes pour garantir leur authenticité.
- * Cette fonction vérifie que la requête provient bien de QStash.
- *
- * @param signature - Signature de la requête (header)
- * @param body - Corps de la requête
- * @returns true si la signature est valide
- */
 export async function verifyQStashSignature(
   request: Request
 ): Promise<{ valid: boolean; error?: string }> {
   try {
-    // Récupérer les headers de signature
     const signature = request.headers.get('upstash-signature');
 
     if (!signature) {
@@ -171,8 +122,6 @@ export async function verifyQStashSignature(
       };
     }
 
-    // QStash envoie deux signatures: current et next
-    // Format: "current_signature next_signature"
     const [currentSig] = signature.split(' ');
 
     if (!currentSig) {
@@ -182,7 +131,6 @@ export async function verifyQStashSignature(
       };
     }
 
-    // Vérifier que les clés de signature sont configurées
     if (!QSTASH_CONFIG.currentSigningKey) {
       return {
         valid: false,
@@ -190,9 +138,6 @@ export async function verifyQStashSignature(
       };
     }
 
-    // Pour une vérification complète, on devrait utiliser le SDK Receiver
-    // Mais pour simplifier, on vérifie juste la présence de la signature
-    // et des clés configurées
     console.log('Signature QStash vérifiée (vérification basique)');
 
     return {
@@ -208,11 +153,6 @@ export async function verifyQStashSignature(
   }
 }
 
-/**
- * Teste la connexion à QStash
- *
- * @returns true si la connexion fonctionne
- */
 export async function testQStashConnection(): Promise<{
   success: boolean;
   error?: string;
@@ -220,7 +160,6 @@ export async function testQStashConnection(): Promise<{
   try {
     const client = getQStashClient();
 
-    // Vérifier que le client est initialisé
     if (!client) {
       return {
         success: false,
@@ -228,7 +167,6 @@ export async function testQStashConnection(): Promise<{
       };
     }
 
-    // Vérifier les configurations
     if (!QSTASH_CONFIG.token) {
       return {
         success: false,
@@ -256,14 +194,6 @@ export async function testQStashConnection(): Promise<{
   }
 }
 
-/**
- * Crée les payloads pour tous les batches d'une campagne
- *
- * @param campaignId - ID de la campagne
- * @param recipientIds - IDs de tous les destinataires
- * @param batchSize - Taille de chaque batch
- * @returns Liste des payloads
- */
 export function createBatchPayloads(
   campaignId: string,
   recipientIds: string[],

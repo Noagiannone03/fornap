@@ -1,7 +1,5 @@
 /**
  * Route API: Tester les connexions aux services externes
- * 
- * Endpoint: GET /api/diagnostics/services
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -20,12 +18,10 @@ export default async function handler(
   try {
     console.log('=== Test des services externes ===');
 
-    // Tester Resend
     console.log('Test de Resend...');
     const resendTest = await testResendConnection();
     console.log('Résultat Resend:', resendTest);
 
-    // Tester QStash
     console.log('Test de QStash...');
     const qstashTest = await testQStashConnection();
     console.log('Résultat QStash:', qstashTest);
@@ -57,4 +53,3 @@ export default async function handler(
     });
   }
 }
-

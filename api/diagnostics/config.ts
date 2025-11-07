@@ -1,7 +1,5 @@
 /**
  * Route API: Vérifier la configuration des variables d'environnement
- * 
- * Endpoint: GET /api/diagnostics/config
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -16,7 +14,6 @@ export default async function handler(
   }
 
   try {
-    // Vérifier les variables d'environnement (sans exposer les valeurs)
     const config = {
       RESEND_API_KEY: !!process.env.RESEND_API_KEY,
       QSTASH_TOKEN: !!process.env.QSTASH_TOKEN,
@@ -43,4 +40,3 @@ export default async function handler(
     });
   }
 }
-

@@ -1,7 +1,5 @@
 /**
  * Route API: Envoyer un email de test
- * 
- * Endpoint: POST /api/diagnostics/test-email
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -30,7 +28,6 @@ export default async function handler(
 
     console.log(`Envoi d'un email de test à ${to}...`);
 
-    // Créer le contenu HTML de l'email de test
     const testHtml = `
 <!DOCTYPE html>
 <html>
@@ -80,7 +77,6 @@ export default async function handler(
 </html>
     `.trim();
 
-    // Envoyer l'email
     const result = await sendSingleEmail({
       to,
       toName: to,
@@ -126,4 +122,3 @@ export default async function handler(
     });
   }
 }
-

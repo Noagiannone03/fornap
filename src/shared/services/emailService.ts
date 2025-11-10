@@ -3,10 +3,10 @@
  */
 
 import { Resend } from 'resend';
-import { RESEND_CONFIG, EMAIL_CONFIG } from '../config/email';
-import type { SendEmailOptions, SendEmailResult } from '../types/email';
-import { prepareTrackedEmail } from './templateService';
-import type { CampaignRecipient } from '../types/campaign';
+import { RESEND_CONFIG, EMAIL_CONFIG } from '../config/email.js';
+import type { SendEmailOptions, SendEmailResult } from '../types/email.js';
+import { prepareTrackedEmail } from './templateService.js';
+import type { CampaignRecipient } from '../types/campaign.js';
 
 let resendInstance: Resend | null = null;
 

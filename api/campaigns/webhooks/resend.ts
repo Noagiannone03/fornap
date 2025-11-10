@@ -16,8 +16,8 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getFirestore } from '../../_lib/firebase-admin';
-import type { ResendWebhookEvent } from '../../../src/shared/types/email';
+import { getFirestore } from '../../_lib/firebase-admin.js';
+import type { ResendWebhookEvent } from '../../../src/shared/types/email.js';
 
 /**
  * Handler principal

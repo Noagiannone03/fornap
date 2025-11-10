@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase/firestore';
-import type { MemberTag, MembershipType, MembershipStatus, ProfessionalStatus } from './user';
+import type { MemberTag, MembershipType, MembershipStatus, ProfessionalStatus } from './user.js';
 
 // ============================================================================
 // TYPES DE BASE

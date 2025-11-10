@@ -3,8 +3,8 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { testResendConnection } from '../../src/shared/services/emailService';
-import { testQStashConnection } from '../../src/shared/services/queueService';
+import { testResendConnection } from '../../src/shared/services/emailService.js';
+import { testQStashConnection } from '../../src/shared/services/queueService.js';
 
 export default async function handler(
   req: VercelRequest,

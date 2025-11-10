@@ -32,7 +32,6 @@ import {
   getUserMembershipHistory,
   toggleAccountBlocked,
   toggleCardBlocked,
-  regenerateQRCode,
 } from '../../../shared/services/userService';
 import type {
   User,
@@ -183,25 +182,8 @@ export function UserDetailPage() {
     }
   };
 
-  const handleRegenerateQR = async () => {
-    if (!uid) return;
-
-    try {
-      await regenerateQRCode(uid, 'current-admin-id');
-      notifications.show({
-        title: 'Succès',
-        message: 'QR code régénéré avec succès',
-        color: 'green',
-      });
-      loadUserData();
-    } catch (error) {
-      notifications.show({
-        title: 'Erreur',
-        message: 'Impossible de régénérer le QR code',
-        color: 'red',
-      });
-    }
-  };
+  // Note: La régénération du QR code n'est plus nécessaire car le QR code
+  // est maintenant basé directement sur l'UID de l'utilisateur, qui ne change jamais.
 
   if (loading || !user) {
     return (
@@ -228,13 +210,6 @@ export function UserDetailPage() {
           <Title order={1}>Détail Utilisateur</Title>
         </Group>
         <Group>
-          <Button
-            variant="light"
-            leftSection={<IconQrcode size={16} />}
-            onClick={handleRegenerateQR}
-          >
-            Régénérer QR
-          </Button>
           <Button
             leftSection={<IconEdit size={16} />}
             onClick={() => navigate(`/admin/users/${uid}/edit`)}
@@ -381,12 +356,12 @@ export function UserDetailPage() {
               <Title order={3} mb="md">QR Code</Title>
               <Group justify="space-between">
                 <div>
-                  <Text size="sm" c="dimmed">Code</Text>
-                  <Text size="lg" fw={500} ff="monospace">{user.qrCode?.code || 'N/A'}</Text>
+                  <Text size="sm" c="dimmed">UID</Text>
+                  <Text size="lg" fw={500} ff="monospace">{user.uid}</Text>
                 </div>
                 <div>
                   <Text size="sm" c="dimmed">Nombre de scans</Text>
-                  <Text size="lg" fw={500}>{user.qrCode?.scanCount || 0}</Text>
+                  <Text size="lg" fw={500}>{user.scanCount || 0}</Text>
                 </div>
               </Group>
             </Paper>

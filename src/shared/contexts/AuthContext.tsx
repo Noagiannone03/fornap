@@ -104,7 +104,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Pour lifetime, expiryDate reste null
 
       // 4. Préparer les données utilisateur de base
-      const userData: Omit<UserType, 'uid' | 'createdAt' | 'updatedAt' | 'qrCode'> = {
+      const userData: Omit<UserType, 'uid' | 'createdAt' | 'updatedAt' | 'scanCount' | 'lastScannedAt'> = {
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,

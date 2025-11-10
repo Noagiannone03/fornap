@@ -40,7 +40,6 @@ export function CreateUserModal({
       tags: [] as MemberTag[],
       isAccountBlocked: false,
       isCardBlocked: false,
-      qrCode: '',
       extendedProfile: undefined,
       adminNotes: '',
     },

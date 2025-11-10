@@ -34,6 +34,7 @@ import {
   IconSearch,
   IconCheck,
   IconX,
+  IconHistory,
 } from '@tabler/icons-react';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 import { AdminPermission, AdminRole, ADMIN_ROLES_CONFIG } from '../../../shared/types/admin';
@@ -46,6 +47,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { CreateAdminModal } from './CreateAdminModal';
 import { EditAdminModal } from './EditAdminModal';
+import { AdminActionHistoryModal } from './AdminActionHistoryModal';
 import { modals } from '@mantine/modals';
 
 export function AdminManagementPanel() {
@@ -54,6 +56,7 @@ export function AdminManagementPanel() {
   const [loading, setLoading] = useState(true);
   const [createModalOpened, setCreateModalOpened] = useState(false);
   const [editModalOpened, setEditModalOpened] = useState(false);
+  const [historyModalOpened, setHistoryModalOpened] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
@@ -154,6 +157,12 @@ export function AdminManagementPanel() {
     setEditModalOpened(true);
   };
 
+  // Voir l'historique d'un admin
+  const handleViewHistory = (admin: AdminUser) => {
+    setSelectedAdmin(admin);
+    setHistoryModalOpened(true);
+  };
+
   // Formater la date
   const formatDate = (timestamp: any) => {
     if (!timestamp) return '-';
@@ -197,15 +206,12 @@ export function AdminManagementPanel() {
           />
           <Select
             placeholder="Filtrer par rôle"
-            data={[
-              { value: '', label: 'Tous les rôles' },
-              ...Object.values(AdminRole).map((role) => ({
-                value: role,
-                label: ADMIN_ROLES_CONFIG[role].label,
-              })),
-            ]}
+            data={Object.values(AdminRole).map((role) => ({
+              value: role,
+              label: ADMIN_ROLES_CONFIG[role].label,
+            }))}
             value={roleFilter}
-            onChange={(value) => setRoleFilter(value)}
+            onChange={(value) => setRoleFilter(value || null)}
             clearable
             style={{ width: 200 }}
           />
@@ -253,17 +259,40 @@ export function AdminManagementPanel() {
                           {admin.lastName.charAt(0)}
                         </Avatar>
                         <div>
-                          <Text size="sm" fw={500}>
-                            {admin.firstName} {admin.lastName}
+                          <Group gap={4}>
+                            <Text size="sm" fw={500}>
+                              {admin.firstName} {admin.lastName}
+                            </Text>
                             {isCurrentUser && (
-                              <Badge size="xs" ml="xs" variant="light">
+                              <Badge size="xs" variant="light">
                                 Vous
                               </Badge>
                             )}
-                          </Text>
-                          <Text size="xs" c="dimmed">
+                          </Group>
+                          <Badge
+                            size="sm"
+                            variant="light"
+                            color="blue"
+                            leftSection={<IconHistory size={12} />}
+                            style={{
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            styles={{
+                              root: {
+                                '&:hover': {
+                                  transform: 'translateY(-1px)',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }
+                              }
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewHistory(admin);
+                            }}
+                          >
                             {admin.totalActions || 0} actions
-                          </Text>
+                          </Badge>
                         </div>
                       </Group>
                     </Table.Td>
@@ -359,6 +388,17 @@ export function AdminManagementPanel() {
           }}
           admin={selectedAdmin}
           onSuccess={loadAdmins}
+        />
+      )}
+
+      {selectedAdmin && (
+        <AdminActionHistoryModal
+          opened={historyModalOpened}
+          onClose={() => {
+            setHistoryModalOpened(false);
+            setSelectedAdmin(null);
+          }}
+          admin={selectedAdmin}
         />
       )}
     </Stack>

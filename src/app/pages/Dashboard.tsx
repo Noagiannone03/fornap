@@ -344,21 +344,14 @@ export const Dashboard = () => {
                   l'espace
                 </Text>
 
-                {userProfile.qrCode ? (
-                  <QRCodeDisplay
-                    uid={userProfile.uid}
-                    firstName={userProfile.firstName}
-                    lastName={userProfile.lastName}
-                    size={250}
-                    showDownloadButton={true}
-                    showUserInfo={false}
-                  />
-                ) : (
-                  <Text c="dimmed" ta="center" maw={500} my="lg">
-                    Votre QR code sera généré après l'activation de votre
-                    abonnement
-                  </Text>
-                )}
+                <QRCodeDisplay
+                  uid={userProfile.uid}
+                  firstName={userProfile.firstName}
+                  lastName={userProfile.lastName}
+                  size={250}
+                  showDownloadButton={true}
+                  showUserInfo={false}
+                />
               </Stack>
             </Paper>
           </Grid.Col>

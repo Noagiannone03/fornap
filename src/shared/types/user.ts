@@ -59,6 +59,8 @@ export interface RegistrationInfo {
   createdAt: Timestamp;
   createdBy?: string; // userId de l'admin si ajout manuel
   transferredFrom?: string; // référence ancien système si transfert
+  legacyMemberType?: string; // Type original de l'ancien système (ex: "4nap-festival")
+  legacyTicketType?: string; // Type de ticket original (ex: "Adhésion annuelle")
   ipAddress?: string;
   userAgent?: string;
 }
@@ -77,16 +79,6 @@ export interface CurrentMembership {
   price: number;
   autoRenew: boolean;
   lastPaymentDate?: Timestamp;
-}
-
-/**
- * Informations du QR Code
- */
-export interface QRCodeInfo {
-  code: string; // Code unique
-  generatedAt: Timestamp;
-  lastScannedAt?: Timestamp;
-  scanCount: number;
 }
 
 /**
@@ -175,8 +167,9 @@ export interface User {
   // Abonnement actuel
   currentMembership: CurrentMembership;
 
-  // QR Code
-  qrCode: QRCodeInfo;
+  // Statistiques de scan QR (optionnelles)
+  scanCount?: number;
+  lastScannedAt?: Timestamp;
 
   // Points de fidélité
   loyaltyPoints: number;
@@ -336,9 +329,6 @@ export interface AdminCreateUserData {
   isAccountBlocked: boolean;
   isCardBlocked: boolean;
 
-  // QR Code
-  qrCode?: string; // Si vide, sera généré automatiquement
-
   // Profil étendu (optionnel, si abonnement annuel)
   extendedProfile?: Partial<ExtendedProfile>;
 
@@ -416,6 +406,25 @@ export interface PaginatedUsers {
 // ============================================================================
 
 /**
+ * Ancien membre de la collection 'members' (ancien système)
+ * Format peut varier selon les enregistrements
+ */
+export interface LegacyMember {
+  uid: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  birthDate?: string; // Peut être une chaîne vide ou une date
+  phone?: string;
+  postalCode?: string;
+  createdAt?: any; // Timestamp ou Date
+  'end-member'?: any; // Timestamp ou Date
+  'member-type'?: string; // Ex: "4nap-festival"
+  ticketType?: string; // Ex: "Adhésion annuelle"
+  [key: string]: any; // Pour gérer les variations de format
+}
+
+/**
  * Version simplifiée pour l'affichage dans les listes
  */
 export interface UserListItem {
@@ -434,6 +443,17 @@ export interface UserListItem {
   createdAt: Timestamp;
   isAccountBlocked: boolean;
   isCardBlocked: boolean;
+  // Indicateur pour les anciens membres non migrés
+  isLegacy?: boolean;
+  legacyData?: LegacyMember;
+}
+
+/**
+ * Résultat avec séparation des membres legacy et users
+ */
+export interface SeparatedUsersList {
+  legacyMembers: UserListItem[];
+  users: UserListItem[];
 }
 
 /**

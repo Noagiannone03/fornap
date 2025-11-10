@@ -27,61 +27,15 @@ import type {
   ActionHistory,
   MembershipHistory,
   ActionType,
+  LegacyMember,
+  SeparatedUsersList,
 } from '../types/user';
 import { getMembershipPlanById } from './membershipService';
 
 const USERS_COLLECTION = 'users';
+const LEGACY_MEMBERS_COLLECTION = 'members';
 const ACTION_HISTORY_SUBCOLLECTION = 'actionHistory';
 const MEMBERSHIP_HISTORY_SUBCOLLECTION = 'membershipHistory';
-
-// ============================================================================
-// GÉNÉRATION DE QR CODE
-// ============================================================================
-
-/**
- * Génère un code QR unique pour un utilisateur
- * Format: FORNAP-{userId}-{timestamp}-{random}
- */
-export function generateQRCode(userId: string): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
-  return `FORNAP-${userId}-${timestamp}-${random}`.toUpperCase();
-}
-
-/**
- * Vérifie si un code QR existe déjà
- */
-export async function qrCodeExists(qrCode: string): Promise<boolean> {
-  try {
-    const usersRef = collection(db, USERS_COLLECTION);
-    const q = query(usersRef, where('qrCode.code', '==', qrCode));
-    const querySnapshot = await getDocs(q);
-    return !querySnapshot.empty;
-  } catch (error) {
-    console.error('Error checking QR code existence:', error);
-    throw error;
-  }
-}
-
-/**
- * Génère un code QR unique (vérifie l'unicité)
- */
-export async function generateUniqueQRCode(userId: string): Promise<string> {
-  let qrCode = generateQRCode(userId);
-  let attempts = 0;
-  const maxAttempts = 10;
-
-  while (await qrCodeExists(qrCode) && attempts < maxAttempts) {
-    qrCode = generateQRCode(userId);
-    attempts++;
-  }
-
-  if (attempts >= maxAttempts) {
-    throw new Error('Failed to generate unique QR code after maximum attempts');
-  }
-
-  return qrCode;
-}
 
 // ============================================================================
 // GESTION DES UTILISATEURS
@@ -129,30 +83,6 @@ export async function getUserByEmail(email: string): Promise<User | null> {
     return null;
   } catch (error) {
     console.error('Error fetching user by email:', error);
-    throw error;
-  }
-}
-
-/**
- * Récupère un utilisateur par son code QR
- */
-export async function getUserByQRCode(qrCode: string): Promise<User | null> {
-  try {
-    const usersRef = collection(db, USERS_COLLECTION);
-    const q = query(usersRef, where('qrCode.code', '==', qrCode), limit(1));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-      const userDoc = querySnapshot.docs[0];
-      return {
-        ...userDoc.data(),
-        uid: userDoc.id,
-      } as User;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Error fetching user by QR code:', error);
     throw error;
   }
 }
@@ -215,7 +145,7 @@ function validateMembershipType(planType: any): void {
  * Crée un nouvel utilisateur (via inscription plateforme)
  */
 export async function createUser(
-  userData: Omit<User, 'uid' | 'createdAt' | 'updatedAt' | 'qrCode'>,
+  userData: Omit<User, 'uid' | 'createdAt' | 'updatedAt' | 'scanCount' | 'lastScannedAt'>,
   userId?: string,
   ipAddress?: string,
   userAgent?: string
@@ -231,16 +161,9 @@ export async function createUser(
     const docId = userId || doc(usersRef).id;
     const userDocRef = doc(usersRef, docId);
 
-    // Générer le QR code
-    const qrCode = await generateUniqueQRCode(docId);
-
     const newUser: Omit<User, 'uid'> = {
       ...userData,
-      qrCode: {
-        code: qrCode,
-        generatedAt: now,
-        scanCount: 0,
-      },
+      scanCount: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -310,7 +233,7 @@ export async function createUserByAdmin(
     const membershipType = periodToMembershipType(plan.period);
     const expiryDate = calculateExpiryDate(startDate, membershipType);
 
-    const newUserData: Omit<User, 'uid' | 'createdAt' | 'updatedAt' | 'qrCode'> = {
+    const newUserData: Omit<User, 'uid' | 'createdAt' | 'updatedAt' | 'scanCount' | 'lastScannedAt'> = {
       email: userData.email,
       firstName: userData.firstName,
       lastName: userData.lastName,
@@ -546,41 +469,6 @@ export async function toggleCardBlocked(
 // ============================================================================
 
 /**
- * Régénère le QR code d'un utilisateur
- */
-export async function regenerateQRCode(
-  userId: string,
-  adminUserId?: string
-): Promise<string> {
-  try {
-    const newQRCode = await generateUniqueQRCode(userId);
-    const userRef = doc(db, USERS_COLLECTION, userId);
-    const now = Timestamp.now();
-
-    await updateDoc(userRef, {
-      'qrCode.code': newQRCode,
-      'qrCode.generatedAt': now,
-      'qrCode.scanCount': 0,
-      updatedAt: now,
-    });
-
-    await addActionHistory(userId, {
-      actionType: 'profile_update',
-      details: {
-        description: 'QR code régénéré',
-        updatedBy: adminUserId,
-      },
-      deviceType: 'web',
-    });
-
-    return newQRCode;
-  } catch (error) {
-    console.error('Error regenerating QR code:', error);
-    throw error;
-  }
-}
-
-/**
  * Enregistre un scan de QR code
  */
 export async function recordQRCodeScan(
@@ -601,8 +489,8 @@ export async function recordQRCodeScan(
     const now = Timestamp.now();
 
     await updateDoc(userRef, {
-      'qrCode.lastScannedAt': now,
-      'qrCode.scanCount': user.qrCode.scanCount + 1,
+      lastScannedAt: now,
+      scanCount: (user.scanCount || 0) + 1,
       updatedAt: now,
     });
 
@@ -1059,10 +947,13 @@ export async function getFilteredUsers(
 }
 
 /**
- * Récupère tous les utilisateurs (version simplifiée pour liste)
+ * Récupère tous les utilisateurs SÉPARÉS en deux listes distinctes
+ * - legacyMembers : anciens membres non migrés
+ * - users : utilisateurs du nouveau système (incluant les migrés)
  */
-export async function getAllUsersForList(): Promise<UserListItem[]> {
+export async function getAllUsersForListSeparated(): Promise<SeparatedUsersList> {
   try {
+    // 1. Récupérer les utilisateurs du nouveau système
     const usersRef = collection(db, USERS_COLLECTION);
     const q = query(usersRef, orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
@@ -1077,7 +968,6 @@ export async function getAllUsersForList(): Promise<UserListItem[]> {
 
       if (hasDataIssue) {
         console.warn(`User ${doc.id} has incomplete data - showing with anomaly flag`);
-        // Ajouter un tag "DATA_ANOMALY" pour identifier ces utilisateurs
         if (!tags.includes('DATA_ANOMALY')) {
           tags.push('DATA_ANOMALY');
         }
@@ -1098,14 +988,78 @@ export async function getAllUsersForList(): Promise<UserListItem[]> {
         createdAt: data.createdAt || Timestamp.now(),
         isAccountBlocked: data.status?.isAccountBlocked || false,
         isCardBlocked: data.status?.isCardBlocked || false,
+        isLegacy: false,
       });
     });
 
-    return users;
+    // 2. Récupérer les anciens membres NON migrés
+    const legacyMembers: UserListItem[] = [];
+    try {
+      const legacyMembersData = await getNonMigratedLegacyMembers();
+
+      // Convertir les anciens membres en UserListItem
+      legacyMembersData.forEach((legacy) => {
+        const membershipType = determineLegacyMembershipType(legacy);
+        const createdAt = legacy.createdAt ? parseTimestamp(legacy.createdAt) : Timestamp.now();
+        const endMember = legacy['end-member'] ? parseTimestamp(legacy['end-member']) : null;
+
+        // Déterminer le statut
+        let status: 'active' | 'expired' = 'active';
+        if (endMember) {
+          const endDate = endMember.toDate();
+          const today = new Date();
+          if (endDate < today) {
+            status = 'expired';
+          }
+        }
+
+        legacyMembers.push({
+          uid: legacy.uid,
+          email: legacy.email || `legacy-${legacy.uid}@unknown.com`,
+          firstName: legacy.firstName || 'Prénom',
+          lastName: legacy.lastName || 'Nom',
+          membership: {
+            type: membershipType,
+            status: status,
+            planName: legacy.ticketType || legacy['member-type'] || 'Ancien membre',
+          },
+          loyaltyPoints: 0,
+          tags: ['NON_MIGRE'],
+          createdAt: createdAt,
+          isAccountBlocked: false,
+          isCardBlocked: false,
+          isLegacy: true,
+          legacyData: legacy,
+        });
+      });
+
+      // Trier les anciens membres par date de création
+      legacyMembers.sort((a, b) => {
+        const aTime = a.createdAt?.seconds || 0;
+        const bTime = b.createdAt?.seconds || 0;
+        return bTime - aTime;
+      });
+    } catch (legacyError) {
+      console.warn('Could not fetch legacy members:', legacyError);
+    }
+
+    return {
+      legacyMembers,
+      users,
+    };
   } catch (error) {
-    console.error('Error fetching all users for list:', error);
+    console.error('Error fetching separated users list:', error);
     throw error;
   }
+}
+
+/**
+ * Récupère tous les utilisateurs (version simplifiée pour liste)
+ * @deprecated Utiliser getAllUsersForListSeparated() pour une meilleure UX
+ */
+export async function getAllUsersForList(): Promise<UserListItem[]> {
+  const { legacyMembers, users } = await getAllUsersForListSeparated();
+  return [...legacyMembers, ...users];
 }
 
 /**
@@ -1254,6 +1208,322 @@ export async function renewMembership(
     return historyId;
   } catch (error) {
     console.error('Error renewing membership:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// GESTION DES ANCIENS MEMBRES (Legacy Members)
+// ============================================================================
+
+/**
+ * Récupère tous les anciens membres de la collection 'members'
+ */
+export async function getLegacyMembers(): Promise<LegacyMember[]> {
+  try {
+    const membersRef = collection(db, LEGACY_MEMBERS_COLLECTION);
+    const querySnapshot = await getDocs(membersRef);
+
+    const legacyMembers: LegacyMember[] = [];
+    querySnapshot.forEach((doc) => {
+      legacyMembers.push({
+        uid: doc.id,
+        ...doc.data(),
+      } as LegacyMember);
+    });
+
+    return legacyMembers;
+  } catch (error) {
+    console.error('Error fetching legacy members:', error);
+    throw error;
+  }
+}
+
+/**
+ * Récupère tous les UIDs des anciens membres qui ont été migrés
+ * OPTIMISATION: Une seule requête au lieu de N requêtes
+ */
+async function getMigratedLegacyUids(): Promise<Set<string>> {
+  try {
+    const usersRef = collection(db, USERS_COLLECTION);
+    const q = query(
+      usersRef,
+      where('registration.source', '==', 'transfer')
+    );
+    const querySnapshot = await getDocs(q);
+
+    const migratedUids = new Set<string>();
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.registration?.transferredFrom) {
+        migratedUids.add(data.registration.transferredFrom);
+      }
+    });
+
+    return migratedUids;
+  } catch (error) {
+    console.error('Error fetching migrated legacy UIDs:', error);
+    return new Set();
+  }
+}
+
+/**
+ * Récupère uniquement les anciens membres non migrés
+ * OPTIMISÉ: 2 requêtes au total au lieu de N+1 requêtes
+ */
+export async function getNonMigratedLegacyMembers(): Promise<LegacyMember[]> {
+  try {
+    // 1. Récupérer tous les anciens membres (1 requête)
+    const allLegacyMembers = await getLegacyMembers();
+
+    // 2. Récupérer tous les UIDs migrés (1 requête)
+    const migratedUids = await getMigratedLegacyUids();
+
+    // 3. Filtrer en mémoire (instantané)
+    const nonMigrated = allLegacyMembers.filter(
+      (member) => !migratedUids.has(member.uid)
+    );
+
+    return nonMigrated;
+  } catch (error) {
+    console.error('Error fetching non-migrated legacy members:', error);
+    throw error;
+  }
+}
+
+/**
+ * Convertit un Timestamp Firestore ou une date en Timestamp
+ */
+function parseTimestamp(value: any): Timestamp {
+  if (!value) {
+    return Timestamp.now();
+  }
+
+  // Si c'est déjà un Timestamp Firestore
+  if (value.toDate && typeof value.toDate === 'function') {
+    return value;
+  }
+
+  // Si c'est un objet avec seconds et nanoseconds
+  if (value.seconds !== undefined) {
+    return new Timestamp(value.seconds, value.nanoseconds || 0);
+  }
+
+  // Si c'est une date string
+  if (typeof value === 'string') {
+    try {
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return Timestamp.fromDate(date);
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  // Défaut
+  return Timestamp.now();
+}
+
+/**
+ * Détermine le type d'abonnement à partir des données legacy
+ */
+function determineLegacyMembershipType(legacy: LegacyMember): 'monthly' | 'annual' | 'lifetime' {
+  const memberType = legacy['member-type']?.toLowerCase() || '';
+  const ticketType = legacy.ticketType?.toLowerCase() || '';
+
+  if (memberType.includes('annuel') || ticketType.includes('annuel')) {
+    return 'annual';
+  }
+  if (memberType.includes('mensuel') || ticketType.includes('mensuel')) {
+    return 'monthly';
+  }
+  if (memberType.includes('honoraire') || memberType.includes('lifetime')) {
+    return 'lifetime';
+  }
+
+  // Par défaut, considérer comme annuel
+  return 'annual';
+}
+
+/**
+ * Migre un ancien membre vers le nouveau système
+ */
+export async function migrateLegacyMember(
+  legacyUid: string,
+  adminUserId: string,
+  defaultPlanId?: string
+): Promise<string> {
+  try {
+    // Récupérer l'ancien membre
+    const legacyRef = doc(db, LEGACY_MEMBERS_COLLECTION, legacyUid);
+    const legacyDoc = await getDoc(legacyRef);
+
+    if (!legacyDoc.exists()) {
+      throw new Error('Legacy member not found');
+    }
+
+    const legacyData = { uid: legacyDoc.id, ...legacyDoc.data() } as LegacyMember;
+
+    // Vérifier si déjà migré (en cherchant un utilisateur avec ce transferredFrom)
+    const usersRef = collection(db, USERS_COLLECTION);
+    const checkMigratedQuery = query(
+      usersRef,
+      where('registration.transferredFrom', '==', legacyUid),
+      limit(1)
+    );
+    const checkSnapshot = await getDocs(checkMigratedQuery);
+    if (!checkSnapshot.empty) {
+      throw new Error('This member has already been migrated');
+    }
+
+    // Déterminer le type d'abonnement
+    const membershipType = determineLegacyMembershipType(legacyData);
+
+    // Trouver ou créer un plan approprié
+    let planId = defaultPlanId;
+    let planName = legacyData.ticketType || 'Abonnement migré';
+    let price = 0; // Prix inconnu pour les anciens membres
+
+    // Si pas de plan par défaut fourni, utiliser un ID basé sur le type
+    if (!planId) {
+      planId = membershipType; // 'monthly', 'annual', ou 'lifetime'
+
+      // Essayer de récupérer le plan
+      try {
+        const plan = await getMembershipPlanById(planId);
+        if (plan) {
+          planName = plan.name;
+          price = plan.price;
+        }
+      } catch (e) {
+        console.warn(`Plan ${planId} not found, using legacy data`);
+      }
+    }
+
+    // Préparer les dates
+    const now = Timestamp.now();
+    const createdAt = legacyData.createdAt ? parseTimestamp(legacyData.createdAt) : now;
+
+    // Gérer la date de fin
+    let endMember: Timestamp | null = null;
+    if (legacyData['end-member']) {
+      endMember = parseTimestamp(legacyData['end-member']);
+    } else if (membershipType !== 'lifetime') {
+      // Si pas de date de fin et que c'est pas lifetime, calculer une date par défaut
+      // Utiliser 1 an après la création pour annual, 1 mois pour monthly
+      const createdDate = createdAt.toDate();
+      if (membershipType === 'annual') {
+        createdDate.setFullYear(createdDate.getFullYear() + 1);
+      } else if (membershipType === 'monthly') {
+        createdDate.setMonth(createdDate.getMonth() + 1);
+      }
+      endMember = Timestamp.fromDate(createdDate);
+      console.warn(`No end-member found for ${legacyUid}, calculated default: ${createdDate.toLocaleDateString('fr-FR')}`);
+    }
+    // Si lifetime, endMember reste null (illimité)
+
+    // Déterminer le statut basé sur la date de fin
+    let membershipStatus: 'active' | 'expired' = 'active';
+    if (endMember) {
+      const endDate = endMember.toDate();
+      const today = new Date();
+      if (endDate < today) {
+        membershipStatus = 'expired';
+      }
+    }
+
+    // Préparer la date de naissance
+    let birthDate = now;
+    if (legacyData.birthDate && legacyData.birthDate.trim() !== '') {
+      try {
+        const parsedDate = new Date(legacyData.birthDate);
+        if (!isNaN(parsedDate.getTime())) {
+          birthDate = Timestamp.fromDate(parsedDate);
+        }
+      } catch (e) {
+        console.warn('Failed to parse birthDate, using current date');
+      }
+    }
+
+    // Préparer les tags avec le member-type original si disponible
+    const tags: string[] = ['MIGRATED_FROM_LEGACY'];
+    if (legacyData['member-type']) {
+      tags.push(`LEGACY_TYPE:${legacyData['member-type']}`);
+    }
+
+    // Créer le nouvel utilisateur
+    const newUserData: Omit<User, 'uid' | 'createdAt' | 'updatedAt' | 'scanCount' | 'lastScannedAt'> = {
+      email: legacyData.email || `legacy-${legacyUid}@fornap.local`,
+      firstName: legacyData.firstName || 'Prénom',
+      lastName: legacyData.lastName || 'Inconnu',
+      postalCode: legacyData.postalCode || '00000',
+      birthDate,
+      phone: legacyData.phone || '',
+
+      status: {
+        tags,
+        isAccountBlocked: false,
+        isCardBlocked: false,
+      },
+
+      registration: {
+        source: 'transfer',
+        createdAt: createdAt,
+        transferredFrom: legacyUid,
+        createdBy: adminUserId,
+        legacyMemberType: legacyData['member-type'], // Conserver le type original (ex: "4nap-festival")
+        legacyTicketType: legacyData.ticketType, // Conserver le type de ticket original
+      },
+
+      currentMembership: {
+        planId,
+        planName,
+        planType: membershipType,
+        status: membershipStatus,
+        paymentStatus: 'paid', // Considérer comme payé car ancien système
+        startDate: createdAt,
+        expiryDate: endMember, // ✅ Date de fin d'abonnement conservée
+        price,
+        autoRenew: false,
+      },
+
+      loyaltyPoints: 0,
+    };
+
+    // Créer l'utilisateur
+    const newUserId = await createUser(newUserData, undefined, 'legacy_migration', 'admin');
+
+    // Logger la migration avec toutes les infos
+    const endDateDisplay = endMember
+      ? endMember.toDate().toLocaleDateString('fr-FR')
+      : membershipType === 'lifetime'
+        ? 'Illimité (lifetime)'
+        : 'Non définie';
+
+    const migrationDetails = [
+      `Legacy ID: ${legacyUid}`,
+      `Member Type: ${legacyData['member-type'] || 'N/A'}`,
+      `Ticket Type: ${legacyData.ticketType || 'N/A'}`,
+      `Membership Type: ${membershipType}`,
+      `Status: ${membershipStatus}`,
+      `End Date: ${endDateDisplay}`,
+      `Original end-member: ${legacyData['end-member'] ? 'Présent' : 'Absent'}`,
+    ].join(' | ');
+
+    await addActionHistory(newUserId, {
+      actionType: 'profile_update',
+      details: {
+        description: `Compte migré depuis l'ancien système`,
+        updatedBy: adminUserId,
+      },
+      deviceType: 'web',
+      notes: `Migration depuis collection 'members'. ${migrationDetails}`,
+    });
+
+    return newUserId;
+  } catch (error) {
+    console.error('Error migrating legacy member:', error);
     throw error;
   }
 }

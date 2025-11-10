@@ -76,15 +76,9 @@ export function MembershipForm({ form }: MembershipFormProps) {
         />
       </Group>
 
-      <TextInput
-        label="QR Code (optionnel)"
-        placeholder="Laisser vide pour génération automatique"
-        description="Si vide, un QR code sera généré automatiquement"
-        {...form.getInputProps('qrCode')}
-      />
-
       <Text size="sm" c="dimmed" fs="italic">
         Note : Si le plan sélectionné est un abonnement annuel, vous pourrez remplir le profil étendu à l'étape suivante.
+        Le QR code sera généré automatiquement à partir de l'UID de l'utilisateur.
       </Text>
     </Stack>
   );

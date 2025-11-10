@@ -92,12 +92,6 @@ export function ReviewForm({ form }: ReviewFormProps) {
               {values.isCardBlocked ? 'Bloquée' : 'Active'}
             </Badge>
           </Group>
-          {values.qrCode && (
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">QR Code personnalisé</Text>
-              <Text size="sm" fw={500}>{values.qrCode}</Text>
-            </Group>
-          )}
         </Stack>
       </Paper>
 
@@ -121,7 +115,7 @@ export function ReviewForm({ form }: ReviewFormProps) {
 
       <Text size="sm" c="dimmed" fs="italic">
         Vérifiez attentivement toutes les informations avant de créer l'utilisateur.
-        {!values.qrCode && ' Un QR code unique sera généré automatiquement.'}
+        Un QR code unique sera généré automatiquement à partir de l'UID.
       </Text>
     </Stack>
   );

@@ -18,6 +18,7 @@ import {
   MultiSelect,
   LoadingOverlay,
   Tooltip,
+  Divider,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -33,16 +34,20 @@ import {
   IconCreditCard,
   IconCreditCardOff,
   IconQrcode,
+  IconArrowRight,
+  IconUsers,
+  IconAlertTriangle,
+  IconUserCheck,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import { modals } from '@mantine/modals';
 import {
-  getAllUsersForList,
+  getAllUsersForListSeparated,
   toggleAccountBlocked,
   toggleCardBlocked,
-  regenerateQRCode,
   deleteUser,
+  migrateLegacyMember,
 } from '../../../shared/services/userService';
 import type {
   UserListItem,
@@ -68,9 +73,165 @@ const membershipStatusColors: Record<MembershipStatus, string> = {
   cancelled: 'gray',
 };
 
+// Composant pour rendre une ligne de tableau
+function UserTableRow({
+  user,
+  isLegacy,
+  onView,
+  onEdit,
+  onDelete,
+  onSendEmail,
+  onToggleAccountBlock,
+  onToggleCardBlock,
+  onMigrate,
+}: {
+  user: UserListItem;
+  isLegacy: boolean;
+  onView?: (uid: string) => void;
+  onEdit?: (uid: string) => void;
+  onDelete?: (uid: string, name: string) => void;
+  onSendEmail?: (email: string) => void;
+  onToggleAccountBlock?: (uid: string, current: boolean) => void;
+  onToggleCardBlock?: (uid: string, current: boolean) => void;
+  onMigrate?: (uid: string, name: string) => void;
+}) {
+  const hasDataAnomaly = user.tags.includes('DATA_ANOMALY');
+
+  return (
+    <Table.Tr style={isLegacy ? { backgroundColor: 'rgba(255, 165, 0, 0.08)' } : undefined}>
+      <Table.Td>
+        <Group gap="sm">
+          <Avatar color={isLegacy ? 'orange' : hasDataAnomaly ? 'red' : 'indigo'} radius="xl">
+            {user.firstName[0]}
+            {user.lastName[0]}
+          </Avatar>
+          <div>
+            <Text size="sm" fw={500}>
+              {user.firstName} {user.lastName}
+            </Text>
+          </div>
+        </Group>
+      </Table.Td>
+      <Table.Td>
+        <Text size="sm">{user.email}</Text>
+      </Table.Td>
+      <Table.Td>
+        <Badge color={membershipTypeColors[user.membership.type]} variant="light">
+          {MEMBERSHIP_TYPE_LABELS[user.membership.type]}
+        </Badge>
+      </Table.Td>
+      <Table.Td>
+        <Badge color={membershipStatusColors[user.membership.status]} variant="dot">
+          {MEMBERSHIP_STATUS_LABELS[user.membership.status]}
+        </Badge>
+      </Table.Td>
+      <Table.Td>
+        <Text size="sm" fw={500}>
+          {user.loyaltyPoints}
+        </Text>
+      </Table.Td>
+      <Table.Td>
+        <Text size="sm" c="dimmed">
+          {(() => {
+            try {
+              if (!user.createdAt) return 'Date inconnue';
+              const date =
+                typeof user.createdAt.toDate === 'function'
+                  ? user.createdAt.toDate()
+                  : new Date((user.createdAt.seconds || 0) * 1000);
+              return date.toLocaleDateString('fr-FR');
+            } catch (e) {
+              return 'Date invalide';
+            }
+          })()}
+        </Text>
+      </Table.Td>
+      <Table.Td>
+        <Group gap={4}>
+          {!isLegacy && onView && (
+            <Tooltip label="Voir le profil">
+              <ActionIcon variant="subtle" color="blue" onClick={() => onView(user.uid)}>
+                <IconEye size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+          <Menu shadow="md" width={240}>
+            <Menu.Target>
+              <ActionIcon variant="subtle" color="gray">
+                <IconDots size={16} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {isLegacy ? (
+                <>
+                  <Menu.Item
+                    leftSection={<IconArrowRight size={14} />}
+                    color="blue"
+                    onClick={() => onMigrate?.(user.uid, `${user.firstName} ${user.lastName}`)}
+                  >
+                    Migrer vers nouveau système
+                  </Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item
+                    leftSection={<IconMail size={14} />}
+                    onClick={() => onSendEmail?.(user.email)}
+                  >
+                    Envoyer un email
+                  </Menu.Item>
+                </>
+              ) : (
+                <>
+                  <Menu.Item leftSection={<IconEdit size={14} />} onClick={() => onEdit?.(user.uid)}>
+                    Modifier
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconMail size={14} />}
+                    onClick={() => onSendEmail?.(user.email)}
+                  >
+                    Envoyer un email
+                  </Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item
+                    leftSection={
+                      user.isAccountBlocked ? <IconLockOpen size={14} /> : <IconLock size={14} />
+                    }
+                    color={user.isAccountBlocked ? 'green' : 'orange'}
+                    onClick={() => onToggleAccountBlock?.(user.uid, user.isAccountBlocked)}
+                  >
+                    {user.isAccountBlocked ? 'Débloquer' : 'Bloquer'} le compte
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={
+                      user.isCardBlocked ? <IconCreditCard size={14} /> : <IconCreditCardOff size={14} />
+                    }
+                    color={user.isCardBlocked ? 'green' : 'orange'}
+                    onClick={() => onToggleCardBlock?.(user.uid, user.isCardBlocked)}
+                  >
+                    {user.isCardBlocked ? 'Débloquer' : 'Bloquer'} la carte
+                  </Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item
+                    color="red"
+                    leftSection={<IconTrash size={14} />}
+                    onClick={() => onDelete?.(user.uid, `${user.firstName} ${user.lastName}`)}
+                  >
+                    Supprimer
+                  </Menu.Item>
+                </>
+              )}
+            </Menu.Dropdown>
+          </Menu>
+        </Group>
+      </Table.Td>
+    </Table.Tr>
+  );
+}
+
 export function EnhancedUsersListPage() {
   const navigate = useNavigate();
+  const [legacyMembers, setLegacyMembers] = useState<UserListItem[]>([]);
   const [users, setUsers] = useState<UserListItem[]>([]);
+  const [filteredLegacyMembers, setFilteredLegacyMembers] = useState<UserListItem[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -82,10 +243,10 @@ export function EnhancedUsersListPage() {
   const [blockedFilter, setBlockedFilter] = useState<string | null>(null);
 
   // Pagination
-  const [page, setPage] = useState(1);
+  const [legacyPage, setLegacyPage] = useState(1);
+  const [usersPage, setUsersPage] = useState(1);
   const itemsPerPage = 20;
 
-  // Charger les utilisateurs
   useEffect(() => {
     loadUsers();
   }, []);
@@ -93,9 +254,11 @@ export function EnhancedUsersListPage() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const data = await getAllUsersForList();
-      setUsers(data);
-      setFilteredUsers(data);
+      const data = await getAllUsersForListSeparated();
+      setLegacyMembers(data.legacyMembers);
+      setUsers(data.users);
+      setFilteredLegacyMembers(data.legacyMembers);
+      setFilteredUsers(data.users);
     } catch (error) {
       console.error('Error loading users:', error);
       notifications.show({
@@ -110,92 +273,96 @@ export function EnhancedUsersListPage() {
 
   // Appliquer les filtres
   useEffect(() => {
-    let filtered = [...users];
+    const applyFilters = (userList: UserListItem[]) => {
+      let filtered = [...userList];
 
-    // Recherche textuelle
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filtered = filtered.filter(
-        (user) =>
-          user.firstName.toLowerCase().includes(searchLower) ||
-          user.lastName.toLowerCase().includes(searchLower) ||
-          user.email.toLowerCase().includes(searchLower)
-      );
-    }
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filtered = filtered.filter(
+          (user) =>
+            user.firstName.toLowerCase().includes(searchLower) ||
+            user.lastName.toLowerCase().includes(searchLower) ||
+            user.email.toLowerCase().includes(searchLower)
+        );
+      }
 
-    // Filtre par type d'abonnement
-    if (membershipType) {
-      filtered = filtered.filter((user) => user.membership.type === membershipType);
-    }
+      if (membershipType) {
+        filtered = filtered.filter((user) => user.membership.type === membershipType);
+      }
 
-    // Filtre par statut d'abonnement
-    if (membershipStatus) {
-      filtered = filtered.filter((user) => user.membership.status === membershipStatus);
-    }
+      if (membershipStatus) {
+        filtered = filtered.filter((user) => user.membership.status === membershipStatus);
+      }
 
-    // Filtre par tags
+      return filtered;
+    };
+
+    let filteredUsersData = applyFilters(users);
+
     if (selectedTags.length > 0) {
-      filtered = filtered.filter((user) =>
+      filteredUsersData = filteredUsersData.filter((user) =>
         selectedTags.some((tag) => user.tags.includes(tag))
       );
     }
 
-    // Filtre par blocage
     if (blockedFilter === 'account_blocked') {
-      filtered = filtered.filter((user) => user.isAccountBlocked);
+      filteredUsersData = filteredUsersData.filter((user) => user.isAccountBlocked);
     } else if (blockedFilter === 'card_blocked') {
-      filtered = filtered.filter((user) => user.isCardBlocked);
+      filteredUsersData = filteredUsersData.filter((user) => user.isCardBlocked);
     } else if (blockedFilter === 'not_blocked') {
-      filtered = filtered.filter((user) => !user.isAccountBlocked && !user.isCardBlocked);
+      filteredUsersData = filteredUsersData.filter(
+        (user) => !user.isAccountBlocked && !user.isCardBlocked
+      );
     }
 
-    setFilteredUsers(filtered);
-    setPage(1); // Reset à la page 1 quand on filtre
-  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, users]);
+    setFilteredLegacyMembers(applyFilters(legacyMembers));
+    setFilteredUsers(filteredUsersData);
+    setLegacyPage(1);
+    setUsersPage(1);
+  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, legacyMembers, users]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const paginatedUsers = filteredUsers.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage
+  const legacyTotalPages = Math.ceil(filteredLegacyMembers.length / itemsPerPage);
+  const paginatedLegacyMembers = filteredLegacyMembers.slice(
+    (legacyPage - 1) * itemsPerPage,
+    legacyPage * itemsPerPage
   );
 
-  const handleViewUser = (uid: string) => {
-    navigate(`/admin/users/${uid}`);
-  };
+  const usersTotalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (usersPage - 1) * itemsPerPage,
+    usersPage * itemsPerPage
+  );
 
-  const handleEditUser = (uid: string) => {
-    navigate(`/admin/users/${uid}/edit`);
-  };
+  const handleViewUser = (uid: string) => navigate(`/admin/users/${uid}`);
+  const handleEditUser = (uid: string) => navigate(`/admin/users/${uid}/edit`);
 
   const handleDeleteUser = (uid: string, userName: string) => {
     modals.openConfirmModal({
-      title: 'Supprimer définitivement l\'utilisateur',
+      title: "Supprimer définitivement l'utilisateur",
       centered: true,
       children: (
         <Text size="sm">
-          Êtes-vous sûr de vouloir supprimer <strong>{userName}</strong> ?
-          <br /><br />
-          ⚠️ <strong>Cette action supprimera définitivement toutes les données de l'utilisateur de la base de données.</strong>
-          <br /><br />
-          Cette action est <strong>irréversible</strong> et ne peut pas être annulée.
+          Êtes-vous sûr de vouloir supprimer <strong>{userName}</strong> ?<br />
+          <br />
+          ⚠️ <strong>Cette action est irréversible.</strong>
         </Text>
       ),
       labels: { confirm: 'Supprimer définitivement', cancel: 'Annuler' },
       confirmProps: { color: 'red' },
       onConfirm: async () => {
         try {
-          await deleteUser(uid, 'current-admin-id'); // TODO: Utiliser l'ID de l'admin connecté
+          await deleteUser(uid, 'current-admin-id');
           notifications.show({
             title: 'Succès',
-            message: 'Utilisateur supprimé définitivement de la base de données',
+            message: 'Utilisateur supprimé',
             color: 'green',
           });
           loadUsers();
         } catch (error) {
           notifications.show({
             title: 'Erreur',
-            message: 'Impossible de supprimer l\'utilisateur',
+            message: "Impossible de supprimer l'utilisateur",
             color: 'red',
           });
         }
@@ -204,11 +371,9 @@ export function EnhancedUsersListPage() {
   };
 
   const handleSendEmail = (email: string) => {
-    // TODO: Implémenter l'envoi d'email
-    console.log('Send email to:', email);
     notifications.show({
       title: 'Fonction à venir',
-      message: 'L\'envoi d\'email sera disponible prochainement',
+      message: "L'envoi d'email sera disponible prochainement",
       color: 'blue',
     });
   };
@@ -219,7 +384,7 @@ export function EnhancedUsersListPage() {
         userId,
         !currentState,
         currentState ? '' : 'Bloqué via interface admin',
-        'current-admin-id' // TODO: Utiliser l'ID de l'admin connecté
+        'current-admin-id'
       );
       notifications.show({
         title: 'Succès',
@@ -242,7 +407,7 @@ export function EnhancedUsersListPage() {
         userId,
         !currentState,
         currentState ? '' : 'Carte bloquée via interface admin',
-        'current-admin-id' // TODO: Utiliser l'ID de l'admin connecté
+        'current-admin-id'
       );
       notifications.show({
         title: 'Succès',
@@ -259,29 +424,54 @@ export function EnhancedUsersListPage() {
     }
   };
 
-  const handleRegenerateQR = async (userId: string) => {
-    try {
-      await regenerateQRCode(userId, 'current-admin-id'); // TODO: Utiliser l'ID de l'admin connecté
-      notifications.show({
-        title: 'Succès',
-        message: 'QR code régénéré avec succès',
-        color: 'green',
-      });
-    } catch (error) {
-      notifications.show({
-        title: 'Erreur',
-        message: 'Impossible de régénérer le QR code',
-        color: 'red',
-      });
-    }
+  // Note: La régénération du QR code n'est plus nécessaire car le QR code
+  // est maintenant basé directement sur l'UID de l'utilisateur, qui ne change jamais.
+
+  const handleMigrateLegacyMember = (uid: string, userName: string) => {
+    modals.openConfirmModal({
+      title: 'Migrer vers le nouveau système',
+      centered: true,
+      children: (
+        <Text size="sm">
+          Êtes-vous sûr de vouloir migrer <strong>{userName}</strong> vers le nouveau système ?
+          <br />
+          <br />
+          Les informations suivantes seront conservées :
+          <ul>
+            <li>Nom et prénom</li>
+            <li>Email et téléphone</li>
+            <li>Code postal</li>
+            <li>Type d'abonnement</li>
+            <li>Date de fin d'abonnement</li>
+          </ul>
+        </Text>
+      ),
+      labels: { confirm: 'Migrer', cancel: 'Annuler' },
+      confirmProps: { color: 'blue' },
+      onConfirm: async () => {
+        try {
+          await migrateLegacyMember(uid, 'current-admin-id');
+          notifications.show({
+            title: 'Succès',
+            message: 'Membre migré avec succès',
+            color: 'green',
+          });
+          loadUsers();
+        } catch (error: any) {
+          notifications.show({
+            title: 'Erreur',
+            message: error.message || 'Impossible de migrer le membre',
+            color: 'red',
+          });
+        }
+      },
+    });
   };
 
   const handleExport = () => {
-    // TODO: Implémenter l'export CSV/Excel
-    console.log('Export users');
     notifications.show({
       title: 'Fonction à venir',
-      message: 'L\'export sera disponible prochainement',
+      message: "L'export sera disponible prochainement",
       color: 'blue',
     });
   };
@@ -293,57 +483,59 @@ export function EnhancedUsersListPage() {
       <Group justify="space-between" mb="xl">
         <Title order={1}>Gestion des Utilisateurs</Title>
         <Group>
-          <Button
-            leftSection={<IconDownload size={16} />}
-            variant="light"
-            onClick={handleExport}
-          >
+          <Button leftSection={<IconDownload size={16} />} variant="light" onClick={handleExport}>
             Exporter
           </Button>
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => navigate('/admin/users/new')}
-          >
+          <Button leftSection={<IconPlus size={16} />} onClick={() => navigate('/admin/users/new')}>
             Nouvel Utilisateur
           </Button>
         </Group>
       </Group>
 
-      {/* Statistiques rapides */}
+      {/* Statistiques */}
       <Group mb="xl" grow>
         <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="dimmed">Total Utilisateurs</Text>
-          <Text size="xl" fw={700}>{users.length}</Text>
+          <Text size="sm" c="dimmed">
+            Total Utilisateurs
+          </Text>
+          <Text size="xl" fw={700}>
+            {legacyMembers.length + users.length}
+          </Text>
         </Paper>
         <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="dimmed">Abonnements Actifs</Text>
+          <Text size="sm" c="dimmed">
+            Membres Non Migrés
+          </Text>
+          <Text size="xl" fw={700} c="orange">
+            {legacyMembers.length}
+          </Text>
+        </Paper>
+        <Paper withBorder p="md" radius="md">
+          <Text size="sm" c="dimmed">
+            Abonnements Actifs
+          </Text>
           <Text size="xl" fw={700} c="green">
             {users.filter((u) => u.membership.status === 'active').length}
           </Text>
         </Paper>
         <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="dimmed">Comptes Bloqués</Text>
+          <Text size="sm" c="dimmed">
+            Comptes Bloqués
+          </Text>
           <Text size="xl" fw={700} c="red">
             {users.filter((u) => u.isAccountBlocked).length}
-          </Text>
-        </Paper>
-        <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="dimmed">Cartes Bloquées</Text>
-          <Text size="xl" fw={700} c="orange">
-            {users.filter((u) => u.isCardBlocked).length}
           </Text>
         </Paper>
       </Group>
 
       {/* Filtres */}
-      <Paper withBorder p="md" mb="md" radius="md">
+      <Paper withBorder p="md" mb="xl" radius="md">
         <Stack gap="md">
           <TextInput
             placeholder="Rechercher par nom, email..."
             leftSection={<IconSearch size={16} />}
             value={search}
             onChange={(e) => setSearch(e.currentTarget.value)}
-            style={{ flex: 1 }}
           />
 
           <Group>
@@ -401,10 +593,14 @@ export function EnhancedUsersListPage() {
             />
           </Group>
 
-          {(search || membershipType || membershipStatus || selectedTags.length > 0 || blockedFilter) && (
+          {(search ||
+            membershipType ||
+            membershipStatus ||
+            selectedTags.length > 0 ||
+            blockedFilter) && (
             <Group justify="space-between">
               <Text size="sm" c="dimmed">
-                {filteredUsers.length} résultat{filteredUsers.length > 1 ? 's' : ''} trouvé{filteredUsers.length > 1 ? 's' : ''}
+                Anciens membres: {filteredLegacyMembers.length} | Utilisateurs: {filteredUsers.length}
               </Text>
               <Button
                 variant="subtle"
@@ -424,216 +620,148 @@ export function EnhancedUsersListPage() {
         </Stack>
       </Paper>
 
-      {/* Table des utilisateurs */}
-      <Paper withBorder radius="md" shadow="sm">
-        <Table.ScrollContainer minWidth={1000}>
-          <Table striped highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Utilisateur</Table.Th>
-                <Table.Th>Email</Table.Th>
-                <Table.Th>Abonnement</Table.Th>
-                <Table.Th>Statut</Table.Th>
-                <Table.Th>Points</Table.Th>
-                <Table.Th>Tags</Table.Th>
-                <Table.Th>Blocage</Table.Th>
-                <Table.Th>Inscription</Table.Th>
-                <Table.Th>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {paginatedUsers.map((user) => {
-                const hasDataAnomaly = user.tags.includes('DATA_ANOMALY');
-                return (
-                <Table.Tr
-                  key={user.uid}
-                  style={hasDataAnomaly ? { backgroundColor: 'rgba(255, 0, 0, 0.05)' } : undefined}
-                >
-                  <Table.Td>
-                    <Group gap="sm">
-                      <Avatar color={hasDataAnomaly ? "red" : "indigo"} radius="xl">
-                        {user.firstName[0]}
-                        {user.lastName[0]}
-                      </Avatar>
-                      <div>
-                        <Group gap="xs">
-                          <Text size="sm" fw={500}>
-                            {user.firstName} {user.lastName}
-                          </Text>
-                          {hasDataAnomaly && (
-                            <Badge size="xs" color="red" variant="filled">
-                              ⚠️ ANOMALIE
-                            </Badge>
-                          )}
-                        </Group>
-                      </div>
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm">{user.email}</Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={membershipTypeColors[user.membership.type]} variant="light">
-                      {MEMBERSHIP_TYPE_LABELS[user.membership.type]}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={membershipStatusColors[user.membership.status]} variant="dot">
-                      {MEMBERSHIP_STATUS_LABELS[user.membership.status]}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm" fw={500}>
-                      {user.loyaltyPoints}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap={4}>
-                      {user.tags.slice(0, 2).map((tag) => (
-                        <Badge key={tag} size="xs" variant="outline">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {user.tags.length > 2 && (
-                        <Badge size="xs" variant="outline">
-                          +{user.tags.length - 2}
-                        </Badge>
-                      )}
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap={4}>
-                      {user.isAccountBlocked && (
-                        <Tooltip label="Compte bloqué">
-                          <Badge size="xs" color="red">
-                            <IconLock size={12} />
-                          </Badge>
-                        </Tooltip>
-                      )}
-                      {user.isCardBlocked && (
-                        <Tooltip label="Carte bloquée">
-                          <Badge size="xs" color="orange">
-                            <IconCreditCardOff size={12} />
-                          </Badge>
-                        </Tooltip>
-                      )}
-                      {!user.isAccountBlocked && !user.isCardBlocked && (
-                        <Badge size="xs" color="green" variant="light">
-                          Actif
-                        </Badge>
-                      )}
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm" c="dimmed">
-                      {(() => {
-                        try {
-                          // Gérer les cas où createdAt peut être un Timestamp Firestore ou une Date
-                          if (!user.createdAt) {
-                            return 'Date inconnue';
-                          }
-                          const date = typeof user.createdAt.toDate === 'function'
-                            ? user.createdAt.toDate()
-                            : new Date(user.createdAt.seconds * 1000 || Date.now());
-                          return date.toLocaleDateString('fr-FR');
-                        } catch (e) {
-                          return 'Date invalide';
-                        }
-                      })()}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap={4}>
-                      <Tooltip label="Voir le profil">
-                        <ActionIcon
-                          variant="subtle"
-                          color="blue"
-                          onClick={() => handleViewUser(user.uid)}
-                        >
-                          <IconEye size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Menu shadow="md" width={220}>
-                        <Menu.Target>
-                          <ActionIcon variant="subtle" color="gray">
-                            <IconDots size={16} />
-                          </ActionIcon>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                          <Menu.Item
-                            leftSection={<IconEdit size={14} />}
-                            onClick={() => handleEditUser(user.uid)}
-                          >
-                            Modifier
-                          </Menu.Item>
-                          <Menu.Item
-                            leftSection={<IconMail size={14} />}
-                            onClick={() => handleSendEmail(user.email)}
-                          >
-                            Envoyer un email
-                          </Menu.Item>
-                          <Menu.Item
-                            leftSection={<IconQrcode size={14} />}
-                            onClick={() => handleRegenerateQR(user.uid)}
-                          >
-                            Régénérer QR code
-                          </Menu.Item>
-                          <Menu.Divider />
-                          <Menu.Item
-                            leftSection={user.isAccountBlocked ? <IconLockOpen size={14} /> : <IconLock size={14} />}
-                            color={user.isAccountBlocked ? 'green' : 'orange'}
-                            onClick={() => handleToggleAccountBlock(user.uid, user.isAccountBlocked)}
-                          >
-                            {user.isAccountBlocked ? 'Débloquer' : 'Bloquer'} le compte
-                          </Menu.Item>
-                          <Menu.Item
-                            leftSection={user.isCardBlocked ? <IconCreditCard size={14} /> : <IconCreditCardOff size={14} />}
-                            color={user.isCardBlocked ? 'green' : 'orange'}
-                            onClick={() => handleToggleCardBlock(user.uid, user.isCardBlocked)}
-                          >
-                            {user.isCardBlocked ? 'Débloquer' : 'Bloquer'} la carte
-                          </Menu.Item>
-                          <Menu.Divider />
-                          <Menu.Item
-                            color="red"
-                            leftSection={<IconTrash size={14} />}
-                            onClick={() => handleDeleteUser(user.uid, `${user.firstName} ${user.lastName}`)}
-                          >
-                            Supprimer
-                          </Menu.Item>
-                        </Menu.Dropdown>
-                      </Menu>
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
-
-        {filteredUsers.length === 0 && !loading && (
-          <Text ta="center" c="dimmed" py="xl">
-            Aucun utilisateur trouvé
-          </Text>
-        )}
-
-        {filteredUsers.length > 0 && (
-          <Group justify="space-between" p="md">
-            <Text size="sm" c="dimmed">
-              Affichage de {(page - 1) * itemsPerPage + 1} à{' '}
-              {Math.min(page * itemsPerPage, filteredUsers.length)} sur{' '}
-              {filteredUsers.length} utilisateurs
-            </Text>
-            <Pagination
-              total={totalPages}
-              value={page}
-              onChange={setPage}
-              size="sm"
-            />
+      {/* SECTION 1: Utilisateurs (nouveau système) */}
+      <Stack gap="md" mb={filteredLegacyMembers.length > 0 ? 'xl' : undefined}>
+        <Paper withBorder p="md" radius="md" bg="blue.0">
+          <Group>
+            <IconUsers size={28} />
+            <div style={{ flex: 1 }}>
+              <Title order={2}>Utilisateurs</Title>
+              <Text size="sm" c="dimmed">
+                Membres du nouveau système
+              </Text>
+            </div>
+            <Badge size="lg" color="blue" variant="filled">
+              {filteredUsers.length}
+            </Badge>
           </Group>
-        )}
-      </Paper>
+        </Paper>
+
+        <Paper withBorder radius="md" shadow="sm">
+          <Table.ScrollContainer minWidth={1000}>
+            <Table striped highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Utilisateur</Table.Th>
+                  <Table.Th>Email</Table.Th>
+                  <Table.Th>Abonnement</Table.Th>
+                  <Table.Th>Statut</Table.Th>
+                  <Table.Th>Points</Table.Th>
+                  <Table.Th>Inscription</Table.Th>
+                  <Table.Th>Actions</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {paginatedUsers.map((user) => (
+                  <UserTableRow
+                    key={user.uid}
+                    user={user}
+                    isLegacy={false}
+                    onView={handleViewUser}
+                    onEdit={handleEditUser}
+                    onDelete={handleDeleteUser}
+                    onSendEmail={handleSendEmail}
+                    onToggleAccountBlock={handleToggleAccountBlock}
+                    onToggleCardBlock={handleToggleCardBlock}
+                  />
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+
+          {filteredUsers.length === 0 && !loading && (
+            <Text ta="center" c="dimmed" py="xl">
+              Aucun utilisateur trouvé
+            </Text>
+          )}
+
+          {filteredUsers.length > 0 && (
+            <Group justify="space-between" p="md">
+              <Text size="sm" c="dimmed">
+                Affichage de {(usersPage - 1) * itemsPerPage + 1} à{' '}
+                {Math.min(usersPage * itemsPerPage, filteredUsers.length)} sur {filteredUsers.length}{' '}
+                utilisateurs
+              </Text>
+              <Pagination
+                total={usersTotalPages}
+                value={usersPage}
+                onChange={setUsersPage}
+                size="sm"
+              />
+            </Group>
+          )}
+        </Paper>
+      </Stack>
+
+      {/* SECTION 2: Anciens membres non migrés */}
+      {filteredLegacyMembers.length > 0 && (
+        <Stack gap="md">
+          <Paper withBorder p="md" radius="md" bg="orange.0">
+            <Group>
+              <IconAlertTriangle size={28} />
+              <div style={{ flex: 1 }}>
+                <Title order={2}>Membres à migrer</Title>
+                <Text size="sm" c="dimmed">
+                  Anciens membres non encore migrés vers le nouveau système
+                </Text>
+              </div>
+              <Badge size="lg" color="orange" variant="filled">
+                {filteredLegacyMembers.length}
+              </Badge>
+            </Group>
+          </Paper>
+
+          <Paper
+            withBorder
+            radius="md"
+            shadow="sm"
+            style={{ borderColor: 'var(--mantine-color-orange-6)', borderWidth: 2 }}
+          >
+            <Table.ScrollContainer minWidth={1000}>
+              <Table striped highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Membre</Table.Th>
+                    <Table.Th>Email</Table.Th>
+                    <Table.Th>Type</Table.Th>
+                    <Table.Th>Statut</Table.Th>
+                    <Table.Th>Points</Table.Th>
+                    <Table.Th>Inscription</Table.Th>
+                    <Table.Th>Actions</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {paginatedLegacyMembers.map((member) => (
+                    <UserTableRow
+                      key={member.uid}
+                      user={member}
+                      isLegacy={true}
+                      onSendEmail={handleSendEmail}
+                      onMigrate={handleMigrateLegacyMember}
+                    />
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </Table.ScrollContainer>
+
+            {filteredLegacyMembers.length > 0 && (
+              <Group justify="space-between" p="md">
+                <Text size="sm" c="dimmed">
+                  Affichage de {(legacyPage - 1) * itemsPerPage + 1} à{' '}
+                  {Math.min(legacyPage * itemsPerPage, filteredLegacyMembers.length)} sur{' '}
+                  {filteredLegacyMembers.length} membres
+                </Text>
+                <Pagination
+                  total={legacyTotalPages}
+                  value={legacyPage}
+                  onChange={setLegacyPage}
+                  size="sm"
+                />
+              </Group>
+            )}
+          </Paper>
+        </Stack>
+      )}
     </Container>
   );
 }

@@ -5,7 +5,7 @@
  * Ce module gère l'initialisation singleton.
  */
 
-import * as admin from 'firebase-admin';
+import admin from 'firebase-admin';
 
 // Instance singleton
 let app: admin.app.App | null = null;
@@ -31,21 +31,50 @@ export function getFirebaseAdmin(): admin.app.App {
       throw new Error('VITE_FIREBASE_PROJECT_ID non configurée');
     }
 
-    // Initialiser avec les credentials
-    // Option 1: GOOGLE_APPLICATION_CREDENTIALS (fichier JSON)
-    // Option 2: Variables d'environnement individuelles pour Vercel
+    // Option 1: Service Account en base64 (Vercel)
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+      try {
+        const serviceAccount = JSON.parse(
+          Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString()
+        );
 
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      // Utiliser le fichier service account (local)
+        app = admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+          projectId,
+        });
+        console.log('Firebase Admin initialisé avec Service Account (base64)');
+      } catch (parseError) {
+        console.error('Erreur parsing Service Account:', parseError);
+        throw new Error('Service Account invalide');
+      }
+    }
+    // Option 2: Variables individuelles
+    else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
       app = admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
+        credential: admin.credential.cert({
+          projectId,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }),
         projectId,
       });
-    } else {
-      // Utiliser les credentials par défaut (Vercel)
-      app = admin.initializeApp({
-        projectId,
-      });
+      console.log('Firebase Admin initialisé avec credentials individuelles');
+    }
+    // Option 3: Credentials par défaut (développement local)
+    else {
+      try {
+        app = admin.initializeApp({
+          credential: admin.credential.applicationDefault(),
+          projectId,
+        });
+        console.log('Firebase Admin initialisé avec credentials par défaut');
+      } catch (defaultError) {
+        throw new Error(
+          'Firebase Admin: Aucune credential trouvée. ' +
+          'Ajoutez FIREBASE_SERVICE_ACCOUNT_BASE64 dans Vercel. ' +
+          'Voir docs/FIREBASE_ADMIN_SETUP.md'
+        );
+      }
     }
 
     console.log('Firebase Admin initialisé avec succès');

@@ -74,9 +74,10 @@ export const EMAIL_CONFIG = {
 export const RESEND_CONFIG = {
   apiKey: process.env.RESEND_API_KEY || '',
   // URL de base pour les webhooks
-  webhookBaseUrl: process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : process.env.WEBHOOK_BASE_URL || 'http://localhost:5173',
+  // IMPORTANT: On utilise WEBHOOK_BASE_URL en priorité car VERCEL_URL change à chaque déploiement
+  webhookBaseUrl: process.env.WEBHOOK_BASE_URL
+    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+    || 'http://localhost:5173',
 } as const;
 
 /**

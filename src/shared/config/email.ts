@@ -34,9 +34,16 @@ export const EMAIL_CONFIG = {
 
   /**
    * Template par défaut pour les emails
+   *
+   * IMPORTANT: Pour envoyer des emails en production :
+   * 1. Vérifiez votre domaine sur https://resend.com/domains
+   * 2. Ajoutez les enregistrements DNS demandés
+   * 3. Remplacez onboarding@resend.dev par votre email (ex: noreply@fornap.com)
+   *
+   * Le domaine onboarding@resend.dev est fourni par Resend pour les tests
    */
   DEFAULT_FROM_NAME: 'FORNAP',
-  DEFAULT_FROM_EMAIL: 'noreply@fornap.com', // À remplacer par votre domaine vérifié
+  DEFAULT_FROM_EMAIL: 'onboarding@resend.dev', // Domaine de test Resend (vérifié par défaut)
 
   /**
    * Limite de taux d'envoi (emails par seconde)

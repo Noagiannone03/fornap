@@ -12,7 +12,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getFirestore } from '../../_lib/firebase-admin';
+import { getFirestore } from '../../_lib/firebase-admin.js';
 
 // Pixel transparent 1x1 en base64
 const TRACKING_PIXEL = Buffer.from(

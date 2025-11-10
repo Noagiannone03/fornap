@@ -3,8 +3,8 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sendSingleEmail } from '../../src/shared/services/emailService';
-import { EMAIL_CONFIG } from '../../src/shared/config/email';
+import { sendSingleEmail } from '../../src/shared/services/emailService.js';
+import { EMAIL_CONFIG } from '../../src/shared/config/email.js';
 
 export default async function handler(
   req: VercelRequest,

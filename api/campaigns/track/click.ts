@@ -12,7 +12,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getFirestore } from '../../_lib/firebase-admin';
+import { getFirestore } from '../../_lib/firebase-admin.js';
 
 /**
  * Handler principal

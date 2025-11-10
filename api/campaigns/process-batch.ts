@@ -13,14 +13,14 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getFirestore } from '../_lib/firebase-admin';
-import { verifyQStashSignature } from '../../src/shared/services/queueService';
+import { getFirestore } from '../_lib/firebase-admin.js';
+import { verifyQStashSignature } from '../../src/shared/services/queueService.js';
 import {
   sendEmailBatch,
   prepareEmailOptions,
-} from '../../src/shared/services/emailService';
-import type { QStashEmailPayload, BatchProcessResult } from '../../src/shared/types/email';
-import type { Campaign, CampaignRecipient, CampaignStats } from '../../src/shared/types/campaign';
+} from '../../src/shared/services/emailService.js';
+import type { QStashEmailPayload, BatchProcessResult } from '../../src/shared/types/email.js';
+import type { Campaign, CampaignRecipient, CampaignStats } from '../../src/shared/types/campaign.js';
 
 /**
  * Handler principal

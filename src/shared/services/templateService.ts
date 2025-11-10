@@ -5,8 +5,8 @@
  * dans les emails avant l'envoi.
  */
 
-import type { MergeData } from '../types/email';
-import type { CampaignRecipient } from '../types/campaign';
+import type { MergeData } from '../types/email.js';
+import type { CampaignRecipient } from '../types/campaign.js';
 
 /**
  * Remplace toutes les variables de fusion dans un template

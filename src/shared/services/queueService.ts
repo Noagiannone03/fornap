@@ -3,8 +3,8 @@
  */
 
 import { Client } from '@upstash/qstash';
-import { QSTASH_CONFIG, EMAIL_CONFIG, RESEND_CONFIG } from '../config/email';
-import type { QStashEmailPayload } from '../types/email';
+import { QSTASH_CONFIG, EMAIL_CONFIG, RESEND_CONFIG } from '../config/email.js';
+import type { QStashEmailPayload } from '../types/email.js';
 
 let qstashClient: Client | null = null;
 

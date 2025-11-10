@@ -2,7 +2,7 @@
  * Types pour le système d'envoi d'emails
  */
 
-import type { CampaignRecipient } from './campaign';
+import type { CampaignRecipient } from './campaign.js';
 
 /**
  * Statut d'un batch d'envoi

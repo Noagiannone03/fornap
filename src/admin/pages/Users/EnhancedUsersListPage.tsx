@@ -18,7 +18,6 @@ import {
   MultiSelect,
   LoadingOverlay,
   Tooltip,
-  Divider,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -33,11 +32,9 @@ import {
   IconLockOpen,
   IconCreditCard,
   IconCreditCardOff,
-  IconQrcode,
   IconArrowRight,
   IconUsers,
   IconAlertTriangle,
-  IconUserCheck,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -370,7 +367,7 @@ export function EnhancedUsersListPage() {
     });
   };
 
-  const handleSendEmail = (email: string) => {
+  const handleSendEmail = (_email: string) => {
     notifications.show({
       title: 'Fonction à venir',
       message: "L'envoi d'email sera disponible prochainement",

@@ -18,7 +18,6 @@ import {
 import {
   IconArrowLeft,
   IconEdit,
-  IconQrcode,
   IconLock,
   IconLockOpen,
   IconCreditCard,

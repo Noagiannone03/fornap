@@ -19,6 +19,7 @@ import {
   IconUser,
   IconMail,
   IconBug,
+  IconQrcode,
 } from '@tabler/icons-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
@@ -45,6 +46,7 @@ const navigationItems: NavItem[] = [
   { icon: IconUsers, label: 'Utilisateurs', path: '/admin/users' },
   { icon: IconTicket, label: 'Abonnements', path: '/admin/memberships' },
   { icon: IconCalendar, label: 'Événements', path: '/admin/events' },
+  { icon: IconQrcode, label: 'Scanner QR', path: '/admin/scanner' },
   { icon: IconBuildingCommunity, label: 'Coworking', path: '/admin/coworking' },
   {
     icon: IconMail,

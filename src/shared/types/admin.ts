@@ -28,6 +28,9 @@ export const AdminRole = {
 
   /** Lecture + édition basique des users uniquement */
   SUPPORT: 'support',
+
+  /** Spécialisé dans la vérification et le scan QR lors des événements */
+  VERIFICATEUR: 'verificateur',
 } as const;
 
 export type AdminRole = typeof AdminRole[keyof typeof AdminRole];
@@ -54,7 +57,7 @@ export const ADMIN_ROLES_CONFIG: Record<AdminRole, RoleConfig> = {
     label: 'Administrateur',
     description: 'Accès complet à toutes les fonctionnalités de la plateforme',
     color: 'red',
-    level: 4,
+    level: 5,
     icon: 'shield',
   },
   [AdminRole.CO_ADMINISTRATEUR]: {
@@ -62,7 +65,7 @@ export const ADMIN_ROLES_CONFIG: Record<AdminRole, RoleConfig> = {
     label: 'Co-Administrateur',
     description: 'Peut gérer les admins et accéder à toutes les données',
     color: 'orange',
-    level: 3,
+    level: 4,
     icon: 'shield-half',
   },
   [AdminRole.MODERATEUR]: {
@@ -70,8 +73,16 @@ export const ADMIN_ROLES_CONFIG: Record<AdminRole, RoleConfig> = {
     label: 'Modérateur',
     description: 'Peut modifier les utilisateurs et événements',
     color: 'blue',
-    level: 2,
+    level: 3,
     icon: 'user-shield',
+  },
+  [AdminRole.VERIFICATEUR]: {
+    key: AdminRole.VERIFICATEUR,
+    label: 'Vérificateur',
+    description: 'Spécialisé dans le scan QR et la vérification aux événements',
+    color: 'purple',
+    level: 2,
+    icon: 'qrcode',
   },
   [AdminRole.SUPPORT]: {
     key: AdminRole.SUPPORT,
@@ -139,6 +150,8 @@ export const AdminPermission = {
   // QR Code & Check-in
   CHECKIN_SCAN: 'checkin_scan',
   CHECKIN_VIEW_HISTORY: 'checkin_view_history',
+  CHECKIN_MANAGE_SCANS: 'checkin_manage_scans',
+  CHECKIN_VIEW_STATISTICS: 'checkin_view_statistics',
 
   // Historique et logs
   LOGS_VIEW: 'logs_view',
@@ -236,6 +249,23 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
 
     // Paramètres (lecture seule)
     AdminPermission.SETTINGS_VIEW,
+  ],
+
+  [AdminRole.VERIFICATEUR]: [
+    // Utilisateurs (lecture seule pour vérification)
+    AdminPermission.USERS_VIEW,
+
+    // Événements (lecture seule)
+    AdminPermission.EVENTS_VIEW,
+
+    // Abonnements (lecture seule pour vérification)
+    AdminPermission.MEMBERSHIPS_VIEW,
+
+    // Check-in (toutes les permissions de scan)
+    AdminPermission.CHECKIN_SCAN,
+    AdminPermission.CHECKIN_VIEW_HISTORY,
+    AdminPermission.CHECKIN_MANAGE_SCANS,
+    AdminPermission.CHECKIN_VIEW_STATISTICS,
   ],
 
   [AdminRole.SUPPORT]: [

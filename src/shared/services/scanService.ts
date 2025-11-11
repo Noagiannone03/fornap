@@ -14,7 +14,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import {
+import type {
   ScanMode,
   ScanResult,
   ScanResultStatus,

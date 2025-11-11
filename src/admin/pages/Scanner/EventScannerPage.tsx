@@ -46,14 +46,14 @@ import {
   calculateEventScanStatistics,
 } from '../../../shared/services/scanService';
 import { getAllEventsForList } from '../../../shared/services/eventService';
-import {
+import type {
   ScanMode,
   ScanResult,
   ScanResultStatus,
   ScannerConfig,
   EventScanStatistics,
 } from '../../../shared/types/scan';
-import { Event } from '../../../shared/types/event';
+import type { Event } from '../../../shared/types/event';
 import { Timestamp } from 'firebase/firestore';
 
 export function EventScannerPage() {

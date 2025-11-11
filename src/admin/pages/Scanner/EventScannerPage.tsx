@@ -46,10 +46,12 @@ import {
   calculateEventScanStatistics,
 } from '../../../shared/services/scanService';
 import { getAllEventsForList } from '../../../shared/services/eventService';
-import type {
+import {
   ScanMode,
-  ScanResult,
   ScanResultStatus,
+} from '../../../shared/types/scan';
+import type {
+  ScanResult,
   ScannerConfig,
   EventScanStatistics,
 } from '../../../shared/types/scan';

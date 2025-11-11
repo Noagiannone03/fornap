@@ -14,10 +14,12 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import type {
+import {
   ScanMode,
-  ScanResult,
   ScanResultStatus,
+} from '../types/scan';
+import type {
+  ScanResult,
   ScanRecord,
   EventScanStatistics,
   GlobalScanStatistics,

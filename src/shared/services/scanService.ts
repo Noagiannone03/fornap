@@ -25,9 +25,9 @@ import {
   ScannerConfig,
   ScanInsights,
 } from '../types/scan';
-import { User, MembershipType } from '../types/user';
-import { EventPurchase } from '../types/event';
-import { AdminUser } from '../types/admin';
+import type { User, MembershipType } from '../types/user';
+import type { EventPurchase } from '../types/event';
+import type { AdminUser } from '../types/admin';
 
 /**
  * ============================================

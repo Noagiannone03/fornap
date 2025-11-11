@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase/firestore';
-import { MembershipType } from './user';
+import type { MembershipType } from './user';
 
 /**
  * ============================================

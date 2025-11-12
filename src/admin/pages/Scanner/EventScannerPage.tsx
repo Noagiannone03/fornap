@@ -585,9 +585,10 @@ export function EventScannerPage() {
           </Group>
         </Paper>
 
-        {/* Scanner */}
+        {/* Scanner - Key based on tab to force remount when switching */}
         <Paper p="md" radius="md" withBorder shadow="sm">
           <QRCodeScanner
+            key={`scanner-${activeTab}-${scannerStep}`}
             onScan={handleScan}
             onError={(error) => {
               console.error('Erreur scanner:', error);

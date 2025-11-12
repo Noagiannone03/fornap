@@ -10,17 +10,17 @@ import {
   Badge,
   Text,
   Card,
-  Avatar,
+  
   Divider,
   Grid,
   LoadingOverlay,
-  Switch,
+  
   Modal,
-  Table,
-  ScrollArea,
+  
+  
   Alert,
-  Box,
-  Progress,
+  
+  
   ActionIcon,
 } from '@mantine/core';
 import {
@@ -28,9 +28,9 @@ import {
   IconCheck,
   IconX,
   IconAlertCircle,
-  IconUser,
-  IconCalendar,
-  IconTicket,
+  
+  
+  
   IconChartBar,
   IconRefresh,
   IconVolume,
@@ -55,13 +55,13 @@ import type {
   ScannerConfig,
   EventScanStatistics,
 } from '../../../shared/types/scan';
-import type { Event } from '../../../shared/types/event';
-import { Timestamp } from 'firebase/firestore';
+import type { EventListItem } from '../../../shared/types/event';
+
 
 export function EventScannerPage() {
   const { adminProfile } = useAdminAuth();
   const [loading, setLoading] = useState(false);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<EventListItem[]>([]);
   const [recentScans, setRecentScans] = useState<ScanResult[]>([]);
   const [statsModalOpen, setStatsModalOpen] = useState(false);
   const [currentStats, setCurrentStats] = useState<EventScanStatistics | null>(null);

@@ -10,8 +10,8 @@ import {
   orderBy,
   limit,
   Timestamp,
-  runTransaction,
-  writeBatch,
+  
+  
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import {
@@ -22,7 +22,7 @@ import type {
   ScanResult,
   ScanRecord,
   EventScanStatistics,
-  GlobalScanStatistics,
+  
   ScanFilters,
   ScannerConfig,
   ScanInsights,
@@ -184,7 +184,7 @@ export async function performScan(
     if (user.status?.isCardBlocked) {
       return {
         status: ScanResultStatus.BLOCKED,
-        message: `Carte bloquée: ${user.status.cardBlockedReason || 'Raison non spécifiée'}`,
+        message: `Carte bloquée: ${user.status.blockedReason || 'Raison non spécifiée'}`,
         user: buildUserInfo(user),
         scannedAt: Timestamp.now(),
       };
@@ -309,16 +309,16 @@ export async function performScan(
 function buildUserInfo(user: User): ScanResult['user'] {
   return {
     uid: user.uid,
-    firstName: user.personalInfo?.firstName || '',
-    lastName: user.personalInfo?.lastName || '',
-    email: user.contactInfo?.email || '',
+    firstName: user.firstName || '',
+    lastName: user.lastName || '',
+    email: user.email || '',
     membershipType: user.currentMembership?.planType,
     membershipStatus: user.currentMembership?.status,
-    membershipExpiry: user.currentMembership?.nextPaymentDate,
+    membershipExpiry: user.currentMembership?.expiryDate,
     isLegacyAccount: isLegacyAccount(user),
     scanCount: user.scanCount || 0,
-    birthDate: user.personalInfo?.birthDate,
-    postalCode: user.personalInfo?.postalCode,
+    birthDate: user.birthDate,
+    postalCode: user.postalCode,
     isAccountBlocked: user.status?.isAccountBlocked,
     isCardBlocked: user.status?.isCardBlocked,
   };
@@ -367,7 +367,7 @@ async function checkUserTicket(userId: string, eventId: string): Promise<TicketC
       purchaseId: purchase.id,
       ticketNumber: purchase.ticketNumber,
       ticketCategoryName: purchase.ticketCategoryName,
-      scannedAt: purchase.checkedInAt,
+      scannedAt: purchase.checkedInAt || undefined,
     };
   } catch (error) {
     console.error('Erreur vérification billet:', error);
@@ -443,14 +443,14 @@ async function recordScan(
     const scanRecord: Omit<ScanRecord, 'id'> = {
       userId,
       userInfo: {
-        firstName: user.personalInfo?.firstName || '',
-        lastName: user.personalInfo?.lastName || '',
-        email: user.contactInfo?.email || '',
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
         membershipType: user.currentMembership?.planType,
         isLegacyAccount: isLegacyAccount(user),
-        birthDate: user.personalInfo?.birthDate,
-        postalCode: user.personalInfo?.postalCode,
-        age: calculateAge(user.personalInfo?.birthDate),
+        birthDate: user.birthDate,
+        postalCode: user.postalCode,
+        age: calculateAge(user.birthDate),
       },
       scanMode: config.mode,
       eventId: config.eventId,

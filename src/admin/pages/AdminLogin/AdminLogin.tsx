@@ -71,7 +71,7 @@ export function AdminLogin() {
       if (mode === 'admin') {
         navigate('/admin/dashboard', { replace: true });
       } else if (mode === 'checkin') {
-        navigate('/check-in', { replace: true });
+        navigate('/admin/scanner', { replace: true });
       }
     } catch (err: any) {
       console.error('Login error:', err);

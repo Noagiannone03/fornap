@@ -14,6 +14,7 @@ import {
   IconUpload,
   IconAlertCircle,
   IconCheck,
+  IconRefresh,
 } from '@tabler/icons-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { readQRCodeFromImage } from '../../../shared/utils/qrcode';
@@ -36,6 +37,28 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
     try {
       setError(null);
       setSuccess(false);
+
+      // Vérifier d'abord si les permissions sont disponibles
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('CAMERA_NOT_SUPPORTED');
+      }
+
+      // Demander explicitement la permission de la caméra
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        // Arrêter immédiatement le stream après vérification
+        stream.getTracks().forEach(track => track.stop());
+      } catch (permError: any) {
+        // Gérer les différents types d'erreurs de permission
+        if (permError.name === 'NotAllowedError' || permError.name === 'PermissionDeniedError') {
+          throw new Error('PERMISSION_DENIED');
+        } else if (permError.name === 'NotFoundError' || permError.name === 'DevicesNotFoundError') {
+          throw new Error('NO_CAMERA');
+        } else {
+          throw new Error('PERMISSION_ERROR');
+        }
+      }
+
       setScanning(true);
 
       // Créer le scanner
@@ -57,11 +80,25 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
           // Erreur de scan (ignorée, se produit continuellement)
         }
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erreur démarrage scanner:', err);
-      setError('Impossible d\'accéder à la caméra');
       setScanning(false);
-      onError?.('Impossible d\'accéder à la caméra');
+
+      // Messages d'erreur détaillés selon le type d'erreur
+      let errorMessage = 'Impossible d\'accéder à la caméra';
+
+      if (err.message === 'CAMERA_NOT_SUPPORTED') {
+        errorMessage = 'Votre navigateur ne supporte pas l\'accès à la caméra. Veuillez utiliser un navigateur récent (Chrome, Firefox, Safari).';
+      } else if (err.message === 'PERMISSION_DENIED') {
+        errorMessage = 'Accès à la caméra refusé. Veuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur et actualiser la page.';
+      } else if (err.message === 'NO_CAMERA') {
+        errorMessage = 'Aucune caméra détectée sur cet appareil. Veuillez utiliser la fonction "Importer" pour scanner un QR code depuis une image.';
+      } else if (err.message === 'PERMISSION_ERROR') {
+        errorMessage = 'Erreur lors de la demande d\'accès à la caméra. Veuillez vérifier les permissions de votre navigateur.';
+      }
+
+      setError(errorMessage);
+      onError?.(errorMessage);
     }
   };
 
@@ -237,7 +274,7 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
       {error && (
         <Alert
           icon={<IconAlertCircle size={20} />}
-          title="Erreur"
+          title="Erreur d'accès à la caméra"
           color="red"
           styles={{
             root: {
@@ -246,7 +283,28 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
             },
           }}
         >
-          {error}
+          <Stack gap="md">
+            <Text size="sm">{error}</Text>
+            {error.includes('refusé') || error.includes('permissions') ? (
+              <Group gap="xs">
+                <Button
+                  size="sm"
+                  variant="light"
+                  color="red"
+                  leftSection={<IconRefresh size={16} />}
+                  onClick={() => {
+                    setError(null);
+                    handleStartScan();
+                  }}
+                >
+                  Réessayer
+                </Button>
+                <Text size="xs" c="dimmed">
+                  Autorisez la caméra puis cliquez sur "Réessayer"
+                </Text>
+              </Group>
+            ) : null}
+          </Stack>
         </Alert>
       )}
 

@@ -87,7 +87,7 @@ export function AdminLogin() {
       <Box
         style={{
           minHeight: '100vh',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: '#ffffff',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -98,13 +98,13 @@ export function AdminLogin() {
           <Stack gap="xl" align="center">
             {/* Header */}
             <Stack gap="md" align="center">
-              <ThemeIcon size={100} radius={100} variant="light" color="white" style={{ background: 'rgba(255,255,255,0.2)' }}>
-                <IconShield size={60} color="white" />
+              <ThemeIcon size={100} radius={100} variant="gradient" gradient={{ from: 'indigo', to: 'violet' }}>
+                <IconShield size={60} />
               </ThemeIcon>
-              <Title order={1} size={48} c="white" fw={900} ta="center">
+              <Title order={1} size={48} c="dark" fw={900} ta="center">
                 FORNAP
               </Title>
-              <Text size="xl" c="white" ta="center" fw={500}>
+              <Text size="xl" c="dimmed" ta="center" fw={500}>
                 Choisissez votre espace
               </Text>
             </Stack>
@@ -225,7 +225,7 @@ export function AdminLogin() {
             </SimpleGrid>
 
             {/* Footer */}
-            <Text c="white" size="sm" ta="center" style={{ opacity: 0.9 }}>
+            <Text c="dimmed" size="sm" ta="center">
               Espaces réservés aux administrateurs uniquement
             </Text>
           </Stack>

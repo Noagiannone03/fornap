@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container, Box,
-  Title,
+  Container, Box
+
   Paper,
   Stack,
   Group,
@@ -11,7 +11,7 @@ import {
   Badge,
   Text,
   Card,
-  Divider,
+
   LoadingOverlay,
   Modal,
   Alert,
@@ -265,7 +265,6 @@ export function EventScannerPage() {
   };
 
   const modeNeedsEvent = config.mode !== ScanMode.SUBSCRIPTION_ONLY;
-  const canScan = !loading && (!modeNeedsEvent || config.eventId);
 
   return (
     <Box style={{ minHeight: '100vh', background: '#f8f9fa' }}>
@@ -435,7 +434,7 @@ export function EventScannerPage() {
               </Card>
               <Card withBorder p="md">
                 <Text size="xs" c="dimmed">Taux</Text>
-                <Text size="xl" fw={700}>{currentStats.successRate.toFixed(1)}%</Text>
+                <Text size="xl" fw={700}>{((currentStats.successfulScans / currentStats.totalScans) * 100).toFixed(1)}%</Text>
               </Card>
             </Group>
 

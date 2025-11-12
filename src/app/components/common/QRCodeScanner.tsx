@@ -6,8 +6,8 @@ import {
   Paper,
   Group,
   Loader,
-  
   Alert,
+  Box,
 } from '@mantine/core';
 import {
   IconCamera,
@@ -186,45 +186,214 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
     <Stack gap="lg">
       {/* Zone de scan caméra */}
       {(scanning || startRequested) ? (
-        <Paper
-          p="lg"
+        <Box
           style={{
+            position: 'relative',
+            width: '100%',
+            minHeight: '500px',
             borderRadius: '16px',
-            border: '3px solid #000',
+            overflow: 'hidden',
             background: '#000',
           }}
         >
-          <Stack gap="md" align="center">
-            <div
-              id="qr-reader"
-              ref={scannerDivRef}
+          <div
+            id="qr-reader"
+            ref={scannerDivRef}
+            style={{
+              width: '100%',
+              minHeight: '500px',
+            }}
+          />
+
+          {/* Overlay avec cadre de scan */}
+          <Box
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              pointerEvents: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+            }}
+          >
+            {/* Cadre de visée avec coins en L */}
+            <Box
               style={{
+                position: 'relative',
                 width: '100%',
-                maxWidth: '400px',
+                maxWidth: '320px',
+                aspectRatio: '1',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
                 borderRadius: '12px',
-                overflow: 'hidden',
               }}
-            />
-            {scanning && (
+            >
+              {/* Coin supérieur gauche */}
+              <Box
+                style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  left: '-2px',
+                  width: '50px',
+                  height: '50px',
+                  borderTop: '4px solid #00ff88',
+                  borderLeft: '4px solid #00ff88',
+                  borderRadius: '12px 0 0 0',
+                }}
+              />
+
+              {/* Coin supérieur droit */}
+              <Box
+                style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  right: '-2px',
+                  width: '50px',
+                  height: '50px',
+                  borderTop: '4px solid #00ff88',
+                  borderRight: '4px solid #00ff88',
+                  borderRadius: '0 12px 0 0',
+                }}
+              />
+
+              {/* Coin inférieur gauche */}
+              <Box
+                style={{
+                  position: 'absolute',
+                  bottom: '-2px',
+                  left: '-2px',
+                  width: '50px',
+                  height: '50px',
+                  borderBottom: '4px solid #00ff88',
+                  borderLeft: '4px solid #00ff88',
+                  borderRadius: '0 0 0 12px',
+                }}
+              />
+
+              {/* Coin inférieur droit */}
+              <Box
+                style={{
+                  position: 'absolute',
+                  bottom: '-2px',
+                  right: '-2px',
+                  width: '50px',
+                  height: '50px',
+                  borderBottom: '4px solid #00ff88',
+                  borderRight: '4px solid #00ff88',
+                  borderRadius: '0 0 12px 0',
+                }}
+              />
+
+              {/* Ligne de scan animée */}
+              <Box
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '10%',
+                  right: '10%',
+                  height: '2px',
+                  background: 'linear-gradient(90deg, transparent, #00ff88, transparent)',
+                  animation: 'scan 2s ease-in-out infinite',
+                  boxShadow: '0 0 10px #00ff88',
+                }}
+              />
+            </Box>
+
+            {/* Instructions */}
+            <Text
+              style={{
+                position: 'absolute',
+                bottom: '100px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                color: 'white',
+                fontSize: '16px',
+                fontWeight: 600,
+                textAlign: 'center',
+                textShadow: '0 2px 8px rgba(0,0,0,0.8)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Placez le QR code dans le cadre
+            </Text>
+          </Box>
+
+          {/* Bouton arrêter */}
+          {scanning && (
+            <Box
+              style={{
+                position: 'absolute',
+                bottom: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 10,
+              }}
+            >
               <Button
                 variant="filled"
                 color="red"
+                size="lg"
                 onClick={handleStopScan}
                 styles={{
                   root: {
-                    borderRadius: '12px',
+                    borderRadius: '24px',
                     fontWeight: 700,
+                    padding: '12px 32px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
                   },
                 }}
               >
-                ARRÊTER LE SCAN
+                ⬤ ARRÊTER
               </Button>
-            )}
-            {startRequested && !scanning && (
-              <Text c="white" size="sm">Démarrage de la caméra...</Text>
-            )}
-          </Stack>
-        </Paper>
+            </Box>
+          )}
+
+          {/* Message de chargement */}
+          {startRequested && !scanning && (
+            <Box
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                textAlign: 'center',
+              }}
+            >
+              <Stack gap="md" align="center">
+                <Loader size="lg" color="cyan" />
+                <Text c="white" size="lg" fw={600}>
+                  Démarrage de la caméra...
+                </Text>
+              </Stack>
+            </Box>
+          )}
+
+          {/* Animation CSS pour la ligne de scan */}
+          <style>{`
+            @keyframes scan {
+              0%, 100% {
+                transform: translateY(-100px);
+                opacity: 0;
+              }
+              10% {
+                opacity: 1;
+              }
+              50% {
+                transform: translateY(0);
+              }
+              90% {
+                opacity: 1;
+              }
+              100% {
+                transform: translateY(100px);
+                opacity: 0;
+              }
+            }
+          `}</style>
+        </Box>
       ) : (
         <Stack gap="md">
           {/* Boutons d'action */}

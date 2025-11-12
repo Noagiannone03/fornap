@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container, Box
-
+  Container,
+  Box,
   Paper,
   Stack,
   Group,
@@ -11,7 +11,6 @@ import {
   Badge,
   Text,
   Card,
-
   LoadingOverlay,
   Modal,
   Alert,

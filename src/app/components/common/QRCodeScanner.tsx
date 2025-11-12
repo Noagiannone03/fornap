@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Stack,
   Button,
@@ -29,61 +29,84 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [startRequested, setStartRequested] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerDivRef = useRef<HTMLDivElement>(null);
 
-  const handleStartScan = async () => {
-    try {
-      setError(null);
-      setSuccess(false);
+  // Effet pour démarrer le scanner une fois que le DOM est prêt
+  useEffect(() => {
+    if (!startRequested || scanning) return;
 
-      // Vérifier support caméra
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('CAMERA_NOT_SUPPORTED');
-      }
+    const initScanner = async () => {
+      try {
+        setError(null);
+        setSuccess(false);
 
-      setScanning(true);
-
-      // Créer le scanner et démarrer directement (Html5Qrcode gère les permissions)
-      const scanner = new Html5Qrcode('qr-reader');
-      scannerRef.current = scanner;
-
-      // Démarrer le scan - Html5Qrcode va demander la permission automatiquement
-      await scanner.start(
-        { facingMode: 'environment' }, // Caméra arrière
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
-        (decodedText) => {
-          // QR code scanné avec succès
-          handleScanSuccess(decodedText);
-        },
-        () => {
-          // Erreur de scan (ignorée, se produit continuellement)
+        // Vérifier support caméra
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('CAMERA_NOT_SUPPORTED');
         }
-      );
-    } catch (err: any) {
-      console.error('Erreur démarrage scanner:', err);
-      setScanning(false);
 
-      // Messages d'erreur détaillés
-      let errorMessage = 'Impossible d\'accéder à la caméra';
+        // Attendre que l'élément soit dans le DOM
+        const element = document.getElementById('qr-reader');
+        if (!element) {
+          console.error('Element qr-reader not found');
+          throw new Error('Element qr-reader not ready');
+        }
 
-      if (err.message === 'CAMERA_NOT_SUPPORTED') {
-        errorMessage = 'Votre navigateur ne supporte pas l\'accès à la caméra. Utilisez Chrome, Firefox ou Safari.';
-      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorMessage = 'Accès caméra refusé. Autorisez l\'accès dans les paramètres de votre navigateur puis réessayez.';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        errorMessage = 'Aucune caméra détectée. Utilisez la fonction "Importer" pour scanner depuis une image.';
-      } else if (err.message && err.message.includes('Permission')) {
-        errorMessage = 'Erreur de permission caméra. Vérifiez les paramètres de votre navigateur.';
+        // Créer le scanner et démarrer directement (Html5Qrcode gère les permissions)
+        const scanner = new Html5Qrcode('qr-reader');
+        scannerRef.current = scanner;
+
+        // Démarrer le scan - Html5Qrcode va demander la permission automatiquement
+        await scanner.start(
+          { facingMode: 'environment' }, // Caméra arrière
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          (decodedText) => {
+            // QR code scanné avec succès
+            handleScanSuccess(decodedText);
+          },
+          () => {
+            // Erreur de scan (ignorée, se produit continuellement)
+          }
+        );
+
+        setScanning(true);
+        setStartRequested(false);
+      } catch (err: any) {
+        console.error('Erreur démarrage scanner:', err);
+        setScanning(false);
+        setStartRequested(false);
+
+        // Messages d'erreur détaillés
+        let errorMessage = 'Impossible d\'accéder à la caméra';
+
+        if (err.message === 'CAMERA_NOT_SUPPORTED') {
+          errorMessage = 'Votre navigateur ne supporte pas l\'accès à la caméra. Utilisez Chrome, Firefox ou Safari.';
+        } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          errorMessage = 'Accès caméra refusé. Autorisez l\'accès dans les paramètres de votre navigateur puis réessayez.';
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          errorMessage = 'Aucune caméra détectée. Utilisez la fonction "Importer" pour scanner depuis une image.';
+        } else if (err.message && err.message.includes('Permission')) {
+          errorMessage = 'Erreur de permission caméra. Vérifiez les paramètres de votre navigateur.';
+        }
+
+        setError(errorMessage);
+        onError?.(errorMessage);
       }
+    };
 
-      setError(errorMessage);
-      onError?.(errorMessage);
-    }
+    // Petit délai pour s'assurer que le DOM est mis à jour
+    const timer = setTimeout(initScanner, 100);
+    return () => clearTimeout(timer);
+  }, [startRequested, scanning]);
+
+  const handleStartScan = () => {
+    setStartRequested(true);
   };
 
   const handleStopScan = async () => {
@@ -97,7 +120,18 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
       console.error('Erreur arrêt scanner:', err);
     }
     setScanning(false);
+    setStartRequested(false);
   };
+
+  // Cleanup au démontage du composant
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(console.error);
+        scannerRef.current.clear();
+      }
+    };
+  }, []);
 
   const handleScanSuccess = async (qrContent: string) => {
     // Arrêter le scanner
@@ -151,7 +185,7 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
   return (
     <Stack gap="lg">
       {/* Zone de scan caméra */}
-      {scanning ? (
+      {(scanning || startRequested) ? (
         <Paper
           p="lg"
           style={{
@@ -171,19 +205,24 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
                 overflow: 'hidden',
               }}
             />
-            <Button
-              variant="filled"
-              color="red"
-              onClick={handleStopScan}
-              styles={{
-                root: {
-                  borderRadius: '12px',
-                  fontWeight: 700,
-                },
-              }}
-            >
-              ARRÊTER LE SCAN
-            </Button>
+            {scanning && (
+              <Button
+                variant="filled"
+                color="red"
+                onClick={handleStopScan}
+                styles={{
+                  root: {
+                    borderRadius: '12px',
+                    fontWeight: 700,
+                  },
+                }}
+              >
+                ARRÊTER LE SCAN
+              </Button>
+            )}
+            {startRequested && !scanning && (
+              <Text c="white" size="sm">Démarrage de la caméra...</Text>
+            )}
           </Stack>
         </Paper>
       ) : (

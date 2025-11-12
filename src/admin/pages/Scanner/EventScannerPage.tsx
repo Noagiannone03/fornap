@@ -30,6 +30,10 @@ import {
   IconArrowLeft,
   IconTicket,
   IconRefresh,
+  IconShield,
+  IconUser,
+  IconSettings,
+  IconArrowRight,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
@@ -51,11 +55,13 @@ import type {
 import type { EventListItem } from '../../../shared/types/event';
 
 type TabType = 'scanner' | 'history' | 'stats';
+type ScannerStep = 'selectMode' | 'selectEvent' | 'scanning';
 
 export function EventScannerPage() {
   const { adminProfile } = useAdminAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('scanner');
+  const [scannerStep, setScannerStep] = useState<ScannerStep>('selectMode');
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<EventListItem[]>([]);
   const [recentScans, setRecentScans] = useState<ScanResult[]>([]);
@@ -279,62 +285,238 @@ export function EventScannerPage() {
     }
   };
 
-  const modeNeedsEvent = config.mode !== ScanMode.SUBSCRIPTION_ONLY;
   const latestScan = recentScans[0];
 
+  // Gestionnaires d'étapes
+  const handleSelectMode = (mode: ScanMode) => {
+    setConfig((prev) => ({ ...prev, mode, eventId: undefined }));
+
+    // Si le mode nécessite un événement, aller à l'étape de sélection d'événement
+    if (mode !== ScanMode.SUBSCRIPTION_ONLY) {
+      setScannerStep('selectEvent');
+    } else {
+      // Sinon, aller directement au scanner
+      setScannerStep('scanning');
+    }
+  };
+
+  const handleSelectEvent = (eventId: string) => {
+    setConfig((prev) => ({ ...prev, eventId }));
+    setScannerStep('scanning');
+  };
+
+  const handleBackToConfig = () => {
+    setScannerStep('selectMode');
+  };
+
   // Rendu des différents onglets
-  const renderScannerTab = () => (
-    <Stack gap="md" p="md">
-      {/* Configuration */}
-      <Paper p="md" radius="md" withBorder shadow="sm">
-        <Stack gap="md">
-          <Group gap="xs">
-            <IconQrcode size={20} color="var(--mantine-color-indigo-6)" />
-            <Text size="sm" fw={600}>Configuration</Text>
-          </Group>
+  const renderScannerTab = () => {
+    // ÉTAPE 1: Sélection du mode
+    if (scannerStep === 'selectMode') {
+      return (
+        <Stack gap="md" p="md">
+          <Paper p="md" radius="md" withBorder>
+            <Stack gap="xs">
+              <Group gap="xs">
+                <IconSettings size={20} color="var(--mantine-color-indigo-6)" />
+                <Text size="sm" fw={600} c="dimmed">Étape 1/2</Text>
+              </Group>
+              <Text size="xl" fw={700}>Choisissez le mode de scan</Text>
+              <Text size="sm" c="dimmed">Sélectionnez le type de vérification que vous souhaitez effectuer</Text>
+            </Stack>
+          </Paper>
 
-          <Select
-            label="Mode de scan"
-            placeholder="Sélectionner un mode"
-            value={config.mode}
-            onChange={(value) =>
-              setConfig((prev) => ({ ...prev, mode: value as ScanMode, eventId: undefined }))
-            }
-            data={[
-              {
-                value: ScanMode.SUBSCRIPTION_ONLY,
-                label: '🛡️ Abonnement seul'
-              },
-              {
-                value: ScanMode.EVENT_ATTENDANCE,
-                label: '👥 Événement (présence)'
-              },
-              {
-                value: ScanMode.EVENT_WITH_TICKET,
-                label: '🎫 Événement + Billet'
-              },
-            ]}
-            size="md"
-            styles={{
-              input: { fontWeight: 500 },
-            }}
-          />
+          <Stack gap="md">
+            {/* Carte Mode Abonnement */}
+            <Paper
+              p="xl"
+              radius="md"
+              withBorder
+              shadow="sm"
+              style={{
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                border: '2px solid var(--mantine-color-gray-3)',
+              }}
+              onClick={() => handleSelectMode(ScanMode.SUBSCRIPTION_ONLY)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--mantine-color-indigo-5)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--mantine-color-gray-3)';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '';
+              }}
+            >
+              <Group justify="space-between" align="flex-start">
+                <Stack gap="sm" style={{ flex: 1 }}>
+                  <Group gap="md">
+                    <Box
+                      style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, var(--mantine-color-indigo-5), var(--mantine-color-indigo-7))',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <IconShield size={32} color="white" />
+                    </Box>
+                    <div>
+                      <Text size="xl" fw={700}>Abonnement seul</Text>
+                      <Text size="sm" c="dimmed">Vérification d'abonnement</Text>
+                    </div>
+                  </Group>
+                  <Text size="sm">
+                    Vérifiez uniquement si le membre possède un abonnement actif. Idéal pour les vérifications rapides à l'entrée.
+                  </Text>
+                </Stack>
+                <IconArrowRight size={24} color="var(--mantine-color-gray-5)" />
+              </Group>
+            </Paper>
 
-          {modeNeedsEvent && (
-            <>
+            {/* Carte Mode Présence Événement */}
+            <Paper
+              p="xl"
+              radius="md"
+              withBorder
+              shadow="sm"
+              style={{
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                border: '2px solid var(--mantine-color-gray-3)',
+              }}
+              onClick={() => handleSelectMode(ScanMode.EVENT_ATTENDANCE)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--mantine-color-teal-5)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--mantine-color-gray-3)';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '';
+              }}
+            >
+              <Group justify="space-between" align="flex-start">
+                <Stack gap="sm" style={{ flex: 1 }}>
+                  <Group gap="md">
+                    <Box
+                      style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, var(--mantine-color-teal-5), var(--mantine-color-teal-7))',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <IconUser size={32} color="white" />
+                    </Box>
+                    <div>
+                      <Text size="xl" fw={700}>Présence événement</Text>
+                      <Text size="sm" c="dimmed">Comptage sans billet</Text>
+                    </div>
+                  </Group>
+                  <Text size="sm">
+                    Comptabilisez la présence à un événement sans vérifier les billets. Pour les événements gratuits ou sans réservation.
+                  </Text>
+                </Stack>
+                <IconArrowRight size={24} color="var(--mantine-color-gray-5)" />
+              </Group>
+            </Paper>
+
+            {/* Carte Mode Événement + Billet */}
+            <Paper
+              p="xl"
+              radius="md"
+              withBorder
+              shadow="sm"
+              style={{
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                border: '2px solid var(--mantine-color-gray-3)',
+              }}
+              onClick={() => handleSelectMode(ScanMode.EVENT_WITH_TICKET)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--mantine-color-violet-5)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--mantine-color-gray-3)';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '';
+              }}
+            >
+              <Group justify="space-between" align="flex-start">
+                <Stack gap="sm" style={{ flex: 1 }}>
+                  <Group gap="md">
+                    <Box
+                      style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, var(--mantine-color-violet-5), var(--mantine-color-violet-7))',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <IconTicket size={32} color="white" />
+                    </Box>
+                    <div>
+                      <Text size="xl" fw={700}>Événement + Billet</Text>
+                      <Text size="sm" c="dimmed">Vérification complète</Text>
+                    </div>
+                  </Group>
+                  <Text size="sm">
+                    Vérifiez l'abonnement ET la possession d'un billet valide pour l'événement. Pour les événements payants avec réservation.
+                  </Text>
+                </Stack>
+                <IconArrowRight size={24} color="var(--mantine-color-gray-5)" />
+              </Group>
+            </Paper>
+          </Stack>
+        </Stack>
+      );
+    }
+
+    // ÉTAPE 2: Sélection d'événement (si mode événement)
+    if (scannerStep === 'selectEvent') {
+      return (
+        <Stack gap="md" p="md">
+          <Paper p="md" radius="md" withBorder>
+            <Stack gap="xs">
+              <Group gap="xs">
+                <IconTicket size={20} color="var(--mantine-color-indigo-6)" />
+                <Text size="sm" fw={600} c="dimmed">Étape 2/2</Text>
+              </Group>
+              <Text size="xl" fw={700}>Sélectionnez l'événement</Text>
+              <Text size="sm" c="dimmed">
+                Mode: <strong>{getModeLabel(config.mode)}</strong>
+              </Text>
+            </Stack>
+          </Paper>
+
+          <Paper p="xl" radius="md" withBorder shadow="sm">
+            <Stack gap="lg">
               <Select
                 label="Événement"
                 placeholder="Choisir un événement"
                 value={config.eventId}
-                onChange={(value) =>
-                  setConfig((prev) => ({ ...prev, eventId: value || undefined }))
-                }
+                onChange={(value) => value && handleSelectEvent(value)}
                 data={events.map((e) => ({
                   value: e.id,
                   label: `${e.title} - ${new Date(e.startDate.toMillis()).toLocaleDateString('fr-FR')}`,
                 }))}
                 searchable
-                size="md"
+                size="lg"
                 rightSection={
                   <ActionIcon
                     variant="subtle"
@@ -343,92 +525,134 @@ export function EventScannerPage() {
                       loadEvents();
                     }}
                   >
-                    <IconRefresh size={16} />
+                    <IconRefresh size={18} />
                   </ActionIcon>
                 }
                 error={events.length === 0 ? "Aucun événement disponible" : undefined}
                 styles={{
-                  input: { fontWeight: 500 },
+                  input: { fontWeight: 500, fontSize: '16px' },
                 }}
               />
 
-              {!config.eventId && (
-                <Alert icon={<IconAlertCircle size={16} />} color="orange" variant="light">
-                  <Text size="sm">⚠️ Sélectionnez un événement pour commencer à scanner</Text>
+              {events.length === 0 && (
+                <Alert icon={<IconAlertCircle size={20} />} color="orange" variant="light">
+                  <Stack gap="xs">
+                    <Text size="sm" fw={500}>Aucun événement disponible</Text>
+                    <Text size="sm">
+                      Aucun événement n'a été trouvé dans la base de données. Créez un événement dans le panel admin avant de scanner.
+                    </Text>
+                  </Stack>
                 </Alert>
               )}
-            </>
-          )}
-        </Stack>
-      </Paper>
 
-      {/* Scanner */}
-      <Paper p="md" radius="md" withBorder shadow="sm">
-        <QRCodeScanner
-          onScan={handleScan}
-          onError={(error) => {
-            console.error('Erreur scanner:', error);
-            notifications.show({
-              title: 'Erreur caméra',
-              message: error,
-              color: 'red',
-            });
-          }}
-        />
-      </Paper>
-
-      {/* Dernier scan - Grande carte visible */}
-      {latestScan && (
-        <Paper
-          p="lg"
-          radius="md"
-          withBorder
-          shadow="sm"
-          style={{
-            backgroundColor: latestScan.status === ScanResultStatus.SUCCESS
-              ? 'var(--mantine-color-green-0)'
-              : 'var(--mantine-color-red-0)',
-            borderColor: latestScan.status === ScanResultStatus.SUCCESS
-              ? 'var(--mantine-color-green-3)'
-              : 'var(--mantine-color-red-3)',
-          }}
-        >
-          <Stack gap="sm">
-            <Group justify="space-between">
-              <Group gap="xs">
-                {getStatusIcon(latestScan.status)}
-                <Text size="sm" fw={600} c="dimmed">Dernier scan</Text>
+              <Group>
+                <ActionIcon
+                  variant="subtle"
+                  size="lg"
+                  onClick={handleBackToConfig}
+                >
+                  <IconArrowLeft size={20} />
+                </ActionIcon>
+                <Text size="sm" c="dimmed">Retour au choix du mode</Text>
               </Group>
-              <Badge
-                size="lg"
-                color={getStatusColor(latestScan.status)}
-                variant="filled"
-              >
-                {latestScan.status === ScanResultStatus.SUCCESS ? '✓ VALIDE' : '✗ REFUSÉ'}
-              </Badge>
-            </Group>
+            </Stack>
+          </Paper>
+        </Stack>
+      );
+    }
 
-            {latestScan.user && (
-              <div>
-                <Text size="xl" fw={700}>
-                  {latestScan.user.firstName} {latestScan.user.lastName}
+    // ÉTAPE 3: Scanner actif
+    return (
+      <Stack gap="md" p="md">
+        {/* Bouton retour config */}
+        <Paper p="sm" radius="md" withBorder>
+          <Group justify="space-between">
+            <Stack gap={4}>
+              <Text size="sm" fw={600}>{getModeLabel(config.mode)}</Text>
+              {config.eventId && (
+                <Text size="xs" c="dimmed">
+                  {events.find(e => e.id === config.eventId)?.title}
                 </Text>
-                <Text size="sm" c="dimmed">{latestScan.user.email}</Text>
-              </div>
-            )}
-
-            <Text size="sm" fw={500}>
-              {latestScan.message}
-            </Text>
-
-            <Text size="xs" c="dimmed">
-              {new Date(latestScan.scannedAt.toMillis()).toLocaleString('fr-FR')}
-            </Text>
-          </Stack>
+              )}
+            </Stack>
+            <ActionIcon
+              variant="light"
+              size="lg"
+              onClick={handleBackToConfig}
+            >
+              <IconSettings size={20} />
+            </ActionIcon>
+          </Group>
         </Paper>
-      )}
-    </Stack>
-  );
+
+        {/* Scanner */}
+        <Paper p="md" radius="md" withBorder shadow="sm">
+          <QRCodeScanner
+            onScan={handleScan}
+            onError={(error) => {
+              console.error('Erreur scanner:', error);
+              notifications.show({
+                title: 'Erreur caméra',
+                message: error,
+                color: 'red',
+              });
+            }}
+          />
+        </Paper>
+
+        {/* Dernier scan - Grande carte visible */}
+        {latestScan && (
+          <Paper
+            p="lg"
+            radius="md"
+            withBorder
+            shadow="sm"
+            style={{
+              backgroundColor: latestScan.status === ScanResultStatus.SUCCESS
+                ? 'var(--mantine-color-green-0)'
+                : 'var(--mantine-color-red-0)',
+              borderColor: latestScan.status === ScanResultStatus.SUCCESS
+                ? 'var(--mantine-color-green-3)'
+                : 'var(--mantine-color-red-3)',
+            }}
+          >
+            <Stack gap="sm">
+              <Group justify="space-between">
+                <Group gap="xs">
+                  {getStatusIcon(latestScan.status)}
+                  <Text size="sm" fw={600} c="dimmed">Dernier scan</Text>
+                </Group>
+                <Badge
+                  size="lg"
+                  color={getStatusColor(latestScan.status)}
+                  variant="filled"
+                >
+                  {latestScan.status === ScanResultStatus.SUCCESS ? '✓ VALIDE' : '✗ REFUSÉ'}
+                </Badge>
+              </Group>
+
+              {latestScan.user && (
+                <div>
+                  <Text size="xl" fw={700}>
+                    {latestScan.user.firstName} {latestScan.user.lastName}
+                  </Text>
+                  <Text size="sm" c="dimmed">{latestScan.user.email}</Text>
+                </div>
+              )}
+
+              <Text size="sm" fw={500}>
+                {latestScan.message}
+              </Text>
+
+              <Text size="xs" c="dimmed">
+                {new Date(latestScan.scannedAt.toMillis()).toLocaleString('fr-FR')}
+              </Text>
+            </Stack>
+          </Paper>
+        )}
+      </Stack>
+    );
+  };
 
   const renderHistoryTab = () => (
     <ScrollArea h="calc(100vh - 140px)" p="md">

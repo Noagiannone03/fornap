@@ -314,29 +314,10 @@ export function EventScannerPage() {
 
   // Rendu des différents onglets
   const renderScannerTab = () => {
-    // Notice desktop
-    const desktopNotice = !isMobile && (
-      <Alert
-        icon={<IconDeviceMobile size={20} />}
-        color="blue"
-        variant="light"
-        title="Mode mobile recommandé"
-        styles={{
-          root: { margin: '16px' },
-        }}
-      >
-        <Text size="sm">
-          Cette page est optimisée pour le scan mobile. Pour une meilleure expérience,
-          veuillez accéder à cette page depuis un smartphone ou une tablette avec caméra.
-        </Text>
-      </Alert>
-    );
-
     // ÉTAPE 1: Sélection du mode
     if (scannerStep === 'selectMode') {
       return (
         <Stack gap="md" p="md">
-          {desktopNotice}
           <Paper p="md" radius="md" withBorder>
             <Stack gap="xs">
               <Group gap="xs">
@@ -513,7 +494,6 @@ export function EventScannerPage() {
     if (scannerStep === 'selectEvent') {
       return (
         <Stack gap="md" p="md">
-          {desktopNotice}
           <Paper p="md" radius="md" withBorder>
             <Stack gap="xs">
               <Group gap="xs">
@@ -587,7 +567,6 @@ export function EventScannerPage() {
     // ÉTAPE 3: Scanner actif
     return (
       <Stack gap="md" p="md">
-        {desktopNotice}
         {/* Bouton retour config */}
         <Paper p="sm" radius="md" withBorder>
           <Group justify="space-between">
@@ -858,6 +837,67 @@ export function EventScannerPage() {
       </Stack>
     </ScrollArea>
   );
+
+  // Si desktop, bloquer l'accès
+  if (!isMobile) {
+    return (
+      <Box style={{ minHeight: '100vh', background: 'var(--mantine-color-gray-0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Center style={{ width: '100%', padding: '2rem' }}>
+          <Stack gap="xl" align="center" style={{ maxWidth: '500px', width: '100%' }}>
+            <Box
+              style={{
+                width: '120px',
+                height: '120px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, var(--mantine-color-indigo-5), var(--mantine-color-indigo-7))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <IconDeviceMobile size={64} color="white" />
+            </Box>
+
+            <Stack gap="md" align="center" style={{ textAlign: 'center' }}>
+              <Title order={1} size="h2">Scanner QR Mobile uniquement</Title>
+              <Text size="lg" c="dimmed">
+                Cette fonctionnalité nécessite un appareil mobile avec caméra pour scanner les QR codes.
+              </Text>
+            </Stack>
+
+            <Paper p="xl" radius="md" withBorder shadow="sm" style={{ width: '100%' }}>
+              <Stack gap="md">
+                <Group gap="sm">
+                  <IconQrcode size={24} color="var(--mantine-color-indigo-6)" />
+                  <Text size="sm" fw={600}>Comment accéder au scanner ?</Text>
+                </Group>
+                <Stack gap="xs">
+                  <Text size="sm">
+                    1. Ouvrez cette page sur votre smartphone ou tablette
+                  </Text>
+                  <Text size="sm">
+                    2. Connectez-vous avec votre compte administrateur
+                  </Text>
+                  <Text size="sm">
+                    3. Accédez au scanner QR depuis le menu
+                  </Text>
+                </Stack>
+              </Stack>
+            </Paper>
+
+            <ActionIcon
+              variant="light"
+              size="xl"
+              onClick={() => navigate('/admin/dashboard')}
+            >
+              <IconArrowLeft size={24} />
+            </ActionIcon>
+            <Text size="sm" c="dimmed">Retour au tableau de bord</Text>
+          </Stack>
+        </Center>
+      </Box>
+    );
+  }
 
   return (
     <Box style={{ minHeight: '100vh', background: 'var(--mantine-color-gray-0)' }}>

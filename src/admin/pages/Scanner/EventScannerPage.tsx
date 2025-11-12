@@ -18,6 +18,7 @@ import {
   Title,
   ScrollArea,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import {
   IconQrcode,
   IconCheck,
@@ -34,6 +35,7 @@ import {
   IconUser,
   IconSettings,
   IconArrowRight,
+  IconDeviceMobile,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
@@ -60,6 +62,7 @@ type ScannerStep = 'selectMode' | 'selectEvent' | 'scanning';
 export function EventScannerPage() {
   const { adminProfile } = useAdminAuth();
   const navigate = useNavigate();
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const [activeTab, setActiveTab] = useState<TabType>('scanner');
   const [scannerStep, setScannerStep] = useState<ScannerStep>('selectMode');
   const [loading, setLoading] = useState(false);
@@ -311,10 +314,29 @@ export function EventScannerPage() {
 
   // Rendu des différents onglets
   const renderScannerTab = () => {
+    // Notice desktop
+    const desktopNotice = !isMobile && (
+      <Alert
+        icon={<IconDeviceMobile size={20} />}
+        color="blue"
+        variant="light"
+        title="Mode mobile recommandé"
+        styles={{
+          root: { margin: '16px' },
+        }}
+      >
+        <Text size="sm">
+          Cette page est optimisée pour le scan mobile. Pour une meilleure expérience,
+          veuillez accéder à cette page depuis un smartphone ou une tablette avec caméra.
+        </Text>
+      </Alert>
+    );
+
     // ÉTAPE 1: Sélection du mode
     if (scannerStep === 'selectMode') {
       return (
         <Stack gap="md" p="md">
+          {desktopNotice}
           <Paper p="md" radius="md" withBorder>
             <Stack gap="xs">
               <Group gap="xs">
@@ -491,6 +513,7 @@ export function EventScannerPage() {
     if (scannerStep === 'selectEvent') {
       return (
         <Stack gap="md" p="md">
+          {desktopNotice}
           <Paper p="md" radius="md" withBorder>
             <Stack gap="xs">
               <Group gap="xs">
@@ -564,6 +587,7 @@ export function EventScannerPage() {
     // ÉTAPE 3: Scanner actif
     return (
       <Stack gap="md" p="md">
+        {desktopNotice}
         {/* Bouton retour config */}
         <Paper p="sm" radius="md" withBorder>
           <Group justify="space-between">

@@ -17,7 +17,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../shared/config/firebase';
 import { QRCodeScanner } from '../components/common/QRCodeScanner';
 import type { UserProfile } from '../../shared/types/user';
-import { IconUser, IconMail, IconPhone, IconCalendar, IconArrowLeft, IconShield } from '@tabler/icons-react';
+import { IconUser, IconMail, IconPhone, IconCalendar, IconShield } from '@tabler/icons-react';
 import { useAdminAuth } from '../../shared/contexts/AdminAuthContext';
 
 export const CheckIn = () => {

@@ -16,7 +16,7 @@ interface CheckInProtectedRouteProps {
 }
 
 export function CheckInProtectedRoute({ children }: CheckInProtectedRouteProps) {
-  const { user, loading: userLoading } = useAuth();
+  const { currentUser, loading: userLoading } = useAuth();
   const { adminProfile, loading: adminLoading } = useAdminAuth();
 
   // Attendre que les deux contextes aient terminé de charger
@@ -29,7 +29,7 @@ export function CheckInProtectedRoute({ children }: CheckInProtectedRouteProps) 
   }
 
   // Si ni utilisateur ni admin n'est connecté, rediriger vers login admin
-  if (!user && !adminProfile) {
+  if (!currentUser && !adminProfile) {
     return <Navigate to="/admin/login" replace />;
   }
 

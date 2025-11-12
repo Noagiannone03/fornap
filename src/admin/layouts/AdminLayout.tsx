@@ -19,6 +19,7 @@ import {
   IconUser,
   IconMail,
   IconBug,
+  IconQrcode,
 } from '@tabler/icons-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';

@@ -122,8 +122,18 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
   useEffect(() => {
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.stop().catch(console.error);
-        scannerRef.current.clear();
+        try {
+          const state = scannerRef.current.getState();
+          if (state === 2) { // Scanner is running (state 2 = SCANNING)
+            scannerRef.current.stop().then(() => {
+              if (scannerRef.current) {
+                scannerRef.current.clear();
+              }
+            }).catch(console.error);
+          }
+        } catch (err) {
+          console.error('Error in cleanup:', err);
+        }
       }
     };
   }, []);
@@ -179,9 +189,9 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              width: '80%',
-              maxWidth: '300px',
-              aspectRatio: '1',
+              width: '70%',
+              maxWidth: '280px',
+              height: '280px',
               border: '3px solid rgba(255, 255, 255, 0.6)',
               borderRadius: '16px',
               pointerEvents: 'none',

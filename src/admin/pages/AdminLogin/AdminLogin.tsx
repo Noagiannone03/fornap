@@ -21,7 +21,7 @@ import {
   Center,
   Group,
   ThemeIcon,
-  Divider,
+  SimpleGrid,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { IconShield, IconAlertCircle, IconLock, IconMail, IconQrcode } from '@tabler/icons-react';
@@ -32,11 +32,14 @@ interface LoginFormValues {
   password: string;
 }
 
+type LoginMode = 'choice' | 'admin' | 'checkin';
+
 export function AdminLogin() {
   const navigate = useNavigate();
   const { login, loading } = useAdminAuth();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mode, setMode] = useState<LoginMode>('choice');
 
   const form = useForm<LoginFormValues>({
     initialValues: {
@@ -64,8 +67,12 @@ export function AdminLogin() {
 
       await login(values.email, values.password);
 
-      // Redirection vers le dashboard admin
-      navigate('/admin/dashboard', { replace: true });
+      // Redirection en fonction du mode choisi
+      if (mode === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else if (mode === 'checkin') {
+        navigate('/check-in', { replace: true });
+      }
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Une erreur est survenue lors de la connexion');
@@ -74,11 +81,167 @@ export function AdminLogin() {
     }
   };
 
+  // Mode choix : afficher deux grandes cartes
+  if (mode === 'choice') {
+    return (
+      <Box
+        style={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+        }}
+      >
+        <Container size={900}>
+          <Stack gap="xl" align="center">
+            {/* Header */}
+            <Stack gap="md" align="center">
+              <ThemeIcon size={100} radius={100} variant="light" color="white" style={{ background: 'rgba(255,255,255,0.2)' }}>
+                <IconShield size={60} color="white" />
+              </ThemeIcon>
+              <Title order={1} size={48} c="white" fw={900} ta="center">
+                FORNAP
+              </Title>
+              <Text size="xl" c="white" ta="center" fw={500}>
+                Choisissez votre espace
+              </Text>
+            </Stack>
+
+            {/* Deux grandes cartes de choix */}
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl" w="100%">
+              {/* Carte Panel Admin */}
+              <Paper
+                shadow="xl"
+                p="xl"
+                radius="lg"
+                style={{
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  border: '3px solid transparent',
+                  minHeight: '320px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-8px)';
+                  e.currentTarget.style.borderColor = '#667eea';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = 'transparent';
+                }}
+                onClick={() => setMode('admin')}
+              >
+                <Stack gap="lg" align="center">
+                  <ThemeIcon size={120} radius={120} variant="light" color="indigo">
+                    <IconShield size={70} />
+                  </ThemeIcon>
+                  <Stack gap="xs" align="center">
+                    <Title order={2} size={28} fw={900} ta="center">
+                      Panel Admin
+                    </Title>
+                    <Text size="md" c="dimmed" ta="center">
+                      Accéder au tableau de bord complet pour gérer utilisateurs, événements, analytics et plus
+                    </Text>
+                  </Stack>
+                  <Button
+                    size="lg"
+                    variant="gradient"
+                    gradient={{ from: 'indigo', to: 'violet' }}
+                    fullWidth
+                    leftSection={<IconShield size={20} />}
+                    styles={{
+                      root: {
+                        height: '56px',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                      },
+                    }}
+                  >
+                    ACCÉDER AU PANEL
+                  </Button>
+                </Stack>
+              </Paper>
+
+              {/* Carte Vérification QR */}
+              <Paper
+                shadow="xl"
+                p="xl"
+                radius="lg"
+                style={{
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  border: '3px solid transparent',
+                  minHeight: '320px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-8px)';
+                  e.currentTarget.style.borderColor = '#0ca678';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = 'transparent';
+                }}
+                onClick={() => setMode('checkin')}
+              >
+                <Stack gap="lg" align="center">
+                  <ThemeIcon size={120} radius={120} variant="light" color="teal">
+                    <IconQrcode size={70} />
+                  </ThemeIcon>
+                  <Stack gap="xs" align="center">
+                    <Title order={2} size={28} fw={900} ta="center">
+                      Vérification QR
+                    </Title>
+                    <Text size="md" c="dimmed" ta="center">
+                      Scanner les QR codes des membres pour vérifier les abonnements et gérer les check-ins
+                    </Text>
+                  </Stack>
+                  <Button
+                    size="lg"
+                    variant="gradient"
+                    gradient={{ from: 'teal', to: 'green' }}
+                    fullWidth
+                    leftSection={<IconQrcode size={20} />}
+                    styles={{
+                      root: {
+                        height: '56px',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                      },
+                    }}
+                  >
+                    ACCÉDER AU SCANNER
+                  </Button>
+                </Stack>
+              </Paper>
+            </SimpleGrid>
+
+            {/* Footer */}
+            <Text c="white" size="sm" ta="center" style={{ opacity: 0.9 }}>
+              Espaces réservés aux administrateurs uniquement
+            </Text>
+          </Stack>
+        </Container>
+      </Box>
+    );
+  }
+
+  // Mode login (admin ou check-in)
   return (
     <Box
       style={{
         minHeight: '100vh',
-        background: '#f8f9fa',
+        background: mode === 'admin'
+          ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+          : 'linear-gradient(135deg, #0ca678 0%, #099268 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -86,16 +249,21 @@ export function AdminLogin() {
       }}
     >
       <Container size={460}>
-        <Paper shadow="md" p={40} radius="lg" withBorder style={{ backgroundColor: 'white' }}>
+        <Paper shadow="xl" p={40} radius="lg" withBorder style={{ backgroundColor: 'white' }}>
           {/* Header avec icône */}
           <Center mb="xl">
-            <ThemeIcon size={80} radius={80} variant="light" color="blue">
-              <IconShield size={50} />
+            <ThemeIcon
+              size={80}
+              radius={80}
+              variant="light"
+              color={mode === 'admin' ? 'indigo' : 'teal'}
+            >
+              {mode === 'admin' ? <IconShield size={50} /> : <IconQrcode size={50} />}
             </ThemeIcon>
           </Center>
 
           <Title order={2} ta="center" mb="xs" style={{ color: '#1a1b1e' }}>
-            Panel Administrateur
+            {mode === 'admin' ? 'Panel Administrateur' : 'Système de Vérification'}
           </Title>
 
           <Text c="dimmed" size="sm" ta="center" mb="xl">
@@ -134,40 +302,41 @@ export function AdminLogin() {
               <Button
                 type="submit"
                 fullWidth
-                size="md"
+                size="lg"
                 mt="md"
                 loading={isSubmitting || loading}
                 variant="gradient"
-                gradient={{ from: 'indigo', to: 'violet' }}
+                gradient={
+                  mode === 'admin'
+                    ? { from: 'indigo', to: 'violet' }
+                    : { from: 'teal', to: 'green' }
+                }
+                styles={{
+                  root: {
+                    height: '56px',
+                    fontSize: '16px',
+                    fontWeight: 700,
+                  },
+                }}
               >
-                Accéder au panel admin
+                SE CONNECTER
+              </Button>
+
+              <Button
+                variant="subtle"
+                fullWidth
+                onClick={() => setMode('choice')}
+                color="gray"
+                mt="xs"
+              >
+                ← Retour au choix
               </Button>
             </Stack>
           </form>
-
-          {/* Divider */}
-          <Divider label="OU" labelPosition="center" my="lg" />
-
-          {/* Bouton CheckIn */}
-          <Button
-            fullWidth
-            size="md"
-            variant="light"
-            color="teal"
-            leftSection={<IconQrcode size={20} />}
-            onClick={() => navigate('/check-in')}
-          >
-            Système de vérification QR
-          </Button>
-
-          {/* Footer */}
-          <Text c="dimmed" size="xs" ta="center" mt="xl">
-            Panel réservé aux administrateurs uniquement
-          </Text>
         </Paper>
 
         {/* Informations de sécurité */}
-        <Paper shadow="sm" p="md" mt="md" withBorder>
+        <Paper shadow="sm" p="md" mt="md" withBorder style={{ background: 'rgba(255,255,255,0.95)' }}>
           <Group gap="xs">
             <IconAlertCircle size={16} color="orange" />
             <Text size="xs" c="dimmed">

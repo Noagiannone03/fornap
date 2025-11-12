@@ -38,34 +38,18 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
       setError(null);
       setSuccess(false);
 
-      // Vérifier d'abord si les permissions sont disponibles
+      // Vérifier support caméra
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('CAMERA_NOT_SUPPORTED');
       }
 
-      // Demander explicitement la permission de la caméra
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        // Arrêter immédiatement le stream après vérification
-        stream.getTracks().forEach(track => track.stop());
-      } catch (permError: any) {
-        // Gérer les différents types d'erreurs de permission
-        if (permError.name === 'NotAllowedError' || permError.name === 'PermissionDeniedError') {
-          throw new Error('PERMISSION_DENIED');
-        } else if (permError.name === 'NotFoundError' || permError.name === 'DevicesNotFoundError') {
-          throw new Error('NO_CAMERA');
-        } else {
-          throw new Error('PERMISSION_ERROR');
-        }
-      }
-
       setScanning(true);
 
-      // Créer le scanner
+      // Créer le scanner et démarrer directement (Html5Qrcode gère les permissions)
       const scanner = new Html5Qrcode('qr-reader');
       scannerRef.current = scanner;
 
-      // Démarrer le scan
+      // Démarrer le scan - Html5Qrcode va demander la permission automatiquement
       await scanner.start(
         { facingMode: 'environment' }, // Caméra arrière
         {
@@ -84,17 +68,17 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
       console.error('Erreur démarrage scanner:', err);
       setScanning(false);
 
-      // Messages d'erreur détaillés selon le type d'erreur
+      // Messages d'erreur détaillés
       let errorMessage = 'Impossible d\'accéder à la caméra';
 
       if (err.message === 'CAMERA_NOT_SUPPORTED') {
-        errorMessage = 'Votre navigateur ne supporte pas l\'accès à la caméra. Veuillez utiliser un navigateur récent (Chrome, Firefox, Safari).';
-      } else if (err.message === 'PERMISSION_DENIED') {
-        errorMessage = 'Accès à la caméra refusé. Veuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur et actualiser la page.';
-      } else if (err.message === 'NO_CAMERA') {
-        errorMessage = 'Aucune caméra détectée sur cet appareil. Veuillez utiliser la fonction "Importer" pour scanner un QR code depuis une image.';
-      } else if (err.message === 'PERMISSION_ERROR') {
-        errorMessage = 'Erreur lors de la demande d\'accès à la caméra. Veuillez vérifier les permissions de votre navigateur.';
+        errorMessage = 'Votre navigateur ne supporte pas l\'accès à la caméra. Utilisez Chrome, Firefox ou Safari.';
+      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage = 'Accès caméra refusé. Autorisez l\'accès dans les paramètres de votre navigateur puis réessayez.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMessage = 'Aucune caméra détectée. Utilisez la fonction "Importer" pour scanner depuis une image.';
+      } else if (err.message && err.message.includes('Permission')) {
+        errorMessage = 'Erreur de permission caméra. Vérifiez les paramètres de votre navigateur.';
       }
 
       setError(errorMessage);

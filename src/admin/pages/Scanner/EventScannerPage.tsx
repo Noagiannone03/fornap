@@ -11,17 +11,10 @@ import {
   Badge,
   Text,
   Card,
-  
   Divider,
-  Grid,
   LoadingOverlay,
-  
   Modal,
-  
-  
   Alert,
-  
-  
   ActionIcon,
 } from '@mantine/core';
 import {
@@ -29,9 +22,6 @@ import {
   IconCheck,
   IconX,
   IconAlertCircle,
-  
-  
-  
   IconChartBar,
   IconRefresh,
   IconVolume,
@@ -60,8 +50,8 @@ import type { EventListItem } from '../../../shared/types/event';
 
 
 export function EventScannerPage() {
-  const navigate = useNavigate();
   const { adminProfile } = useAdminAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<EventListItem[]>([]);
   const [recentScans, setRecentScans] = useState<ScanResult[]>([]);
@@ -88,11 +78,17 @@ export function EventScannerPage() {
   const loadEvents = async () => {
     try {
       const eventsData = await getAllEventsForList();
-      // Filtrer uniquement les événements publiés et actifs
-      const activeEvents = eventsData.filter(
-        (e) => e.status === 'published' && e.isActive
-      );
-      setEvents(activeEvents);
+      console.log('Événements chargés:', eventsData);
+      // Ne pas filtrer trop strictement - montrer tous les événements
+      setEvents(eventsData);
+
+      if (eventsData.length === 0) {
+        notifications.show({
+          title: 'Aucun événement',
+          message: 'Aucun événement trouvé dans la base de données',
+          color: 'orange',
+        });
+      }
     } catch (error) {
       console.error('Erreur chargement événements:', error);
       notifications.show({
@@ -104,14 +100,11 @@ export function EventScannerPage() {
   };
 
   const initializeSounds = () => {
-    // Sons de feedback (peuvent être remplacés par de vrais fichiers audio)
-    // Pour l'instant on utilisera l'API Web Audio pour générer des bips
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;
 
     const audioContext = new AudioContext();
 
-    // Son de succès (bip aigu)
     const createSuccessSound = () => {
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
@@ -129,7 +122,6 @@ export function EventScannerPage() {
       oscillator.stop(audioContext.currentTime + 0.2);
     };
 
-    // Son d'erreur (bip grave)
     const createErrorSound = () => {
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
@@ -151,90 +143,62 @@ export function EventScannerPage() {
     errorSoundRef.current = { play: createErrorSound } as any;
   };
 
-  const playFeedbackSound = (isSuccess: boolean) => {
-    if (!config.enableSound) return;
-
-    try {
-      if (isSuccess) {
-        successSoundRef.current?.play();
-      } else {
-        errorSoundRef.current?.play();
-      }
-    } catch (error) {
-      console.error('Erreur lecture son:', error);
-    }
-  };
-
-  const vibrateFeedback = (isSuccess: boolean) => {
-    if (!config.enableVibration) return;
-    if (!navigator.vibrate) return;
-
-    if (isSuccess) {
-      navigator.vibrate(200); // Vibration courte
-    } else {
-      navigator.vibrate([100, 50, 100]); // Deux vibrations
-    }
-  };
-
-  const handleScan = async (qrCode: string) => {
-    if (!adminProfile) {
-      notifications.show({
-        title: 'Erreur',
-        message: 'Vous devez être connecté',
-        color: 'red',
-      });
-      return;
-    }
+  const handleScan = async (uid: string) => {
+    if (!adminProfile) return;
 
     try {
       setLoading(true);
 
-      // Effectuer le scan
-      const result = await performScan(qrCode, config, adminProfile.uid);
+      const result = await performScan(
+        `FORNAP-MEMBER:${uid}`,
+        config,
+        adminProfile.uid
+      );
 
-      // Ajouter aux scans récents (max 10)
+      // Feedback audio
+      if (config.enableSound) {
+        if (result.status === ScanResultStatus.SUCCESS) {
+          successSoundRef.current?.play();
+        } else {
+          errorSoundRef.current?.play();
+        }
+      }
+
+      // Feedback vibration
+      if (config.enableVibration && navigator.vibrate) {
+        if (result.status === ScanResultStatus.SUCCESS) {
+          navigator.vibrate(200);
+        } else {
+          navigator.vibrate([100, 50, 100]);
+        }
+      }
+
+      // Ajouter aux scans récents
       setRecentScans((prev) => [result, ...prev].slice(0, 10));
 
-      // Feedback sonore et visuel
-      const isSuccess = result.status === ScanResultStatus.SUCCESS;
-      playFeedbackSound(isSuccess);
-      vibrateFeedback(isSuccess);
-
       // Notification
-      if (isSuccess) {
-        notifications.show({
-          title: '✅ Scan réussi',
-          message: result.message,
-          color: 'green',
-          autoClose: 3000,
-        });
-      } else {
-        notifications.show({
-          title: '❌ Scan refusé',
-          message: result.message,
-          color: 'red',
-          autoClose: 5000,
-        });
-      }
-    } catch (error) {
+      notifications.show({
+        title: result.status === ScanResultStatus.SUCCESS ? 'Succès' : 'Erreur',
+        message: result.message,
+        color: result.status === ScanResultStatus.SUCCESS ? 'green' : 'red',
+      });
+    } catch (error: any) {
       console.error('Erreur scan:', error);
       notifications.show({
         title: 'Erreur',
-        message: 'Erreur lors du scan',
+        message: error.message || 'Erreur lors du scan',
         color: 'red',
       });
-      playFeedbackSound(false);
-      vibrateFeedback(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLoadStats = async () => {
-    if (!config.eventId) {
+  const handleLoadStatistics = async () => {
+    if (!config.eventId && config.mode !== ScanMode.SUBSCRIPTION_ONLY) {
       notifications.show({
         title: 'Erreur',
-        message: 'Sélectionnez un événement',
+        message: 'Veuillez sélectionner un événement',
         color: 'red',
       });
       return;
@@ -242,11 +206,11 @@ export function EventScannerPage() {
 
     try {
       setLoading(true);
-      const stats = await calculateEventScanStatistics(config.eventId);
+      const stats = await calculateEventScanStatistics(config.eventId || 'global');
       setCurrentStats(stats);
       setStatsModalOpen(true);
     } catch (error) {
-      console.error('Erreur chargement stats:', error);
+      console.error('Erreur chargement statistiques:', error);
       notifications.show({
         title: 'Erreur',
         message: 'Impossible de charger les statistiques',
@@ -304,369 +268,185 @@ export function EventScannerPage() {
   const canScan = !loading && (!modeNeedsEvent || config.eventId);
 
   return (
-    <Box style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
-      <Container size="md" py="xl">
-        <Stack gap="xl">
-          {/* Bouton retour pour revenir au panel admin */}
-          <Button
-            leftSection={<IconShield size={18} />}
-            variant="light"
-            color="indigo"
-            onClick={() => navigate('/admin/dashboard')}
-            style={{ alignSelf: 'flex-start' }}
-          >
-            Retour au panel admin
-          </Button>
+    <Box style={{ minHeight: '100vh', background: '#f8f9fa' }}>
+      <Container size="sm" p="xs">
+        <LoadingOverlay visible={loading} />
 
-          {/* Header */}
-        <Paper p="xl" radius="md" withBorder>
-          <Group justify="space-between" mb="md">
-            <Group>
-              <IconQrcode size={32} />
-              <div>
-                <Title order={2}>Scanner QR Code</Title>
-                <Text size="sm" c="dimmed">
-                  Vérification aux événements
-                </Text>
-              </div>
+        <Stack gap="xs">
+          {/* Header compact */}
+          <Paper p="sm" radius="md" withBorder>
+            <Group justify="space-between">
+              <Group gap="xs">
+                <IconQrcode size={24} />
+                <div>
+                  <Text size="lg" fw={700}>Scanner QR</Text>
+                  <Text size="xs" c="dimmed">Mode: {getModeLabel(config.mode)}</Text>
+                </div>
+              </Group>
+              <Group gap="xs">
+                <ActionIcon
+                  variant="light"
+                  color={config.enableSound ? 'blue' : 'gray'}
+                  size="md"
+                  onClick={() =>
+                    setConfig((prev) => ({ ...prev, enableSound: !prev.enableSound }))
+                  }
+                >
+                  {config.enableSound ? <IconVolume size={16} /> : <IconVolumeOff size={16} />}
+                </ActionIcon>
+                <Button
+                  size="xs"
+                  variant="light"
+                  leftSection={<IconShield size={14} />}
+                  onClick={() => navigate('/admin/dashboard')}
+                >
+                  Admin
+                </Button>
+              </Group>
             </Group>
-            <Group>
-              <ActionIcon
-                variant="light"
-                color={config.enableSound ? 'blue' : 'gray'}
-                size="lg"
-                onClick={() =>
-                  setConfig((prev) => ({ ...prev, enableSound: !prev.enableSound }))
-                }
-              >
-                {config.enableSound ? <IconVolume size={20} /> : <IconVolumeOff size={20} />}
-              </ActionIcon>
-            </Group>
-          </Group>
+          </Paper>
 
-          <Divider mb="md" />
+          {/* Scanner en priorité - toujours visible */}
+          <Paper p="md" radius="md" withBorder>
+            <QRCodeScanner
+              onScan={handleScan}
+              onError={(error) => {
+                console.error('Erreur scanner:', error);
+                notifications.show({
+                  title: 'Erreur',
+                  message: error,
+                  color: 'red',
+                });
+              }}
+            />
+          </Paper>
 
-          {/* Configuration */}
-          <Grid>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
+          {/* Configuration compacte */}
+          <Paper p="sm" radius="md" withBorder>
+            <Stack gap="xs">
               <Select
-                label="Mode de scan"
-                placeholder="Sélectionnez un mode"
+                label="Mode"
+                size="sm"
                 value={config.mode}
                 onChange={(value) =>
-                  setConfig((prev) => ({ ...prev, mode: value as ScanMode }))
+                  setConfig((prev) => ({ ...prev, mode: value as ScanMode, eventId: undefined }))
                 }
                 data={[
-                  {
-                    value: ScanMode.SUBSCRIPTION_ONLY,
-                    label: 'Abonnement uniquement',
-                  },
-                  {
-                    value: ScanMode.EVENT_ATTENDANCE,
-                    label: 'Présence événement (sans billet)',
-                  },
-                  {
-                    value: ScanMode.EVENT_WITH_TICKET,
-                    label: 'Événement + Billet',
-                  },
+                  { value: ScanMode.SUBSCRIPTION_ONLY, label: 'Abonnement seul' },
+                  { value: ScanMode.EVENT_ATTENDANCE, label: 'Événement (sans billet)' },
+                  { value: ScanMode.EVENT_WITH_TICKET, label: 'Événement + Billet' },
                 ]}
-                styles={{
-                  input: {
-                    borderRadius: '8px',
-                    fontWeight: 600,
-                  },
-                }}
               />
-            </Grid.Col>
 
-            {modeNeedsEvent && (
-              <Grid.Col span={{ base: 12, sm: 6 }}>
+              {modeNeedsEvent && (
                 <Select
                   label="Événement"
-                  placeholder="Sélectionnez un événement"
+                  size="sm"
+                  placeholder="Choisir un événement"
                   value={config.eventId}
                   onChange={(value) =>
                     setConfig((prev) => ({ ...prev, eventId: value || undefined }))
                   }
-                  data={events.map((e) => ({
+                  data={events.length > 0 ? events.map((e) => ({
                     value: e.id,
-                    label: e.title,
-                  }))}
+                    label: `${e.title} - ${new Date(e.startDate.toMillis()).toLocaleDateString()}`,
+                  })) : []}
                   searchable
                   required
-                  styles={{
-                    input: {
-                      borderRadius: '8px',
-                    },
-                  }}
+                  error={events.length === 0 ? "Aucun événement disponible" : undefined}
                 />
-              </Grid.Col>
-            )}
-          </Grid>
+              )}
 
-          {/* Info mode actuel */}
-          <Alert
-            icon={<IconShield size={18} />}
-            title={`Mode: ${getModeLabel(config.mode)}`}
-            color="blue"
-            mt="md"
-            styles={{
-              root: {
-                borderRadius: '8px',
-              },
-            }}
-          >
-            {config.mode === ScanMode.SUBSCRIPTION_ONLY &&
-              'Vérifie uniquement si l\'abonnement est actif'}
-            {config.mode === ScanMode.EVENT_ATTENDANCE &&
-              'Comptabilise la présence sans vérifier le billet'}
-            {config.mode === ScanMode.EVENT_WITH_TICKET &&
-              'Vérifie l\'abonnement ET le billet'}
-          </Alert>
-
-          {/* Bouton stats */}
-          {config.eventId && (
-            <Button
-              leftSection={<IconChartBar size={18} />}
-              variant="light"
-              fullWidth
-              mt="md"
-              onClick={handleLoadStats}
-              styles={{
-                root: {
-                  borderRadius: '8px',
-                },
-              }}
-            >
-              Voir les statistiques
-            </Button>
-          )}
-        </Paper>
-
-        {/* Scanner */}
-        <Paper p="xl" radius="md" withBorder>
-          <LoadingOverlay visible={loading} />
-
-          <Stack gap="lg">
-            <Group justify="center">
-              <Badge
-                size="xl"
-                color={canScan ? 'green' : 'red'}
-                variant="filled"
-                styles={{
-                  root: {
-                    borderRadius: '20px',
-                    padding: '12px 20px',
-                  },
-                }}
-              >
-                {canScan ? '✓ Prêt à scanner' : '⚠ Configuration incomplète'}
-              </Badge>
-            </Group>
-
-            {canScan ? (
-              <QRCodeScanner
-                onScan={(qrCode) => handleScan(qrCode)}
-                onError={(error) => {
-                  notifications.show({
-                    title: 'Erreur',
-                    message: error,
-                    color: 'red',
-                  });
-                }}
-              />
-            ) : (
-              <Alert
-                icon={<IconAlertCircle size={18} />}
-                title="Configuration incomplète"
-                color="orange"
-                styles={{
-                  root: {
-                    borderRadius: '8px',
-                  },
-                }}
-              >
-                Veuillez sélectionner un événement pour ce mode de scan
-              </Alert>
-            )}
-          </Stack>
-        </Paper>
-
-        {/* Scans récents */}
-        {recentScans.length > 0 && (
-          <Paper p="xl" radius="md" withBorder>
-            <Group justify="space-between" mb="lg">
-              <Title order={3}>Scans récents</Title>
-              <Badge size="lg" variant="light">
-                {recentScans.length}
-              </Badge>
-            </Group>
-
-            <Stack gap="md">
-              {recentScans.map((scan, index) => (
-                <Card
-                  key={index}
-                  padding="md"
-                  radius="md"
-                  withBorder
-                  style={{
-                    borderColor:
-                      scan.status === ScanResultStatus.SUCCESS
-                        ? 'var(--mantine-color-green-3)'
-                        : 'var(--mantine-color-red-3)',
-                    borderWidth: '2px',
-                  }}
-                >
-                  <Group justify="space-between" wrap="nowrap">
-                    <Group wrap="nowrap">
-                      {getStatusIcon(scan.status)}
-                      <div>
-                        <Text fw={600}>
-                          {scan.user
-                            ? `${scan.user.firstName} ${scan.user.lastName}`
-                            : 'Utilisateur inconnu'}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          {scan.message}
-                        </Text>
-                        {scan.user?.membershipType && (
-                          <Badge
-                            size="xs"
-                            variant="light"
-                            mt={4}
-                            color={scan.user.isLegacyAccount ? 'orange' : 'blue'}
-                          >
-                            {scan.user.membershipType}
-                            {scan.user.isLegacyAccount && ' (ancien)'}
-                          </Badge>
-                        )}
-                      </div>
-                    </Group>
-                    <Badge color={getStatusColor(scan.status)} variant="light">
-                      {scan.scannedAt.toDate().toLocaleTimeString('fr-FR')}
-                    </Badge>
-                  </Group>
-                </Card>
-              ))}
+              {modeNeedsEvent && !config.eventId && (
+                <Alert icon={<IconAlertCircle size={16} />} color="orange" p="xs">
+                  <Text size="xs">Sélectionnez un événement pour scanner</Text>
+                </Alert>
+              )}
             </Stack>
-
-            <Button
-              variant="subtle"
-              fullWidth
-              mt="md"
-              onClick={() => setRecentScans([])}
-              leftSection={<IconRefresh size={16} />}
-            >
-              Effacer l'historique
-            </Button>
           </Paper>
-        )}
-      </Stack>
 
-      {/* Modal statistiques */}
+          {/* Actions */}
+          <Group grow>
+            <Button
+              leftSection={<IconRefresh size={16} />}
+              onClick={loadEvents}
+              variant="light"
+              size="sm"
+            >
+              Actualiser
+            </Button>
+            <Button
+              leftSection={<IconChartBar size={16} />}
+              onClick={handleLoadStatistics}
+              variant="light"
+              size="sm"
+              disabled={modeNeedsEvent && !config.eventId}
+            >
+              Statistiques
+            </Button>
+          </Group>
+
+          {/* Scans récents - compact */}
+          {recentScans.length > 0 && (
+            <Paper p="sm" radius="md" withBorder>
+              <Text size="sm" fw={600} mb="xs">Derniers scans</Text>
+              <Stack gap={4}>
+                {recentScans.slice(0, 5).map((scan, index) => (
+                  <Card key={index} p="xs" withBorder>
+                    <Group justify="space-between" wrap="nowrap">
+                      <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
+                        {getStatusIcon(scan.status)}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <Text size="xs" fw={500} truncate>
+                            {scan.user ? `${scan.user.firstName} ${scan.user.lastName}` : 'Inconnu'}
+                          </Text>
+                          <Text size="xs" c="dimmed" truncate>{scan.message}</Text>
+                        </div>
+                      </Group>
+                      <Badge size="xs" color={getStatusColor(scan.status)}>
+                        {scan.status === ScanResultStatus.SUCCESS ? 'OK' : 'KO'}
+                      </Badge>
+                    </Group>
+                  </Card>
+                ))}
+              </Stack>
+            </Paper>
+          )}
+        </Stack>
+      </Container>
+
+      {/* Modal Statistiques */}
       <Modal
         opened={statsModalOpen}
         onClose={() => setStatsModalOpen(false)}
-        title="Statistiques de scan"
-        size="xl"
-        styles={{
-          title: {
-            fontWeight: 700,
-            fontSize: '1.5rem',
-          },
-        }}
+        title="Statistiques"
+        size="lg"
       >
         {currentStats && (
-          <Stack gap="lg">
-            {/* KPIs */}
-            <Grid>
-              <Grid.Col span={6}>
-                <Card padding="md" radius="md" withBorder>
-                  <Stack gap="xs">
-                    <Text size="xs" c="dimmed" tt="uppercase">
-                      Total scans
-                    </Text>
-                    <Text size="xl" fw={700}>
-                      {currentStats.totalScans}
-                    </Text>
-                  </Stack>
-                </Card>
-              </Grid.Col>
-              <Grid.Col span={6}>
-                <Card padding="md" radius="md" withBorder>
-                  <Stack gap="xs">
-                    <Text size="xs" c="dimmed" tt="uppercase">
-                      Taux succès
-                    </Text>
-                    <Text size="xl" fw={700} c="green">
-                      {currentStats.totalScans > 0
-                        ? Math.round(
-                            (currentStats.successfulScans / currentStats.totalScans) * 100
-                          )
-                        : 0}
-                      %
-                    </Text>
-                  </Stack>
-                </Card>
-              </Grid.Col>
-            </Grid>
+          <Stack gap="md">
+            <Group grow>
+              <Card withBorder p="md">
+                <Text size="xs" c="dimmed">Total scans</Text>
+                <Text size="xl" fw={700}>{currentStats.totalScans}</Text>
+              </Card>
+              <Card withBorder p="md">
+                <Text size="xs" c="dimmed">Succès</Text>
+                <Text size="xl" fw={700} c="green">{currentStats.successfulScans}</Text>
+              </Card>
+              <Card withBorder p="md">
+                <Text size="xs" c="dimmed">Taux</Text>
+                <Text size="xl" fw={700}>{currentStats.successRate.toFixed(1)}%</Text>
+              </Card>
+            </Group>
 
-            {/* Distribution par type */}
-            <div>
-              <Text fw={600} mb="xs">
-                Par type d'abonnement
-              </Text>
-              <Stack gap="xs">
-                <Group justify="space-between">
-                  <Text size="sm">Mensuel</Text>
-                  <Badge>{currentStats.byMembershipType.monthly}</Badge>
-                </Group>
-                <Group justify="space-between">
-                  <Text size="sm">Annuel</Text>
-                  <Badge>{currentStats.byMembershipType.annual}</Badge>
-                </Group>
-                <Group justify="space-between">
-                  <Text size="sm">À vie</Text>
-                  <Badge>{currentStats.byMembershipType.lifetime}</Badge>
-                </Group>
-              </Stack>
-            </div>
-
-            {/* Heure de pointe */}
-            {currentStats.peakHour && (
-              <Alert
-                icon={<IconClock size={18} />}
-                title="Heure de pointe"
-                color="blue"
-                styles={{
-                  root: {
-                    borderRadius: '8px',
-                  },
-                }}
-              >
-                {currentStats.peakHour.hour}h - {currentStats.peakHour.count} scans
-              </Alert>
-            )}
-
-            {/* Comptes anciens */}
             {currentStats.legacyAccountScans > 0 && (
-              <Alert
-                icon={<IconAlertCircle size={18} />}
-                title="Anciens comptes"
-                color="orange"
-                styles={{
-                  root: {
-                    borderRadius: '8px',
-                  },
-                }}
-              >
+              <Alert icon={<IconClock size={18} />} color="orange">
                 {currentStats.legacyAccountScans} scans avec ancien compte détectés
               </Alert>
             )}
           </Stack>
         )}
       </Modal>
-    </Container>
     </Box>
   );
 }

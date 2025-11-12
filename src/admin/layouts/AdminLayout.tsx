@@ -38,6 +38,7 @@ interface NavItem {
   path: string;
   badge?: number;
   submenu?: SubMenuItem[];
+  isExternal?: boolean;
 }
 
 const navigationItems: NavItem[] = [
@@ -46,6 +47,7 @@ const navigationItems: NavItem[] = [
   { icon: IconTicket, label: 'Abonnements', path: '/admin/memberships' },
   { icon: IconCalendar, label: 'Événements', path: '/admin/events' },
   { icon: IconBuildingCommunity, label: 'Coworking', path: '/admin/coworking' },
+  { icon: IconQrcode, label: 'Vérification QR', path: '/check-in', isExternal: true },
   {
     icon: IconMail,
     label: 'Campagnes Email',

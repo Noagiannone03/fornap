@@ -21,9 +21,10 @@ import {
   Center,
   Group,
   ThemeIcon,
+  Divider,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { IconShield, IconAlertCircle, IconLock, IconMail } from '@tabler/icons-react';
+import { IconShield, IconAlertCircle, IconLock, IconMail, IconQrcode } from '@tabler/icons-react';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 
 interface LoginFormValues {
@@ -139,10 +140,25 @@ export function AdminLogin() {
                 variant="gradient"
                 gradient={{ from: 'indigo', to: 'violet' }}
               >
-                Se connecter
+                Accéder au panel admin
               </Button>
             </Stack>
           </form>
+
+          {/* Divider */}
+          <Divider label="OU" labelPosition="center" my="lg" />
+
+          {/* Bouton CheckIn */}
+          <Button
+            fullWidth
+            size="md"
+            variant="light"
+            color="teal"
+            leftSection={<IconQrcode size={20} />}
+            onClick={() => navigate('/check-in')}
+          >
+            Système de vérification QR
+          </Button>
 
           {/* Footer */}
           <Text c="dimmed" size="xs" ta="center" mt="xl">

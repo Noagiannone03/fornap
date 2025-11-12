@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -10,14 +11,18 @@ import {
   Button,
   Divider,
   Avatar,
+  Box,
 } from '@mantine/core';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../shared/config/firebase';
 import { QRCodeScanner } from '../components/common/QRCodeScanner';
 import type { UserProfile } from '../../shared/types/user';
-import { IconUser, IconMail, IconPhone, IconCalendar } from '@tabler/icons-react';
+import { IconUser, IconMail, IconPhone, IconCalendar, IconArrowLeft, IconShield } from '@tabler/icons-react';
+import { useAdminAuth } from '../../shared/contexts/AdminAuthContext';
 
 export const CheckIn = () => {
+  const navigate = useNavigate();
+  const { adminProfile } = useAdminAuth();
   const [memberProfile, setMemberProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [, setError] = useState<string | null>(null);
@@ -55,32 +60,51 @@ export const CheckIn = () => {
   const isSubscriptionActive = memberProfile?.currentMembership?.status === 'active';
 
   return (
-    <Container size="md" py={40}>
-      <Stack gap="xl">
-        {/* En-tête */}
-        <Paper
-          p="xl"
-          style={{
-            borderRadius: '20px',
-            border: '2px solid #000',
-            background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-          }}
-        >
-          <Stack gap="sm" align="center">
-            <Title
-              order={1}
-              size={32}
-              fw={900}
-              ta="center"
-              style={{ letterSpacing: '0.01em' }}
+    <Box
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+      }}
+    >
+      <Container size="md" py={40}>
+        <Stack gap="xl">
+          {/* Bouton retour pour les admins */}
+          {adminProfile && (
+            <Button
+              leftSection={<IconShield size={18} />}
+              variant="light"
+              color="indigo"
+              onClick={() => navigate('/admin/dashboard')}
+              style={{ alignSelf: 'flex-start' }}
             >
-              CHECK-IN MEMBRES
-            </Title>
-            <Text size="lg" c="dimmed" ta="center">
-              Scannez le QR code d'un membre pour vérifier son abonnement
-            </Text>
-          </Stack>
-        </Paper>
+              Retour au panel admin
+            </Button>
+          )}
+
+          {/* En-tête */}
+          <Paper
+            p="xl"
+            style={{
+              borderRadius: '20px',
+              border: '2px solid #000',
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+            }}
+          >
+            <Stack gap="sm" align="center">
+              <Title
+                order={1}
+                size={32}
+                fw={900}
+                ta="center"
+                style={{ letterSpacing: '0.01em' }}
+              >
+                CHECK-IN MEMBRES
+              </Title>
+              <Text size="lg" c="dimmed" ta="center">
+                Scannez le QR code d'un membre pour vérifier son abonnement
+              </Text>
+            </Stack>
+          </Paper>
 
         {/* Scanner */}
         {!memberProfile && (
@@ -291,7 +315,8 @@ export const CheckIn = () => {
             </Stack>
           </Paper>
         )}
-      </Stack>
-    </Container>
+        </Stack>
+      </Container>
+    </Box>
   );
 };

@@ -13,6 +13,8 @@ import { QRCodeSuccess } from './app/pages/QRCodeSuccess';
 import { CheckIn } from './app/pages/CheckIn';
 import { AdminRoutes } from './admin/routes';
 import { AdminAuthProvider } from './shared/contexts/AdminAuthContext';
+import { EventScannerPage } from './admin/pages/Scanner/EventScannerPage';
+import { AdminProtectedRoute } from './admin/components/AdminProtectedRoute';
 
 function App() {
   return (
@@ -22,7 +24,17 @@ function App() {
           {/* Routes Admin - Panel d'administration */}
           <Route path="/admin/*" element={<AdminRoutes />} />
 
-          {/* Route CheckIn - Page autonome de vérification QR */}
+          {/* Route Scanner QR - Page autonome de vérification événements */}
+          <Route
+            path="/scanner"
+            element={
+              <AdminProtectedRoute>
+                <EventScannerPage />
+              </AdminProtectedRoute>
+            }
+          />
+
+          {/* Route CheckIn - Page autonome de vérification simple */}
           <Route
             path="/check-in"
             element={

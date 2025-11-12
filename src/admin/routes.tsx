@@ -22,7 +22,6 @@ import { EngagementAnalyticsPage } from './pages/Analytics/EngagementAnalyticsPa
 import { EventStatsPage } from './pages/Analytics/EventStatsPage';
 import { CampaignsListPage, CampaignCreatePage, CampaignEditPage, CampaignDetailPage } from './pages/Campaigns';
 import { EmailDiagnosticsPage } from './pages/EmailDiagnostics';
-import { EventScannerPage } from './pages/Scanner/EventScannerPage';
 
 export function AdminRoutes() {
   return (
@@ -54,9 +53,6 @@ export function AdminRoutes() {
           <Route path="events/:eventId/edit" element={<EventEditPage />} />
 
           <Route path="coworking" element={<CoworkingListPage />} />
-
-          {/* Route Scanner QR */}
-          <Route path="scanner" element={<EventScannerPage />} />
 
           {/* Routes Campaigns */}
           <Route path="campaigns" element={<CampaignsListPage />} />

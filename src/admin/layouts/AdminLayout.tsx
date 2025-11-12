@@ -48,7 +48,7 @@ const navigationItems: NavItem[] = [
   { icon: IconTicket, label: 'Abonnements', path: '/admin/memberships' },
   { icon: IconCalendar, label: 'Événements', path: '/admin/events' },
   { icon: IconBuildingCommunity, label: 'Coworking', path: '/admin/coworking' },
-  { icon: IconQrcode, label: 'Scanner QR', path: '/admin/scanner' },
+  { icon: IconQrcode, label: 'Scanner QR', path: '/scanner', isExternal: true },
   {
     icon: IconMail,
     label: 'Campagnes Email',

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Container,
+  Container, Box,
   Title,
   Paper,
   Stack,
@@ -59,6 +60,7 @@ import type { EventListItem } from '../../../shared/types/event';
 
 
 export function EventScannerPage() {
+  const navigate = useNavigate();
   const { adminProfile } = useAdminAuth();
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<EventListItem[]>([]);
@@ -302,9 +304,21 @@ export function EventScannerPage() {
   const canScan = !loading && (!modeNeedsEvent || config.eventId);
 
   return (
-    <Container size="md" py="xl">
-      <Stack gap="xl">
-        {/* Header */}
+    <Box style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
+      <Container size="md" py="xl">
+        <Stack gap="xl">
+          {/* Bouton retour pour revenir au panel admin */}
+          <Button
+            leftSection={<IconShield size={18} />}
+            variant="light"
+            color="indigo"
+            onClick={() => navigate('/admin/dashboard')}
+            style={{ alignSelf: 'flex-start' }}
+          >
+            Retour au panel admin
+          </Button>
+
+          {/* Header */}
         <Paper p="xl" radius="md" withBorder>
           <Group justify="space-between" mb="md">
             <Group>
@@ -653,5 +667,6 @@ export function EventScannerPage() {
         )}
       </Modal>
     </Container>
+    </Box>
   );
 }

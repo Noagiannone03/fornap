@@ -27,7 +27,7 @@ import type {
   ScannerConfig,
   ScanInsights,
 } from '../types/scan';
-import type { User, MembershipType } from '../types/user';
+import type { User } from '../types/user';
 import type { EventPurchase } from '../types/event';
 import type { AdminUser } from '../types/admin';
 
@@ -314,7 +314,7 @@ function buildUserInfo(user: User): ScanResult['user'] {
     email: user.email || '',
     membershipType: user.currentMembership?.planType,
     membershipStatus: user.currentMembership?.status,
-    membershipExpiry: user.currentMembership?.expiryDate,
+    membershipExpiry: user.currentMembership?.expiryDate || undefined,
     isLegacyAccount: isLegacyAccount(user),
     scanCount: user.scanCount || 0,
     birthDate: user.birthDate,

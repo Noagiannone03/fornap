@@ -176,18 +176,20 @@ function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T>
   const cleaned: any = {};
 
   for (const key in obj) {
-    if (obj[key] !== undefined) {
+    const value = obj[key];
+
+    if (value !== undefined) {
       // Si c'est un objet (mais pas Date, Array, ou Timestamp), nettoyer récursivement
       if (
-        typeof obj[key] === 'object' &&
-        obj[key] !== null &&
-        !(obj[key] instanceof Date) &&
-        !(obj[key] instanceof Timestamp) &&
-        !(Array.isArray(obj[key]))
+        typeof value === 'object' &&
+        value !== null &&
+        !(value instanceof Date) &&
+        !(value instanceof Timestamp) &&
+        !Array.isArray(value)
       ) {
-        cleaned[key] = cleanUndefinedFields(obj[key]);
+        cleaned[key] = cleanUndefinedFields(value);
       } else {
-        cleaned[key] = obj[key];
+        cleaned[key] = value;
       }
     }
   }

@@ -40,6 +40,85 @@ import { addActionHistory } from './userService';
  */
 
 // ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+/**
+ * Convertit un timestamp de manière sécurisée en Date
+ * Gère les différents formats de timestamps (Firestore, plain object, Date, string, number)
+ * @param timestamp Timestamp à convertir
+ * @returns Date object
+ */
+function safeToDate(timestamp: any): Date {
+  if (!timestamp) {
+    return new Date();
+  }
+
+  // Si c'est déjà une Date
+  if (timestamp instanceof Date) {
+    return timestamp;
+  }
+
+  // Si c'est un Timestamp Firestore avec la méthode toDate()
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    return timestamp.toDate();
+  }
+
+  // Si c'est un objet avec seconds (format Firestore après sérialisation)
+  if (timestamp.seconds !== undefined) {
+    return new Date(timestamp.seconds * 1000);
+  }
+
+  // Si c'est un nombre (timestamp en millisecondes)
+  if (typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+
+  // Si c'est une string ISO
+  if (typeof timestamp === 'string') {
+    return new Date(timestamp);
+  }
+
+  // Fallback
+  return new Date();
+}
+
+/**
+ * Extrait les secondes d'un timestamp de manière sécurisée
+ * @param timestamp Timestamp quelconque
+ * @returns Nombre de secondes depuis epoch
+ */
+function getTimestampSeconds(timestamp: any): number {
+  if (!timestamp) {
+    return Date.now() / 1000;
+  }
+
+  // Si c'est un objet avec seconds
+  if (timestamp.seconds !== undefined) {
+    return timestamp.seconds;
+  }
+
+  // Si c'est un Timestamp Firestore
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    return timestamp.toDate().getTime() / 1000;
+  }
+
+  // Si c'est une Date
+  if (timestamp instanceof Date) {
+    return timestamp.getTime() / 1000;
+  }
+
+  // Si c'est un nombre (millisecondes)
+  if (typeof timestamp === 'number') {
+    // Si > 10000000000, c'est probablement en millisecondes
+    return timestamp > 10000000000 ? timestamp / 1000 : timestamp;
+  }
+
+  // Fallback
+  return Date.now() / 1000;
+}
+
+// ============================================
 // QR CODE PARSING
 // ============================================
 
@@ -99,23 +178,28 @@ function isSubscriptionActive(user: User): boolean {
 
 /**
  * Calcule l'âge à partir de la date de naissance
- * @param birthDate Date de naissance
+ * @param birthDate Date de naissance (peut être Timestamp, plain object, Date, etc.)
  * @returns Âge en années
  */
-function calculateAge(birthDate?: Timestamp): number | undefined {
+function calculateAge(birthDate?: any): number | undefined {
   if (!birthDate) return undefined;
 
-  const birth = birthDate.toDate();
-  const today = new Date();
+  try {
+    const birth = safeToDate(birthDate);
+    const today = new Date();
 
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
 
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+
+    return age;
+  } catch (error) {
+    console.warn('Erreur calcul âge:', error);
+    return undefined;
   }
-
-  return age;
 }
 
 /**
@@ -257,7 +341,7 @@ export async function performScan(
       if (ticketResult.alreadyScanned) {
         return {
           status: ScanResultStatus.ALREADY_SCANNED,
-          message: `Billet déjà scanné le ${ticketResult.scannedAt?.toDate().toLocaleString('fr-FR')}`,
+          message: `Billet déjà scanné le ${ticketResult.scannedAt ? safeToDate(ticketResult.scannedAt).toLocaleString('fr-FR') : 'date inconnue'}`,
           user: buildUserInfo(user),
           ticket: {
             purchaseId: ticketResult.purchaseId!,
@@ -649,7 +733,7 @@ export async function calculateEventScanStatistics(
       }
 
       // Par heure
-      const hour = scan.scannedAt.toDate().getHours();
+      const hour = safeToDate(scan.scannedAt).getHours();
       stats.scansByHour[hour].count++;
 
       // Par vérificateur
@@ -662,10 +746,10 @@ export async function calculateEventScanStatistics(
       }
 
       // Premier et dernier scan
-      if (!stats.firstScanAt || scan.scannedAt.seconds < stats.firstScanAt.seconds) {
+      if (!stats.firstScanAt || getTimestampSeconds(scan.scannedAt) < getTimestampSeconds(stats.firstScanAt)) {
         stats.firstScanAt = scan.scannedAt;
       }
-      if (!stats.lastScanAt || scan.scannedAt.seconds > stats.lastScanAt.seconds) {
+      if (!stats.lastScanAt || getTimestampSeconds(scan.scannedAt) > getTimestampSeconds(stats.lastScanAt)) {
         stats.lastScanAt = scan.scannedAt;
       }
 
@@ -741,8 +825,8 @@ export async function getEventScans(
     if (filters?.dateRange) {
       scans = scans.filter(
         (scan) =>
-          scan.scannedAt.seconds >= filters.dateRange!.start.seconds &&
-          scan.scannedAt.seconds <= filters.dateRange!.end.seconds
+          getTimestampSeconds(scan.scannedAt) >= getTimestampSeconds(filters.dateRange!.start) &&
+          getTimestampSeconds(scan.scannedAt) <= getTimestampSeconds(filters.dateRange!.end)
       );
     }
 
@@ -788,8 +872,8 @@ export async function getGlobalScans(filters?: ScanFilters): Promise<ScanRecord[
     if (filters?.dateRange) {
       scans = scans.filter(
         (scan) =>
-          scan.scannedAt.seconds >= filters.dateRange!.start.seconds &&
-          scan.scannedAt.seconds <= filters.dateRange!.end.seconds
+          getTimestampSeconds(scan.scannedAt) >= getTimestampSeconds(filters.dateRange!.start) &&
+          getTimestampSeconds(scan.scannedAt) <= getTimestampSeconds(filters.dateRange!.end)
       );
     }
 

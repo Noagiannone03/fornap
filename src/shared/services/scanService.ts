@@ -118,6 +118,54 @@ function getTimestampSeconds(timestamp: any): number {
   return Date.now() / 1000;
 }
 
+/**
+ * Normalise un timestamp en Timestamp Firestore pour l'écriture dans la base
+ * Convertit tous les formats en vrai Timestamp Firestore
+ * @param timestamp Timestamp quelconque
+ * @returns Timestamp Firestore ou undefined
+ */
+function normalizeTimestamp(timestamp: any): Timestamp | undefined {
+  if (!timestamp) {
+    return undefined;
+  }
+
+  // Si c'est déjà un vrai Timestamp Firestore, le retourner
+  if (timestamp instanceof Timestamp) {
+    return timestamp;
+  }
+
+  // Si c'est un objet avec seconds (plain object de Firestore désérialisé)
+  if (timestamp.seconds !== undefined) {
+    return Timestamp.fromMillis(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000);
+  }
+
+  // Si c'est une Date
+  if (timestamp instanceof Date) {
+    return Timestamp.fromDate(timestamp);
+  }
+
+  // Si c'est un nombre (millisecondes)
+  if (typeof timestamp === 'number') {
+    return Timestamp.fromMillis(timestamp);
+  }
+
+  // Si c'est une string ISO
+  if (typeof timestamp === 'string') {
+    return Timestamp.fromDate(new Date(timestamp));
+  }
+
+  // Si ça a une méthode toDate (mais pas un vrai Timestamp), convertir
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    try {
+      return Timestamp.fromDate(timestamp.toDate());
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
 // ============================================
 // QR CODE PARSING
 // ============================================
@@ -524,7 +572,7 @@ async function recordScan(
     const scannerDoc = await getDoc(doc(db, 'admins', scannerId));
     const scanner = scannerDoc.data() as AdminUser;
 
-    // Préparer l'enregistrement du scan
+    // Préparer l'enregistrement du scan avec normalisation des timestamps
     const scanRecord: Omit<ScanRecord, 'id'> = {
       userId,
       userInfo: {
@@ -533,7 +581,7 @@ async function recordScan(
         email: user.email || '',
         membershipType: user.currentMembership?.planType,
         isLegacyAccount: isLegacyAccount(user),
-        birthDate: user.birthDate,
+        birthDate: normalizeTimestamp(user.birthDate),
         postalCode: user.postalCode,
         age: calculateAge(user.birthDate),
       },
@@ -557,7 +605,7 @@ async function recordScan(
         const event = eventDoc.data();
         scanRecord.eventInfo = {
           title: event.title,
-          startDate: event.startDate,
+          startDate: normalizeTimestamp(event.startDate) || Timestamp.now(),
           type: event.type,
         };
       }

@@ -10,8 +10,8 @@ import {
   orderBy,
   limit,
   Timestamp,
-  
-  
+
+
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import {
@@ -22,7 +22,7 @@ import type {
   ScanResult,
   ScanRecord,
   EventScanStatistics,
-  
+
   ScanFilters,
   ScannerConfig,
   ScanInsights,
@@ -30,6 +30,7 @@ import type {
 import type { User } from '../types/user';
 import type { EventPurchase } from '../types/event';
 import type { AdminUser } from '../types/admin';
+import { addActionHistory } from './userService';
 
 /**
  * ============================================
@@ -37,6 +38,164 @@ import type { AdminUser } from '../types/admin';
  * ============================================
  * Service pour gérer les scans QR aux événements
  */
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+/**
+ * Convertit un timestamp de manière sécurisée en Date
+ * Gère les différents formats de timestamps (Firestore, plain object, Date, string, number)
+ * @param timestamp Timestamp à convertir
+ * @returns Date object
+ */
+function safeToDate(timestamp: any): Date {
+  if (!timestamp) {
+    return new Date();
+  }
+
+  // Si c'est déjà une Date
+  if (timestamp instanceof Date) {
+    return timestamp;
+  }
+
+  // Si c'est un Timestamp Firestore avec la méthode toDate()
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    return timestamp.toDate();
+  }
+
+  // Si c'est un objet avec seconds (format Firestore après sérialisation)
+  if (timestamp.seconds !== undefined) {
+    return new Date(timestamp.seconds * 1000);
+  }
+
+  // Si c'est un nombre (timestamp en millisecondes)
+  if (typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+
+  // Si c'est une string ISO
+  if (typeof timestamp === 'string') {
+    return new Date(timestamp);
+  }
+
+  // Fallback
+  return new Date();
+}
+
+/**
+ * Extrait les secondes d'un timestamp de manière sécurisée
+ * @param timestamp Timestamp quelconque
+ * @returns Nombre de secondes depuis epoch
+ */
+function getTimestampSeconds(timestamp: any): number {
+  if (!timestamp) {
+    return Date.now() / 1000;
+  }
+
+  // Si c'est un objet avec seconds
+  if (timestamp.seconds !== undefined) {
+    return timestamp.seconds;
+  }
+
+  // Si c'est un Timestamp Firestore
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    return timestamp.toDate().getTime() / 1000;
+  }
+
+  // Si c'est une Date
+  if (timestamp instanceof Date) {
+    return timestamp.getTime() / 1000;
+  }
+
+  // Si c'est un nombre (millisecondes)
+  if (typeof timestamp === 'number') {
+    // Si > 10000000000, c'est probablement en millisecondes
+    return timestamp > 10000000000 ? timestamp / 1000 : timestamp;
+  }
+
+  // Fallback
+  return Date.now() / 1000;
+}
+
+/**
+ * Normalise un timestamp en Timestamp Firestore pour l'écriture dans la base
+ * Convertit tous les formats en vrai Timestamp Firestore
+ * @param timestamp Timestamp quelconque
+ * @returns Timestamp Firestore ou undefined
+ */
+function normalizeTimestamp(timestamp: any): Timestamp | undefined {
+  if (!timestamp) {
+    return undefined;
+  }
+
+  // Si c'est déjà un vrai Timestamp Firestore, le retourner
+  if (timestamp instanceof Timestamp) {
+    return timestamp;
+  }
+
+  // Si c'est un objet avec seconds (plain object de Firestore désérialisé)
+  if (timestamp.seconds !== undefined) {
+    return Timestamp.fromMillis(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000);
+  }
+
+  // Si c'est une Date
+  if (timestamp instanceof Date) {
+    return Timestamp.fromDate(timestamp);
+  }
+
+  // Si c'est un nombre (millisecondes)
+  if (typeof timestamp === 'number') {
+    return Timestamp.fromMillis(timestamp);
+  }
+
+  // Si c'est une string ISO
+  if (typeof timestamp === 'string') {
+    return Timestamp.fromDate(new Date(timestamp));
+  }
+
+  // Si ça a une méthode toDate (mais pas un vrai Timestamp), convertir
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    try {
+      return Timestamp.fromDate(timestamp.toDate());
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Nettoie un objet en supprimant tous les champs undefined
+ * Firestore n'accepte pas les valeurs undefined
+ * @param obj Objet à nettoyer
+ * @returns Nouvel objet sans champs undefined
+ */
+function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T> {
+  const cleaned: any = {};
+
+  for (const key in obj) {
+    const value: any = obj[key];
+
+    if (value !== undefined) {
+      // Si c'est un objet (mais pas Date, Array, ou Timestamp), nettoyer récursivement
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        !(value instanceof Date) &&
+        !(value instanceof Timestamp) &&
+        !Array.isArray(value)
+      ) {
+        cleaned[key] = cleanUndefinedFields(value);
+      } else {
+        cleaned[key] = value;
+      }
+    }
+  }
+
+  return cleaned;
+}
 
 // ============================================
 // QR CODE PARSING
@@ -98,23 +257,28 @@ function isSubscriptionActive(user: User): boolean {
 
 /**
  * Calcule l'âge à partir de la date de naissance
- * @param birthDate Date de naissance
+ * @param birthDate Date de naissance (peut être Timestamp, plain object, Date, etc.)
  * @returns Âge en années
  */
-function calculateAge(birthDate?: Timestamp): number | undefined {
+function calculateAge(birthDate?: any): number | undefined {
   if (!birthDate) return undefined;
 
-  const birth = birthDate.toDate();
-  const today = new Date();
+  try {
+    const birth = safeToDate(birthDate);
+    const today = new Date();
 
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
 
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+
+    return age;
+  } catch (error) {
+    console.warn('Erreur calcul âge:', error);
+    return undefined;
   }
-
-  return age;
 }
 
 /**
@@ -256,7 +420,7 @@ export async function performScan(
       if (ticketResult.alreadyScanned) {
         return {
           status: ScanResultStatus.ALREADY_SCANNED,
-          message: `Billet déjà scanné le ${ticketResult.scannedAt?.toDate().toLocaleString('fr-FR')}`,
+          message: `Billet déjà scanné le ${ticketResult.scannedAt ? safeToDate(ticketResult.scannedAt).toLocaleString('fr-FR') : 'date inconnue'}`,
           user: buildUserInfo(user),
           ticket: {
             purchaseId: ticketResult.purchaseId!,
@@ -439,7 +603,7 @@ async function recordScan(
     const scannerDoc = await getDoc(doc(db, 'admins', scannerId));
     const scanner = scannerDoc.data() as AdminUser;
 
-    // Préparer l'enregistrement du scan
+    // Préparer l'enregistrement du scan avec normalisation des timestamps
     const scanRecord: Omit<ScanRecord, 'id'> = {
       userId,
       userInfo: {
@@ -448,7 +612,7 @@ async function recordScan(
         email: user.email || '',
         membershipType: user.currentMembership?.planType,
         isLegacyAccount: isLegacyAccount(user),
-        birthDate: user.birthDate,
+        birthDate: normalizeTimestamp(user.birthDate),
         postalCode: user.postalCode,
         age: calculateAge(user.birthDate),
       },
@@ -472,7 +636,7 @@ async function recordScan(
         const event = eventDoc.data();
         scanRecord.eventInfo = {
           title: event.title,
-          startDate: event.startDate,
+          startDate: normalizeTimestamp(event.startDate) || Timestamp.now(),
           type: event.type,
         };
       }
@@ -504,7 +668,10 @@ async function recordScan(
       collectionPath = 'global_scans';
     }
 
-    const scanRef = await addDoc(collection(db, collectionPath), scanRecord);
+    // Nettoyer les champs undefined avant l'écriture (Firestore n'accepte pas undefined)
+    const cleanedScanRecord = cleanUndefinedFields(scanRecord);
+
+    const scanRef = await addDoc(collection(db, collectionPath), cleanedScanRecord);
 
     // Mettre à jour l'ID
     await updateDoc(scanRef, { id: scanRef.id });
@@ -516,9 +683,50 @@ async function recordScan(
       const currentScanCount = userDoc.data().scanCount || 0;
       await updateDoc(userRef, {
         scanCount: currentScanCount + 1,
-        lastScanAt: Timestamp.now(),
+        lastScannedAt: Timestamp.now(),
       });
     }
+
+    // Ajouter à l'historique d'actions de l'utilisateur
+    const actionType: 'event_checkin' | 'scan' = config.eventId ? 'event_checkin' : 'scan';
+    const actionDescription = config.eventId
+      ? `Scan pour l'événement: ${scanRecord.eventInfo?.title || 'Événement'}${result !== ScanResultStatus.SUCCESS ? ' (Refusé: ' + result + ')' : ''}`
+      : `Scan QR ${result === ScanResultStatus.SUCCESS ? 'réussi' : 'échoué ('+result+')'}`;
+
+    await addActionHistory(userId, {
+      actionType,
+      details: {
+        description: actionDescription,
+        scanMode: config.mode,
+        location: scanRecord.location?.latitude && scanRecord.location?.longitude
+          ? `${scanRecord.location.latitude}, ${scanRecord.location.longitude}`
+          : undefined,
+        eventId: config.eventId,
+        eventName: scanRecord.eventInfo?.title,
+        scanResult: result,
+        scannedBy: scanner ? `${scanner.firstName} ${scanner.lastName}` : scannerId,
+      },
+      deviceType: 'scanner',
+    });
+
+    // Ajouter à l'historique de scan de l'admin/employé
+    const adminScanHistoryRef = collection(db, 'admins', scannerId, 'scanHistory');
+    const adminScanData = cleanUndefinedFields({
+      scannedUserId: userId,
+      scannedUserInfo: {
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        membershipType: user.currentMembership?.planType,
+      },
+      scanMode: config.mode,
+      eventId: config.eventId,
+      eventName: scanRecord.eventInfo?.title,
+      scanResult: result,
+      scannedAt: Timestamp.now(),
+      location: scanRecord.location,
+    });
+    await addDoc(adminScanHistoryRef, adminScanData);
   } catch (error) {
     console.error('Erreur enregistrement scan:', error);
     throw error;
@@ -628,7 +836,7 @@ export async function calculateEventScanStatistics(
       }
 
       // Par heure
-      const hour = scan.scannedAt.toDate().getHours();
+      const hour = safeToDate(scan.scannedAt).getHours();
       stats.scansByHour[hour].count++;
 
       // Par vérificateur
@@ -641,10 +849,10 @@ export async function calculateEventScanStatistics(
       }
 
       // Premier et dernier scan
-      if (!stats.firstScanAt || scan.scannedAt.seconds < stats.firstScanAt.seconds) {
+      if (!stats.firstScanAt || getTimestampSeconds(scan.scannedAt) < getTimestampSeconds(stats.firstScanAt)) {
         stats.firstScanAt = scan.scannedAt;
       }
-      if (!stats.lastScanAt || scan.scannedAt.seconds > stats.lastScanAt.seconds) {
+      if (!stats.lastScanAt || getTimestampSeconds(scan.scannedAt) > getTimestampSeconds(stats.lastScanAt)) {
         stats.lastScanAt = scan.scannedAt;
       }
 
@@ -720,8 +928,8 @@ export async function getEventScans(
     if (filters?.dateRange) {
       scans = scans.filter(
         (scan) =>
-          scan.scannedAt.seconds >= filters.dateRange!.start.seconds &&
-          scan.scannedAt.seconds <= filters.dateRange!.end.seconds
+          getTimestampSeconds(scan.scannedAt) >= getTimestampSeconds(filters.dateRange!.start) &&
+          getTimestampSeconds(scan.scannedAt) <= getTimestampSeconds(filters.dateRange!.end)
       );
     }
 
@@ -738,6 +946,31 @@ export async function getEventScans(
     return scans;
   } catch (error) {
     console.error('Erreur récupération scans:', error);
+    throw error;
+  }
+}
+
+/**
+ * Récupère l'historique de scan d'un admin
+ * @param adminId UID de l'admin
+ * @param limitCount Nombre maximum de scans à retourner
+ * @returns Liste des scans effectués par cet admin
+ */
+export async function getAdminScanHistory(
+  adminId: string,
+  limitCount: number = 50
+): Promise<any[]> {
+  try {
+    const historyRef = collection(db, 'admins', adminId, 'scanHistory');
+    const q = query(historyRef, orderBy('scannedAt', 'desc'), limit(limitCount));
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error('Erreur récupération historique admin:', error);
     throw error;
   }
 }
@@ -767,8 +1000,8 @@ export async function getGlobalScans(filters?: ScanFilters): Promise<ScanRecord[
     if (filters?.dateRange) {
       scans = scans.filter(
         (scan) =>
-          scan.scannedAt.seconds >= filters.dateRange!.start.seconds &&
-          scan.scannedAt.seconds <= filters.dateRange!.end.seconds
+          getTimestampSeconds(scan.scannedAt) >= getTimestampSeconds(filters.dateRange!.start) &&
+          getTimestampSeconds(scan.scannedAt) <= getTimestampSeconds(filters.dateRange!.end)
       );
     }
 

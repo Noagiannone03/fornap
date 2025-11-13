@@ -14,6 +14,8 @@ import {
   Divider,
   Avatar,
   Timeline,
+  Box,
+  Center,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -22,8 +24,19 @@ import {
   IconLockOpen,
   IconCreditCard,
   IconCreditCardOff,
+  IconQrcode,
+  IconTicket,
+  IconStar,
+  IconGift,
+  IconRefresh,
+  IconX,
+  IconSparkles,
+  IconMapPin,
+  IconUser,
+  IconClock,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import { QRCodeDisplay } from '../../../app/components/common/QRCodeDisplay';
 import {
   getUserById,
   getUserStats,
@@ -352,41 +365,89 @@ export function UserDetailPage() {
 
             {/* QR Code */}
             <Paper withBorder p="md" radius="md">
-              <Title order={3} mb="md">QR Code</Title>
-              <Group justify="space-between">
-                <div>
-                  <Text size="sm" c="dimmed">UID</Text>
-                  <Text size="lg" fw={500} ff="monospace">{user.uid}</Text>
-                </div>
-                <div>
-                  <Text size="sm" c="dimmed">Nombre de scans</Text>
-                  <Text size="lg" fw={500}>{user.scanCount || 0}</Text>
-                </div>
+              <Group justify="space-between" mb="md">
+                <Title order={3}>QR Code Membre</Title>
+                <Badge leftSection={<IconQrcode size={14} />} size="lg" color="indigo">
+                  FORNAP-MEMBER
+                </Badge>
               </Group>
+
+              <Center mb="md">
+                <QRCodeDisplay
+                  uid={user.uid}
+                  firstName={user.firstName || ''}
+                  lastName={user.lastName || ''}
+                  size={200}
+                  showDownloadButton={true}
+                  showUserInfo={false}
+                />
+              </Center>
+
+              <Divider my="md" />
+
+              <Grid gutter="xs">
+                <Grid.Col span={12}>
+                  <Text size="xs" c="dimmed">UID</Text>
+                  <Text size="sm" fw={500} ff="monospace" style={{ wordBreak: 'break-all' }}>
+                    {user.uid}
+                  </Text>
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Text size="xs" c="dimmed">Nombre de scans</Text>
+                  <Text size="lg" fw={700} c="indigo">{user.scanCount || 0}</Text>
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Text size="xs" c="dimmed">Dernier scan</Text>
+                  <Text size="sm" fw={500}>
+                    {user.lastScannedAt
+                      ? toDate(user.lastScannedAt).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        })
+                      : 'Jamais'}
+                  </Text>
+                </Grid.Col>
+              </Grid>
             </Paper>
 
             {/* Statistiques */}
             {stats && (
               <Paper withBorder p="md" radius="md">
                 <Title order={3} mb="md">Statistiques</Title>
-                <Grid>
-                  <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Total scans</Text>
-                    <Text size="lg" fw={500}>{stats.totalScans}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Événements</Text>
-                    <Text size="lg" fw={500}>{stats.eventsAttended}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Points gagnés</Text>
-                    <Text size="lg" fw={500} c="green">{stats.loyaltyPointsEarned}</Text>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Text size="sm" c="dimmed">Points dépensés</Text>
-                    <Text size="lg" fw={500} c="red">{stats.loyaltyPointsSpent}</Text>
-                  </Grid.Col>
-                </Grid>
+                <Stack gap="md">
+                  {/* Stats de scan */}
+                  <Box>
+                    <Text size="sm" fw={600} c="dimmed" mb="xs">Activité QR Code</Text>
+                    <Grid>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="dimmed">Total scans</Text>
+                        <Text size="xl" fw={700} c="indigo">{stats.totalScans || 0}</Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="dimmed">Événements assistés</Text>
+                        <Text size="xl" fw={700} c="blue">{stats.eventsAttended || 0}</Text>
+                      </Grid.Col>
+                    </Grid>
+                  </Box>
+
+                  <Divider />
+
+                  {/* Stats de fidélité */}
+                  <Box>
+                    <Text size="sm" fw={600} c="dimmed" mb="xs">Points de Fidélité</Text>
+                    <Grid>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="dimmed">Points gagnés</Text>
+                        <Text size="xl" fw={700} c="green">+{stats.loyaltyPointsEarned || 0}</Text>
+                      </Grid.Col>
+                      <Grid.Col span={6}>
+                        <Text size="sm" c="dimmed">Points dépensés</Text>
+                        <Text size="xl" fw={700} c="red">-{stats.loyaltyPointsSpent || 0}</Text>
+                      </Grid.Col>
+                    </Grid>
+                  </Box>
+                </Stack>
               </Paper>
             )}
 
@@ -415,16 +476,132 @@ export function UserDetailPage() {
               <Title order={3} mb="md">Activité Récente</Title>
               {actionHistory.length > 0 ? (
                 <Timeline>
-                  {actionHistory.slice(0, 10).map((action) => (
-                    <Timeline.Item key={action.id} title={action.actionType}>
-                      <Text size="sm" c="dimmed">
-                        {action.details?.description || 'Aucune description'}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {toDate(action.timestamp).toLocaleString('fr-FR')}
-                      </Text>
-                    </Timeline.Item>
-                  ))}
+                  {actionHistory.slice(0, 10).map((action) => {
+                    // Définir la couleur selon le type d'action
+                    const getActionColor = (type: string) => {
+                      switch (type) {
+                        case 'scan':
+                        case 'event_checkin':
+                          return 'indigo';
+                        case 'transaction':
+                          return 'green';
+                        case 'loyalty_earned':
+                          return 'teal';
+                        case 'loyalty_spent':
+                          return 'orange';
+                        case 'card_blocked':
+                          return 'red';
+                        case 'card_unblocked':
+                          return 'green';
+                        default:
+                          return 'gray';
+                      }
+                    };
+
+                    // Définir l'icône et le label selon le type d'action
+                    const getActionIcon = (type: string) => {
+                      switch (type) {
+                        case 'scan':
+                          return <IconQrcode size={20} />;
+                        case 'event_checkin':
+                          return <IconTicket size={20} />;
+                        case 'transaction':
+                          return <IconCreditCard size={20} />;
+                        case 'loyalty_earned':
+                          return <IconStar size={20} />;
+                        case 'loyalty_spent':
+                          return <IconGift size={20} />;
+                        case 'card_blocked':
+                          return <IconLock size={20} />;
+                        case 'card_unblocked':
+                          return <IconLockOpen size={20} />;
+                        case 'profile_update':
+                          return <IconEdit size={20} />;
+                        case 'membership_created':
+                          return <IconSparkles size={20} />;
+                        case 'membership_renewed':
+                          return <IconRefresh size={20} />;
+                        case 'membership_cancelled':
+                          return <IconX size={20} />;
+                        default:
+                          return null;
+                      }
+                    };
+
+                    const getActionLabel = (type: string) => {
+                      switch (type) {
+                        case 'scan':
+                          return 'Scan QR';
+                        case 'event_checkin':
+                          return 'Check-in événement';
+                        case 'transaction':
+                          return 'Transaction';
+                        case 'loyalty_earned':
+                          return 'Points gagnés';
+                        case 'loyalty_spent':
+                          return 'Points dépensés';
+                        case 'card_blocked':
+                          return 'Carte bloquée';
+                        case 'card_unblocked':
+                          return 'Carte débloquée';
+                        case 'profile_update':
+                          return 'Profil mis à jour';
+                        case 'membership_created':
+                          return 'Abonnement créé';
+                        case 'membership_renewed':
+                          return 'Abonnement renouvelé';
+                        case 'membership_cancelled':
+                          return 'Abonnement annulé';
+                        default:
+                          return type;
+                      }
+                    };
+
+                    return (
+                      <Timeline.Item
+                        key={action.id}
+                        bullet={getActionIcon(action.actionType)}
+                        title={
+                          <Group gap="xs">
+                            <Text size="sm" fw={600}>{getActionLabel(action.actionType)}</Text>
+                          </Group>
+                        }
+                        color={getActionColor(action.actionType)}
+                      >
+                        <Text size="sm" c="dimmed">
+                          {action.details?.description || 'Aucune description'}
+                        </Text>
+                        {action.details?.eventName && (
+                          <Group gap={4} mt="xs">
+                            <IconMapPin size={14} />
+                            <Text size="xs" fw={500} c="blue">
+                              {action.details.eventName}
+                            </Text>
+                          </Group>
+                        )}
+                        {action.details?.scannedBy && (
+                          <Group gap={4} mt={4}>
+                            <IconUser size={14} />
+                            <Text size="xs" c="dimmed">
+                              Scanné par: {action.details.scannedBy}
+                            </Text>
+                          </Group>
+                        )}
+                        <Group gap={4} mt="xs">
+                          <IconClock size={14} />
+                          <Text size="xs" c="dimmed">
+                            {toDate(action.timestamp).toLocaleString('fr-FR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </Text>
+                        </Group>
+                      </Timeline.Item>
+                    );
+                  })}
                 </Timeline>
               ) : (
                 <Text c="dimmed" size="sm">Aucune activité</Text>

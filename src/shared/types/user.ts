@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase/firestore';
+import type { ScanMode, ScanResultStatus } from './scan';
 
 // ============================================================================
 // TYPES DE BASE
@@ -214,6 +215,8 @@ export interface MembershipHistory {
 
 export interface ActionDetails {
   // Pour scan/event_checkin
+  scanMode?: ScanMode;
+  scanResult?: ScanResultStatus;
   location?: string;
   eventId?: string;
   eventName?: string;

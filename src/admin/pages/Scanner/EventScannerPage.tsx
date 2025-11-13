@@ -244,8 +244,6 @@ export function EventScannerPage() {
     }
 
     try {
-      setLoading(true);
-
       const result = await performScan(
         `FORNAP-MEMBER:${uid}`,
         config,
@@ -277,8 +275,8 @@ export function EventScannerPage() {
       setCurrentScanResult(result);
       setScanResultModalOpened(true);
 
-      // Recharger l'historique depuis Firestore pour avoir les données persistées
-      await loadAdminHistory();
+      // Recharger l'historique depuis Firestore en arrière-plan (sans bloquer)
+      loadAdminHistory();
 
       // Recharger les stats si on est sur l'onglet stats
       if (activeTab === 'stats') {
@@ -291,8 +289,6 @@ export function EventScannerPage() {
         message: error.message || 'Erreur lors du scan',
         color: 'red',
       });
-    } finally {
-      setLoading(false);
     }
   };
 

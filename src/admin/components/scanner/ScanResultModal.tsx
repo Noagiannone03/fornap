@@ -24,7 +24,6 @@ export function ScanResultModal({ opened, onClose, result }: ScanResultModalProp
 
   const isSuccess = result.status === ScanResultStatus.SUCCESS;
   const isWarning = result.status === ScanResultStatus.ALREADY_SCANNED;
-  const isError = !isSuccess && !isWarning;
 
   const getStatusColor = () => {
     if (isSuccess) return 'green';

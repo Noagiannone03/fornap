@@ -10,8 +10,8 @@ import {
   orderBy,
   limit,
   Timestamp,
-  
-  
+
+
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import {
@@ -22,7 +22,7 @@ import type {
   ScanResult,
   ScanRecord,
   EventScanStatistics,
-  
+
   ScanFilters,
   ScannerConfig,
   ScanInsights,
@@ -30,6 +30,7 @@ import type {
 import type { User } from '../types/user';
 import type { EventPurchase } from '../types/event';
 import type { AdminUser } from '../types/admin';
+import { addActionHistory } from './userService';
 
 /**
  * ============================================
@@ -516,9 +517,29 @@ async function recordScan(
       const currentScanCount = userDoc.data().scanCount || 0;
       await updateDoc(userRef, {
         scanCount: currentScanCount + 1,
-        lastScanAt: Timestamp.now(),
+        lastScannedAt: Timestamp.now(),
       });
     }
+
+    // Ajouter à l'historique d'actions de l'utilisateur
+    const actionType: 'event_checkin' | 'scan' = config.eventId ? 'event_checkin' : 'scan';
+    const actionDescription = config.eventId
+      ? `Scan pour l'événement: ${scanRecord.eventInfo?.title || 'Événement'}${result !== ScanResultStatus.SUCCESS ? ' (Refusé: ' + result + ')' : ''}`
+      : `Scan QR ${result === ScanResultStatus.SUCCESS ? 'réussi' : 'échoué ('+result+')'}`;
+
+    await addActionHistory(userId, {
+      actionType,
+      details: {
+        description: actionDescription,
+        location: scanRecord.location?.latitude && scanRecord.location?.longitude
+          ? `${scanRecord.location.latitude}, ${scanRecord.location.longitude}`
+          : undefined,
+        eventId: config.eventId,
+        eventName: scanRecord.eventInfo?.title,
+        scannedBy: scanner ? `${scanner.firstName} ${scanner.lastName}` : scannerId,
+      },
+      deviceType: 'scanner',
+    });
   } catch (error) {
     console.error('Erreur enregistrement scan:', error);
     throw error;

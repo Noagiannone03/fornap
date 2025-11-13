@@ -25,6 +25,15 @@ import {
   IconCreditCard,
   IconCreditCardOff,
   IconQrcode,
+  IconTicket,
+  IconStar,
+  IconGift,
+  IconRefresh,
+  IconX,
+  IconSparkles,
+  IconMapPin,
+  IconUser,
+  IconClock,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { QRCodeDisplay } from '../../../app/components/common/QRCodeDisplay';
@@ -489,31 +498,60 @@ export function UserDetailPage() {
                       }
                     };
 
-                    // Définir l'icône selon le type d'action
+                    // Définir l'icône et le label selon le type d'action
+                    const getActionIcon = (type: string) => {
+                      switch (type) {
+                        case 'scan':
+                          return <IconQrcode size={20} />;
+                        case 'event_checkin':
+                          return <IconTicket size={20} />;
+                        case 'transaction':
+                          return <IconCreditCard size={20} />;
+                        case 'loyalty_earned':
+                          return <IconStar size={20} />;
+                        case 'loyalty_spent':
+                          return <IconGift size={20} />;
+                        case 'card_blocked':
+                          return <IconLock size={20} />;
+                        case 'card_unblocked':
+                          return <IconLockOpen size={20} />;
+                        case 'profile_update':
+                          return <IconEdit size={20} />;
+                        case 'membership_created':
+                          return <IconSparkles size={20} />;
+                        case 'membership_renewed':
+                          return <IconRefresh size={20} />;
+                        case 'membership_cancelled':
+                          return <IconX size={20} />;
+                        default:
+                          return null;
+                      }
+                    };
+
                     const getActionLabel = (type: string) => {
                       switch (type) {
                         case 'scan':
-                          return '📱 Scan QR';
+                          return 'Scan QR';
                         case 'event_checkin':
-                          return '🎫 Check-in événement';
+                          return 'Check-in événement';
                         case 'transaction':
-                          return '💳 Transaction';
+                          return 'Transaction';
                         case 'loyalty_earned':
-                          return '⭐ Points gagnés';
+                          return 'Points gagnés';
                         case 'loyalty_spent':
-                          return '🎁 Points dépensés';
+                          return 'Points dépensés';
                         case 'card_blocked':
-                          return '🔒 Carte bloquée';
+                          return 'Carte bloquée';
                         case 'card_unblocked':
-                          return '🔓 Carte débloquée';
+                          return 'Carte débloquée';
                         case 'profile_update':
-                          return '✏️ Profil mis à jour';
+                          return 'Profil mis à jour';
                         case 'membership_created':
-                          return '🎉 Abonnement créé';
+                          return 'Abonnement créé';
                         case 'membership_renewed':
-                          return '🔄 Abonnement renouvelé';
+                          return 'Abonnement renouvelé';
                         case 'membership_cancelled':
-                          return '❌ Abonnement annulé';
+                          return 'Abonnement annulé';
                         default:
                           return type;
                       }
@@ -522,31 +560,45 @@ export function UserDetailPage() {
                     return (
                       <Timeline.Item
                         key={action.id}
-                        title={getActionLabel(action.actionType)}
+                        bullet={getActionIcon(action.actionType)}
+                        title={
+                          <Group gap="xs">
+                            <Text size="sm" fw={600}>{getActionLabel(action.actionType)}</Text>
+                          </Group>
+                        }
                         color={getActionColor(action.actionType)}
                       >
                         <Text size="sm" c="dimmed">
                           {action.details?.description || 'Aucune description'}
                         </Text>
                         {action.details?.eventName && (
-                          <Text size="xs" fw={500} c="blue">
-                            📍 {action.details.eventName}
-                          </Text>
+                          <Group gap={4} mt="xs">
+                            <IconMapPin size={14} />
+                            <Text size="xs" fw={500} c="blue">
+                              {action.details.eventName}
+                            </Text>
+                          </Group>
                         )}
                         {action.details?.scannedBy && (
-                          <Text size="xs" c="dimmed">
-                            👤 Scanné par: {action.details.scannedBy}
-                          </Text>
+                          <Group gap={4} mt={4}>
+                            <IconUser size={14} />
+                            <Text size="xs" c="dimmed">
+                              Scanné par: {action.details.scannedBy}
+                            </Text>
+                          </Group>
                         )}
-                        <Text size="xs" c="dimmed" mt="xs">
-                          🕐 {toDate(action.timestamp).toLocaleString('fr-FR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </Text>
+                        <Group gap={4} mt="xs">
+                          <IconClock size={14} />
+                          <Text size="xs" c="dimmed">
+                            {toDate(action.timestamp).toLocaleString('fr-FR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </Text>
+                        </Group>
                       </Timeline.Item>
                     );
                   })}

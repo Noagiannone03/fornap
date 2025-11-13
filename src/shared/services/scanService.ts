@@ -176,7 +176,7 @@ function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T>
   const cleaned: any = {};
 
   for (const key in obj) {
-    const value = obj[key];
+    const value: any = obj[key];
 
     if (value !== undefined) {
       // Si c'est un objet (mais pas Date, Array, ou Timestamp), nettoyer récursivement

@@ -28,6 +28,8 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
   const [startRequested, setStartRequested] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerDivRef = useRef<HTMLDivElement>(null);
+  const lastScanTimeRef = useRef<number>(0);
+  const scanCooldownMs = 2000; // Cooldown de 2 secondes entre scans
 
   // Effet pour démarrer le scanner une fois que le DOM est prêt
   useEffect(() => {
@@ -139,8 +141,12 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
   }, []);
 
   const handleScanSuccess = async (qrContent: string) => {
-    // Arrêter le scanner
-    await handleStopScan();
+    // Vérifier le cooldown pour éviter les scans multiples
+    const now = Date.now();
+    if (now - lastScanTimeRef.current < scanCooldownMs) {
+      return; // Ignorer le scan si trop récent
+    }
+    lastScanTimeRef.current = now;
 
     // Parser le contenu du QR code
     const { parseQRCodeContent } = await import('../../../shared/utils/qrcode');
@@ -149,7 +155,14 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
     if (uid) {
       setSuccess(true);
       setError(null);
+
+      // Appeler onScan mais garder le scanner actif
       onScan(uid);
+
+      // Réinitialiser le message de succès après 1.5 secondes
+      setTimeout(() => {
+        setSuccess(false);
+      }, 1500);
     } else {
       setError('QR code invalide. Veuillez scanner un QR code Fornap.');
       onError?.('QR code invalide');

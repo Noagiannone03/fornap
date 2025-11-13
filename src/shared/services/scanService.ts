@@ -697,11 +697,13 @@ async function recordScan(
       actionType,
       details: {
         description: actionDescription,
+        scanMode: config.mode,
         location: scanRecord.location?.latitude && scanRecord.location?.longitude
           ? `${scanRecord.location.latitude}, ${scanRecord.location.longitude}`
           : undefined,
         eventId: config.eventId,
         eventName: scanRecord.eventInfo?.title,
+        scanResult: result,
         scannedBy: scanner ? `${scanner.firstName} ${scanner.lastName}` : scannerId,
       },
       deviceType: 'scanner',

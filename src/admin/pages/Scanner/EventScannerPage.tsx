@@ -43,7 +43,7 @@ import { QRCodeScanner } from '../../../app/components/common/QRCodeScanner';
 import { ScanResultModal } from '../../components/scanner/ScanResultModal';
 import {
   performScan,
-  calculateEventScanStatistics,
+  getAdminScanHistory,
 } from '../../../shared/services/scanService';
 import { getAllEventsForList } from '../../../shared/services/eventService';
 import {
@@ -53,9 +53,25 @@ import {
 import type {
   ScanResult,
   ScannerConfig,
-  EventScanStatistics,
 } from '../../../shared/types/scan';
 import type { EventListItem } from '../../../shared/types/event';
+
+// Type local pour les stats admin
+interface AdminScanStats {
+  totalScans: number;
+  successfulScans: number;
+  rejectedSubscription: number;
+  rejectedNoTicket: number;
+  legacyAccountScans: number;
+  scansWithActiveSubscription: number;
+  scansWithValidTicket: number;
+}
+
+// Extension locale de ScanResult pour inclure eventId
+interface ScanResultWithEvent extends ScanResult {
+  eventId?: string;
+  eventName?: string;
+}
 
 type TabType = 'scanner' | 'history' | 'stats';
 type ScannerStep = 'selectMode' | 'selectEvent' | 'scanning';
@@ -68,8 +84,8 @@ export function EventScannerPage() {
   const [scannerStep, setScannerStep] = useState<ScannerStep>('selectMode');
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<EventListItem[]>([]);
-  const [recentScans, setRecentScans] = useState<ScanResult[]>([]);
-  const [currentStats, setCurrentStats] = useState<EventScanStatistics | null>(null);
+  const [recentScans, setRecentScans] = useState<ScanResultWithEvent[]>([]);
+  const [currentStats, setCurrentStats] = useState<AdminScanStats | null>(null);
   const [scanResultModalOpened, setScanResultModalOpened] = useState(false);
   const [currentScanResult, setCurrentScanResult] = useState<ScanResult | null>(null);
 
@@ -88,7 +104,15 @@ export function EventScannerPage() {
   useEffect(() => {
     loadEvents();
     initializeSounds();
+    loadAdminHistory();
   }, []);
+
+  useEffect(() => {
+    // Recharger l'historique quand l'admin change
+    if (adminProfile?.uid) {
+      loadAdminHistory();
+    }
+  }, [adminProfile?.uid]);
 
   // Charger les stats quand on change de mode/événement ou qu'on active l'onglet stats
   useEffect(() => {
@@ -96,6 +120,13 @@ export function EventScannerPage() {
       loadStatistics();
     }
   }, [activeTab, config.mode, config.eventId]);
+
+  // Recalculer les stats quand l'historique change
+  useEffect(() => {
+    if (activeTab === 'stats' && recentScans.length > 0) {
+      loadStatistics();
+    }
+  }, [recentScans]);
 
   const loadEvents = async () => {
     try {
@@ -116,6 +147,41 @@ export function EventScannerPage() {
         message: 'Impossible de charger les événements',
         color: 'red',
       });
+    }
+  };
+
+  const loadAdminHistory = async () => {
+    if (!adminProfile?.uid) return;
+
+    try {
+      const history = await getAdminScanHistory(adminProfile.uid, 100);
+
+      // Convertir l'historique admin en format ScanResultWithEvent pour l'affichage
+      const scanResults: ScanResultWithEvent[] = history.map((record: any) => ({
+        status: record.scanResult as ScanResultStatus,
+        message: `Scan ${record.scanMode} - ${record.scanResult}`,
+        user: record.scannedUserInfo ? {
+          uid: record.scannedUserId,
+          firstName: record.scannedUserInfo.firstName,
+          lastName: record.scannedUserInfo.lastName,
+          email: record.scannedUserInfo.email,
+          membershipType: record.scannedUserInfo.membershipType,
+          isLegacyAccount: false,
+        } : undefined,
+        ticket: record.ticketInfo ? {
+          purchaseId: '',
+          ticketNumber: record.ticketInfo.ticketNumber || '',
+          ticketCategoryName: record.ticketInfo.ticketCategoryName || '',
+          alreadyScanned: false,
+        } : undefined,
+        scannedAt: record.scannedAt,
+        eventId: record.eventId,
+        eventName: record.eventName,
+      }));
+
+      setRecentScans(scanResults);
+    } catch (error) {
+      console.error('Erreur chargement historique admin:', error);
     }
   };
 
@@ -211,6 +277,9 @@ export function EventScannerPage() {
       setCurrentScanResult(result);
       setScanResultModalOpened(true);
 
+      // Recharger l'historique depuis Firestore pour avoir les données persistées
+      await loadAdminHistory();
+
       // Recharger les stats si on est sur l'onglet stats
       if (activeTab === 'stats') {
         loadStatistics();
@@ -230,7 +299,39 @@ export function EventScannerPage() {
   const loadStatistics = async () => {
     try {
       setLoading(true);
-      const stats = await calculateEventScanStatistics(config.eventId || 'global');
+
+      // Calculer les stats à partir de l'historique admin local (recentScans)
+      // Filtrer par mode et événement si nécessaire
+      let filteredScans = recentScans;
+
+      if (config.eventId) {
+        filteredScans = recentScans.filter((scan) => scan.eventId === config.eventId);
+      }
+
+      const totalScans = filteredScans.length;
+      const successfulScans = filteredScans.filter((s) => s.status === ScanResultStatus.SUCCESS).length;
+      const rejectedSubscription = filteredScans.filter(
+        (s) => s.status === ScanResultStatus.SUBSCRIPTION_INACTIVE || s.status === ScanResultStatus.BLOCKED
+      ).length;
+      const rejectedNoTicket = filteredScans.filter((s) => s.status === ScanResultStatus.NO_TICKET).length;
+      const legacyAccountScans = filteredScans.filter((s) => s.status === ScanResultStatus.LEGACY_ACCOUNT).length;
+
+      // Stats supplémentaires
+      const scansWithActiveSubscription = filteredScans.filter(
+        (s) => s.status === ScanResultStatus.SUCCESS || s.status === ScanResultStatus.ALREADY_SCANNED
+      ).length;
+      const scansWithValidTicket = filteredScans.filter((s) => s.ticket !== undefined).length;
+
+      const stats: AdminScanStats = {
+        totalScans,
+        successfulScans,
+        rejectedSubscription,
+        rejectedNoTicket,
+        legacyAccountScans,
+        scansWithActiveSubscription,
+        scansWithValidTicket,
+      };
+
       setCurrentStats(stats);
     } catch (error) {
       console.error('Erreur chargement statistiques:', error);

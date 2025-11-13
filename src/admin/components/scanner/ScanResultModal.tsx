@@ -40,14 +40,39 @@ export function ScanResultModal({ opened, onClose, result }: ScanResultModalProp
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
     try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      let date: Date;
+
+      // Firestore Timestamp avec méthode toDate
+      if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+        date = timestamp.toDate();
+      }
+      // Objet avec seconds (Firestore plain object)
+      else if (timestamp.seconds !== undefined) {
+        date = new Date(timestamp.seconds * 1000);
+      }
+      // Date déjà
+      else if (timestamp instanceof Date) {
+        date = timestamp;
+      }
+      // String ou number
+      else {
+        date = new Date(timestamp);
+      }
+
+      // Vérifier que la date est valide
+      if (isNaN(date.getTime())) {
+        console.error('Date invalide:', timestamp);
+        return 'Date invalide';
+      }
+
       return date.toLocaleDateString('fr-FR', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
       });
-    } catch {
-      return 'N/A';
+    } catch (error) {
+      console.error('Erreur formatage date:', error, timestamp);
+      return 'Erreur de date';
     }
   };
 

@@ -471,6 +471,24 @@ export async function performScan(
  * Construit les informations utilisateur pour le résultat
  */
 function buildUserInfo(user: User): ScanResult['user'] {
+  // Normaliser la date d'expiration si elle existe
+  let membershipExpiry: Timestamp | undefined = undefined;
+  if (user.currentMembership?.expiryDate) {
+    const normalized = normalizeTimestamp(user.currentMembership.expiryDate);
+    if (normalized) {
+      membershipExpiry = normalized;
+    }
+  }
+
+  // Normaliser la date de naissance si elle existe
+  let birthDate: Timestamp | undefined = undefined;
+  if (user.birthDate) {
+    const normalized = normalizeTimestamp(user.birthDate);
+    if (normalized) {
+      birthDate = normalized;
+    }
+  }
+
   return {
     uid: user.uid,
     firstName: user.firstName || '',
@@ -478,10 +496,10 @@ function buildUserInfo(user: User): ScanResult['user'] {
     email: user.email || '',
     membershipType: user.currentMembership?.planType,
     membershipStatus: user.currentMembership?.status,
-    membershipExpiry: user.currentMembership?.expiryDate || undefined,
+    membershipExpiry,
     isLegacyAccount: isLegacyAccount(user),
     scanCount: user.scanCount || 0,
-    birthDate: user.birthDate,
+    birthDate,
     postalCode: user.postalCode,
     isAccountBlocked: user.status?.isAccountBlocked,
     isCardBlocked: user.status?.isCardBlocked,

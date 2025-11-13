@@ -166,6 +166,35 @@ function normalizeTimestamp(timestamp: any): Timestamp | undefined {
   return undefined;
 }
 
+/**
+ * Nettoie un objet en supprimant tous les champs undefined
+ * Firestore n'accepte pas les valeurs undefined
+ * @param obj Objet à nettoyer
+ * @returns Nouvel objet sans champs undefined
+ */
+function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T> {
+  const cleaned: any = {};
+
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      // Si c'est un objet (mais pas Date, Array, ou Timestamp), nettoyer récursivement
+      if (
+        typeof obj[key] === 'object' &&
+        obj[key] !== null &&
+        !(obj[key] instanceof Date) &&
+        !(obj[key] instanceof Timestamp) &&
+        !(Array.isArray(obj[key]))
+      ) {
+        cleaned[key] = cleanUndefinedFields(obj[key]);
+      } else {
+        cleaned[key] = obj[key];
+      }
+    }
+  }
+
+  return cleaned;
+}
+
 // ============================================
 // QR CODE PARSING
 // ============================================
@@ -637,7 +666,10 @@ async function recordScan(
       collectionPath = 'global_scans';
     }
 
-    const scanRef = await addDoc(collection(db, collectionPath), scanRecord);
+    // Nettoyer les champs undefined avant l'écriture (Firestore n'accepte pas undefined)
+    const cleanedScanRecord = cleanUndefinedFields(scanRecord);
+
+    const scanRef = await addDoc(collection(db, collectionPath), cleanedScanRecord);
 
     // Mettre à jour l'ID
     await updateDoc(scanRef, { id: scanRef.id });

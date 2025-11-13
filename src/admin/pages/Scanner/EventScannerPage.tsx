@@ -40,6 +40,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 import { QRCodeScanner } from '../../../app/components/common/QRCodeScanner';
+import { ScanResultModal } from '../../components/scanner/ScanResultModal';
 import {
   performScan,
   calculateEventScanStatistics,
@@ -69,6 +70,8 @@ export function EventScannerPage() {
   const [events, setEvents] = useState<EventListItem[]>([]);
   const [recentScans, setRecentScans] = useState<ScanResult[]>([]);
   const [currentStats, setCurrentStats] = useState<EventScanStatistics | null>(null);
+  const [scanResultModalOpened, setScanResultModalOpened] = useState(false);
+  const [currentScanResult, setCurrentScanResult] = useState<ScanResult | null>(null);
 
   // Configuration du scanner
   const [config, setConfig] = useState<ScannerConfig>({
@@ -204,13 +207,9 @@ export function EventScannerPage() {
       // Ajouter aux scans récents (en premier)
       setRecentScans((prev) => [result, ...prev].slice(0, 50));
 
-      // Notification visuelle
-      notifications.show({
-        title: result.status === ScanResultStatus.SUCCESS ? 'Scan réussi ✓' : 'Scan échoué ✗',
-        message: result.message,
-        color: result.status === ScanResultStatus.SUCCESS ? 'green' : 'red',
-        autoClose: 3000,
-      });
+      // Ouvrir la modale avec le résultat
+      setCurrentScanResult(result);
+      setScanResultModalOpened(true);
 
       // Recharger les stats si on est sur l'onglet stats
       if (activeTab === 'stats') {
@@ -1053,6 +1052,16 @@ export function EventScannerPage() {
           </UnstyledButton>
         </Group>
       </Paper>
+
+      {/* Modale de résultat de scan */}
+      <ScanResultModal
+        opened={scanResultModalOpened}
+        onClose={() => {
+          setScanResultModalOpened(false);
+          setCurrentScanResult(null);
+        }}
+        result={currentScanResult}
+      />
     </Box>
   );
 }

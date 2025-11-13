@@ -706,6 +706,24 @@ async function recordScan(
       },
       deviceType: 'scanner',
     });
+
+    // Ajouter à l'historique de scan de l'admin/employé
+    const adminScanHistoryRef = collection(db, 'admins', scannerId, 'scanHistory');
+    await addDoc(adminScanHistoryRef, {
+      scannedUserId: userId,
+      scannedUserInfo: {
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        membershipType: user.currentMembership?.planType,
+      },
+      scanMode: config.mode,
+      eventId: config.eventId,
+      eventName: scanRecord.eventInfo?.title,
+      scanResult: result,
+      scannedAt: Timestamp.now(),
+      location: scanRecord.location,
+    });
   } catch (error) {
     console.error('Erreur enregistrement scan:', error);
     throw error;
@@ -925,6 +943,31 @@ export async function getEventScans(
     return scans;
   } catch (error) {
     console.error('Erreur récupération scans:', error);
+    throw error;
+  }
+}
+
+/**
+ * Récupère l'historique de scan d'un admin
+ * @param adminId UID de l'admin
+ * @param limitCount Nombre maximum de scans à retourner
+ * @returns Liste des scans effectués par cet admin
+ */
+export async function getAdminScanHistory(
+  adminId: string,
+  limitCount: number = 50
+): Promise<any[]> {
+  try {
+    const historyRef = collection(db, 'admins', adminId, 'scanHistory');
+    const q = query(historyRef, orderBy('scannedAt', 'desc'), limit(limitCount));
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error('Erreur récupération historique admin:', error);
     throw error;
   }
 }

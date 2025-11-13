@@ -709,7 +709,7 @@ async function recordScan(
 
     // Ajouter à l'historique de scan de l'admin/employé
     const adminScanHistoryRef = collection(db, 'admins', scannerId, 'scanHistory');
-    await addDoc(adminScanHistoryRef, {
+    const adminScanData = cleanUndefinedFields({
       scannedUserId: userId,
       scannedUserInfo: {
         firstName: user.firstName || '',
@@ -724,6 +724,7 @@ async function recordScan(
       scannedAt: Timestamp.now(),
       location: scanRecord.location,
     });
+    await addDoc(adminScanHistoryRef, adminScanData);
   } catch (error) {
     console.error('Erreur enregistrement scan:', error);
     throw error;

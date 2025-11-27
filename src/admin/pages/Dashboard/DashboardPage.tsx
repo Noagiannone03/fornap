@@ -6,7 +6,6 @@ import {
   IconCalendarEvent,
   IconUserCheck,
   IconRepeat,
-  IconTrendingUp,
   IconHeartHandshake,
   IconTicket,
   IconShoppingCart,

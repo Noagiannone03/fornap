@@ -21,7 +21,6 @@ import {
   IconBug,
   IconQrcode,
   IconShoppingCart,
-  IconBrain,
 } from '@tabler/icons-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';

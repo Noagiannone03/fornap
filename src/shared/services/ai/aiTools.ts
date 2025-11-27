@@ -616,14 +616,20 @@ export const createContributionChartTool: AITool = {
     required: [],
   },
   execute: async (args) => {
-    const evolution = await getContributionEvolution();
     const months = args.months || 6;
+    
+    // Calculer les dates (X derniers mois depuis maintenant)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
 
-    // Prendre les X derniers mois
-    const data = evolution.evolutionByMonth.slice(-months).map(m => ({
-      mois: m.month,
+    const evolution = await getContributionEvolution(startDate, endDate);
+
+    // Prendre les X derniers mois et formater les données
+    const data = evolution.slice(-months).map((m) => ({
+      mois: m.date,
       montant: m.totalAmount,
-      contributions: m.count,
+      contributions: m.totalCount,
     }));
 
     return {
@@ -657,8 +663,8 @@ export const createItemStatsChartTool: AITool = {
   execute: async (args) => {
     const stats = await getItemStatistics();
 
-    const data = stats.map(s => ({
-      forfait: s.itemId,
+    const data = stats.map((s) => ({
+      forfait: s.itemName,
       montant: s.totalAmount,
       contributions: s.count,
     }));

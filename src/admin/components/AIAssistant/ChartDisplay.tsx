@@ -69,7 +69,7 @@ export function ChartDisplay({ chartData }: ChartDisplayProps) {
         {type === 'line' && (
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
-            <XAxis dataKey={xKey} stroke="var(--mantine-color-gray-6)" />
+            <XAxis dataKey={xKey || 'name'} stroke="var(--mantine-color-gray-6)" />
             <YAxis stroke="var(--mantine-color-gray-6)" />
             <Tooltip
               contentStyle={{
@@ -81,7 +81,7 @@ export function ChartDisplay({ chartData }: ChartDisplayProps) {
             <Legend />
             <Line
               type="monotone"
-              dataKey={yKey}
+              dataKey={yKey || 'value'}
               stroke="var(--mantine-color-indigo-6)"
               strokeWidth={2}
               dot={{ fill: 'var(--mantine-color-indigo-6)', r: 4 }}
@@ -93,7 +93,7 @@ export function ChartDisplay({ chartData }: ChartDisplayProps) {
         {type === 'bar' && (
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
-            <XAxis dataKey={xKey} stroke="var(--mantine-color-gray-6)" />
+            <XAxis dataKey={xKey || 'name'} stroke="var(--mantine-color-gray-6)" />
             <YAxis stroke="var(--mantine-color-gray-6)" />
             <Tooltip
               contentStyle={{
@@ -103,14 +103,14 @@ export function ChartDisplay({ chartData }: ChartDisplayProps) {
               }}
             />
             <Legend />
-            <Bar dataKey={yKey} fill="var(--mantine-color-indigo-6)" radius={[8, 8, 0, 0]} />
+            <Bar dataKey={yKey || 'value'} fill="var(--mantine-color-indigo-6)" radius={[8, 8, 0, 0]} />
           </BarChart>
         )}
 
         {type === 'area' && (
           <AreaChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
-            <XAxis dataKey={xKey} stroke="var(--mantine-color-gray-6)" />
+            <XAxis dataKey={xKey || 'name'} stroke="var(--mantine-color-gray-6)" />
             <YAxis stroke="var(--mantine-color-gray-6)" />
             <Tooltip
               contentStyle={{
@@ -122,7 +122,7 @@ export function ChartDisplay({ chartData }: ChartDisplayProps) {
             <Legend />
             <Area
               type="monotone"
-              dataKey={yKey}
+              dataKey={yKey || 'value'}
               stroke="var(--mantine-color-indigo-6)"
               fill="var(--mantine-color-indigo-1)"
               strokeWidth={2}

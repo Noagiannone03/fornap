@@ -20,6 +20,7 @@ import {
   IconMail,
   IconBug,
   IconQrcode,
+  IconShoppingCart,
 } from '@tabler/icons-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
@@ -68,6 +69,7 @@ const navigationItems: NavItem[] = [
       { icon: IconMapPin, label: 'Démographie', path: '/admin/analytics/demographics' },
       { icon: IconHeart, label: 'Engagement', path: '/admin/analytics/engagement' },
       { icon: IconCalendar, label: 'Événements', path: '/admin/analytics/events' },
+      { icon: IconShoppingCart, label: 'Contributions', path: '/admin/analytics/contributions' },
     ],
   },
   { icon: IconSettings, label: 'Paramètres', path: '/admin/settings' },

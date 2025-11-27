@@ -12,6 +12,8 @@ import {
   Menu,
   Text,
   Progress,
+  Stack,
+  ThemeIcon,
 } from '@mantine/core';
 import {
   IconPlus,
@@ -21,6 +23,7 @@ import {
   IconEdit,
   IconTrash,
   IconDownload,
+  IconTools,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -84,16 +87,65 @@ export function CoworkingListPage() {
   const navigate = useNavigate();
 
   return (
-    <Container size="xl">
-      <Group justify="space-between" mb="xl">
-        <Title order={1}>Gestion des Espaces Coworking</Title>
+    <Container size="xl" style={{ position: 'relative', minHeight: 'calc(100vh - 100px)' }}>
+      {/* Overlay En Développement */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          backgroundColor: 'rgba(255, 255, 255, 0.98)',
+          backdropFilter: 'blur(10px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '12px',
+        }}
+      >
+        <Paper
+         
+          p={60}
+          radius="xl"
+          withBorder
+          style={{
+            maxWidth: 600,
+            textAlign: 'center',
+            border: 'none',
+          }}
+        >
+          <Stack align="center" gap="xl">
+            <ThemeIcon
+              size={120}
+              radius="xl"
+              variant="white"
+              style={{ boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}
+            >
+              <IconTools size={70} color="#667eea" />
+            </ThemeIcon>
+            <div>
+              <Title order={1} c="black" mb="md" style={{ fontSize: '2.5rem' }}>
+                Bientôt disponible
+              </Title>
+              <Text size="xl" c="black" fw={400}>
+                La gestion des espaces de coworking arrive prochainement
+              </Text>
+            </div>
+          </Stack>
+        </Paper>
+      </div>
+        <Group justify="space-between" mb="xl">
+        <Title order={1} c="black">Gestion des Espaces Coworking</Title>
         <Group>
-          <Button leftSection={<IconDownload size={16} />} variant="light">
+          <Button leftSection={<IconDownload size={16} />} variant="light" styles={{ label: { color: 'black' } }}>
             Exporter
           </Button>
           <Button
             leftSection={<IconPlus size={16} />}
             onClick={() => navigate('/admin/coworking/new')}
+            styles={{ label: { color: 'black' } }}
           >
             Nouvel Espace
           </Button>
@@ -107,6 +159,10 @@ export function CoworkingListPage() {
             placeholder="Rechercher un espace..."
             leftSection={<IconSearch size={16} />}
             style={{ flex: 1 }}
+            styles={{
+              input: { color: 'black' },
+              section: { color: 'black' },
+            }}
           />
           <Select
             placeholder="Type"
@@ -118,6 +174,10 @@ export function CoworkingListPage() {
               { value: 'meeting_room', label: 'Salle Réunion' },
             ]}
             clearable
+            styles={{
+              input: { color: 'black' },
+              dropdown: { color: 'black' },
+            }}
           />
           <Select
             placeholder="Statut"
@@ -129,6 +189,10 @@ export function CoworkingListPage() {
               { value: 'reserved', label: 'Réservé' },
             ]}
             clearable
+            styles={{
+              input: { color: 'black' },
+              dropdown: { color: 'black' },
+            }}
           />
         </Group>
       </Paper>

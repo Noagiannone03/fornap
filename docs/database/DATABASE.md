@@ -73,6 +73,33 @@ The Fornap application primarily uses a single top-level collection named `users
     }
     ```
 
+## Registration Sources
+
+Les utilisateurs peuvent être créés via **4 sources différentes** :
+
+### 1. `platform` - Inscription normale
+- **Description** : Utilisateur inscrit via le formulaire d'inscription du site web FORNAP
+- **Processus** : Formulaire → Paiement → Création compte
+- **Champs spécifiques** : `ipAddress`, `userAgent`
+
+### 2. `admin` - Ajout manuel
+- **Description** : Utilisateur créé manuellement par un administrateur
+- **Processus** : Admin panel → Formulaire de création → Validation
+- **Champs spécifiques** : `createdBy` (UID de l'admin)
+
+### 3. `transfer` - Migration anciens membres
+- **Description** : Membre migré depuis l'ancien système (collection `members`)
+- **Processus** : Script de migration → Transfert des données → Nouveau compte
+- **Champs spécifiques** : `transferredFrom` (UID ancien système), `legacyMemberType`, `legacyTicketType`
+
+### 4. `crowdfunding` - Contribution crowdfunding
+- **Description** : Utilisateur créé suite à une contribution sur la plateforme crowdfunding
+- **Processus** : Choix forfait → Paiement Square → Création automatique si membership
+- **Champs spécifiques** : `crowdfundingContributionId` (lien vers la contribution)
+- **Tags automatiques** : `['CROWDFUNDING', 'NEW_MEMBER']`
+
+**Note** : Seuls les forfaits avec membership créent un compte utilisateur. Les dons libres sont enregistrés uniquement dans la collection `contributions`.
+
 ## Data Flow and Operations
 
 ### User Creation (Signup)
@@ -103,3 +130,36 @@ Currently, the database schema is relatively flat, with all primary user data re
 *   The `qrCode` field in the `UserProfile` document stores a string in the format `FORNAP-MEMBER:{uid}`.
 *   This format allows for easy parsing to retrieve the user's `uid` when a QR code is scanned, enabling quick lookup of user profiles (e.g., for check-in purposes).
 *   The utility functions for generating and parsing QR code content are located in `src/utils/qrcode.ts`.
+
+## Crowdfunding Integration
+
+### Collections liées
+
+**1. Collection `contributions`** (dans fornap-crowdfunding)
+- Enregistre toutes les contributions (dons et forfaits)
+- Contient les données du contributeur
+- Champ `isMember` indique si le forfait crée un membership
+
+**2. Lien avec `users`**
+- Si `isMember === true`, un document utilisateur est créé automatiquement
+- Le champ `registration.crowdfundingContributionId` fait le lien entre les deux
+- Le champ `registration.source` est défini sur `'crowdfunding'`
+
+### Logique de membership (crowdfunding)
+
+| Forfait | Prix | Type Membership | Durée |
+|---------|------|----------------|-------|
+| Don libre | Variable | ❌ Aucun | - |
+| PASS Love | 2€ | ✅ `monthly` | 1 mois |
+| PASS PIONNIER | 12€ | ✅ `annual` | 1 an |
+| PASS SUMMER | 35€ | ✅ `annual` | 1 an |
+| PACK WINTER | 55€ | ✅ `annual` | 1 an |
+| PACK PARTY HARDER | 25€ | ✅ `annual` | 1 an |
+| PACK AMBASSADEUR | 60€ | ✅ `annual` | 1 an |
+| MEETING PASS | 100€ | ✅ `annual` | 1 an |
+| COWORK PASS | 150€ | ✅ `annual` | 1 an |
+| MANUFACTURE PASS | 200€ | ✅ `annual` | 1 an |
+| PRIVATE PASS | 400€ | ✅ `annual` | 1 an |
+| BÂTISSEURS du FORT | 1000€+ | ✅ `annual` | 1 an |
+
+**Note** : Les users créés via crowdfunding ont automatiquement les tags `['CROWDFUNDING', 'NEW_MEMBER']` pour faciliter leur identification.

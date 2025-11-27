@@ -54,6 +54,7 @@ import type {
 import {
   MEMBERSHIP_TYPE_LABELS,
   MEMBERSHIP_STATUS_LABELS,
+  REGISTRATION_SOURCE_LABELS,
   AVAILABLE_TAGS,
 } from '../../../shared/types/user';
 
@@ -126,6 +127,23 @@ function UserTableRow({
         <Text size="sm" fw={500}>
           {user.loyaltyPoints}
         </Text>
+      </Table.Td>
+      <Table.Td>
+        <Badge
+          size="sm"
+          variant="light"
+          color={
+            user.registrationSource === 'platform'
+              ? 'blue'
+              : user.registrationSource === 'admin'
+              ? 'violet'
+              : user.registrationSource === 'crowdfunding'
+              ? 'pink'
+              : 'orange'
+          }
+        >
+          {REGISTRATION_SOURCE_LABELS[user.registrationSource]}
+        </Badge>
       </Table.Td>
       <Table.Td>
         <Text size="sm" c="dimmed">
@@ -644,6 +662,7 @@ export function EnhancedUsersListPage() {
                   <Table.Th>Abonnement</Table.Th>
                   <Table.Th>Statut</Table.Th>
                   <Table.Th>Points</Table.Th>
+                  <Table.Th>Source</Table.Th>
                   <Table.Th>Inscription</Table.Th>
                   <Table.Th>Actions</Table.Th>
                 </Table.Tr>
@@ -723,6 +742,7 @@ export function EnhancedUsersListPage() {
                     <Table.Th>Type</Table.Th>
                     <Table.Th>Statut</Table.Th>
                     <Table.Th>Points</Table.Th>
+                    <Table.Th>Source</Table.Th>
                     <Table.Th>Inscription</Table.Th>
                     <Table.Th>Actions</Table.Th>
                   </Table.Tr>

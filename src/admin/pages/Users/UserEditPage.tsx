@@ -19,8 +19,10 @@ import {
 import { IconArrowLeft, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { getUserById, updateUser } from '../../../shared/services/userService';
+import { getAdminById } from '../../../shared/services/adminService';
 import { Timestamp } from 'firebase/firestore';
 import type { User, MembershipStatus, PaymentStatus, ProfessionalStatus, PreferredContact, PublicProfileLevel } from '../../../shared/types/user';
+import type { AdminUser } from '../../../shared/types/admin';
 import {
   AVAILABLE_TAGS,
   AVAILABLE_SKILLS,
@@ -30,12 +32,14 @@ import {
   MEMBERSHIP_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
   PROFESSIONAL_STATUS_LABELS,
+  REGISTRATION_SOURCE_LABELS,
 } from '../../../shared/types/user';
 
 export function UserEditPage() {
   const { uid } = useParams<{ uid: string }>();
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
+  const [creatorAdmin, setCreatorAdmin] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -241,6 +245,17 @@ export function UserEditPage() {
         setSuggestions(engagement.suggestions || '');
         setParticipationInterested(engagement.participationInterest?.interested || false);
         setParticipationDomains(engagement.participationInterest?.domains || []);
+      }
+
+      // Charger l'admin créateur si l'utilisateur a été créé par un admin
+      if (userData.registration?.createdBy && userData.registration.createdBy !== 'current-admin-id') {
+        try {
+          const adminData = await getAdminById(userData.registration.createdBy);
+          setCreatorAdmin(adminData);
+        } catch (error) {
+          console.error('Error loading creator admin:', error);
+          // Ne pas bloquer le chargement si l'admin n'existe plus
+        }
       }
     } catch (error) {
       console.error('Error loading user:', error);
@@ -563,6 +578,94 @@ export function UserEditPage() {
                 min={0}
                 description="Ajustez manuellement les points de fidélité de l'utilisateur"
               />
+            </Paper>
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        {/* Origine du Compte (Lecture seule) */}
+        <Accordion.Item value="origin">
+          <Accordion.Control>Origine du Compte</Accordion.Control>
+          <Accordion.Panel>
+            <Paper withBorder p="md" radius="md" bg="gray.0">
+              <Stack gap="md">
+                <Text size="sm" c="dimmed" mb="xs">
+                  Ces informations sont en lecture seule et ne peuvent pas être modifiées.
+                </Text>
+
+                <Group grow>
+                  <div>
+                    <Text size="sm" c="dimmed">Source</Text>
+                    <Badge
+                      color={
+                        user?.registration?.source === 'platform' ? 'cyan' :
+                        user?.registration?.source === 'admin' ? 'violet' : 'orange'
+                      }
+                      variant="light"
+                      size="lg"
+                      mt="xs"
+                    >
+                      {REGISTRATION_SOURCE_LABELS[user?.registration?.source || 'platform']}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Text size="sm" c="dimmed">Date de création</Text>
+                    <Text size="sm" fw={500} mt="xs">
+                      {user?.registration?.createdAt
+                        ? new Date((user.registration.createdAt as any).seconds * 1000).toLocaleString('fr-FR')
+                        : 'N/A'}
+                    </Text>
+                  </div>
+                </Group>
+
+                {user?.registration?.createdBy && (
+                  <div>
+                    <Text size="sm" c="dimmed">Créé par</Text>
+                    {creatorAdmin ? (
+                      <Group gap={4} mt="xs">
+                        <Text size="sm" fw={500}>
+                          {creatorAdmin.firstName} {creatorAdmin.lastName}
+                        </Text>
+                        <Badge color="violet" variant="light" size="xs">
+                          Admin
+                        </Badge>
+                      </Group>
+                    ) : user.registration.createdBy === 'current-admin-id' ? (
+                      <Badge color="violet" variant="light" size="md" mt="xs">
+                        Administrateur
+                      </Badge>
+                    ) : (
+                      <Text size="sm" c="dimmed" fs="italic" mt="xs">Admin supprimé</Text>
+                    )}
+                  </div>
+                )}
+
+                {user?.registration?.transferredFrom && (
+                  <div>
+                    <Text size="sm" c="dimmed">Transféré depuis</Text>
+                    <Text size="sm" fw={500} mt="xs">
+                      {user.registration.transferredFrom}
+                    </Text>
+                  </div>
+                )}
+
+                {user?.registration?.legacyMemberType && (
+                  <div>
+                    <Text size="sm" c="dimmed">Type ancien système</Text>
+                    <Text size="sm" fw={500} mt="xs">
+                      {user.registration.legacyMemberType}
+                    </Text>
+                  </div>
+                )}
+
+                {user?.registration?.ipAddress && user.registration.ipAddress !== 'admin_creation' && (
+                  <div>
+                    <Text size="sm" c="dimmed">Adresse IP</Text>
+                    <Text size="sm" fw={500} ff="monospace" mt="xs">
+                      {user.registration.ipAddress}
+                    </Text>
+                  </div>
+                )}
+              </Stack>
             </Paper>
           </Accordion.Panel>
         </Accordion.Item>

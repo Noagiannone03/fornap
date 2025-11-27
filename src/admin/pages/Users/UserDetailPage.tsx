@@ -32,15 +32,18 @@ import {
   toggleAccountBlocked,
   toggleCardBlocked,
 } from '../../../shared/services/userService';
+import { getAdminById } from '../../../shared/services/adminService';
 import type {
   User,
   UserStats,
   ActionHistory,
   MembershipHistory,
 } from '../../../shared/types/user';
+import type { AdminUser } from '../../../shared/types/admin';
 import {
   MEMBERSHIP_TYPE_LABELS,
   MEMBERSHIP_STATUS_LABELS,
+  REGISTRATION_SOURCE_LABELS,
 } from '../../../shared/types/user';
 
 // Fonction utilitaire pour convertir les timestamps de manière sécurisée
@@ -85,6 +88,7 @@ export function UserDetailPage() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [actionHistory, setActionHistory] = useState<ActionHistory[]>([]);
   const [, setMembershipHistory] = useState<MembershipHistory[]>([]);
+  const [creatorAdmin, setCreatorAdmin] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -119,6 +123,17 @@ export function UserDetailPage() {
       setStats(statsData);
       setActionHistory(actionsData);
       setMembershipHistory(membershipData);
+
+      // Charger l'admin créateur si l'utilisateur a été créé par un admin
+      if (userData.registration?.createdBy && userData.registration.createdBy !== 'current-admin-id') {
+        try {
+          const adminData = await getAdminById(userData.registration.createdBy);
+          setCreatorAdmin(adminData);
+        } catch (error) {
+          console.error('Error loading creator admin:', error);
+          // Ne pas bloquer le chargement si l'admin n'existe plus
+        }
+      }
     } catch (error) {
       console.error('Error loading user data:', error);
       notifications.show({
@@ -363,6 +378,70 @@ export function UserDetailPage() {
                   <Text size="lg" fw={500}>{user.scanCount || 0}</Text>
                 </div>
               </Group>
+            </Paper>
+
+            {/* Origine du compte */}
+            <Paper withBorder p="md" radius="md">
+              <Title order={3} mb="md">Origine du Compte</Title>
+              <Stack gap="xs">
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">Source</Text>
+                  <Badge
+                    color={
+                      user.registration?.source === 'platform' ? 'cyan' :
+                      user.registration?.source === 'admin' ? 'violet' : 'orange'
+                    }
+                    variant="light"
+                  >
+                    {REGISTRATION_SOURCE_LABELS[user.registration?.source || 'platform']}
+                  </Badge>
+                </Group>
+                {user.registration?.createdBy && (
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Créé par</Text>
+                    {creatorAdmin ? (
+                      <Group gap={4}>
+                        <Text size="sm" fw={500}>
+                          {creatorAdmin.firstName} {creatorAdmin.lastName}
+                        </Text>
+                        <Badge color="violet" variant="light" size="xs">
+                          Admin
+                        </Badge>
+                      </Group>
+                    ) : user.registration.createdBy === 'current-admin-id' ? (
+                      <Badge color="violet" variant="light" size="sm">Administrateur</Badge>
+                    ) : (
+                      <Text size="sm" c="dimmed" fs="italic">Admin supprimé</Text>
+                    )}
+                  </Group>
+                )}
+                {user.registration?.transferredFrom && (
+                  <>
+                    <Group justify="space-between">
+                      <Text size="sm" c="dimmed">Transféré depuis</Text>
+                      <Text size="sm" fw={500}>{user.registration.transferredFrom}</Text>
+                    </Group>
+                    {user.registration?.legacyMemberType && (
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">Type ancien système</Text>
+                        <Text size="sm" fw={500}>{user.registration.legacyMemberType}</Text>
+                      </Group>
+                    )}
+                    {user.registration?.legacyTicketType && (
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">Type de ticket</Text>
+                        <Text size="sm" fw={500}>{user.registration.legacyTicketType}</Text>
+                      </Group>
+                    )}
+                  </>
+                )}
+                {user.registration?.ipAddress && user.registration.ipAddress !== 'admin_creation' && (
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Adresse IP</Text>
+                    <Text size="sm" fw={500} ff="monospace">{user.registration.ipAddress}</Text>
+                  </Group>
+                )}
+              </Stack>
             </Paper>
 
             {/* Statistiques */}

@@ -443,6 +443,7 @@ export interface UserListItem {
   createdAt: Timestamp;
   isAccountBlocked: boolean;
   isCardBlocked: boolean;
+  registrationSource: RegistrationSource; // Source d'origine du compte
   // Indicateur pour les anciens membres non migrés
   isLegacy?: boolean;
   legacyData?: LegacyMember;

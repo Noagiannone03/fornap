@@ -61,6 +61,18 @@ The Fornap application primarily uses a single top-level collection named `users
       // Customizable Tags
       tags: Array<'actif' | 'inactif' | 'vip' | 'atelier_couture' | 'billetterie' | 'exposant' | string>;
 
+      // Registration/Origin Information
+      registration: {
+        source: 'platform' | 'admin' | 'transfer'; // Origin of account creation
+        createdAt: Timestamp; // Registration timestamp
+        createdBy?: string; // Admin userId if manually created
+        transferredFrom?: string; // Reference to old system if transferred
+        legacyMemberType?: string; // Original member type from legacy system
+        legacyTicketType?: string; // Original ticket type from legacy system
+        ipAddress?: string; // IP address at registration
+        userAgent?: string; // User agent at registration
+      };
+
       // Interests (Optional)
       interests?: string[];
 
@@ -73,6 +85,20 @@ The Fornap application primarily uses a single top-level collection named `users
     }
     ```
 
+#### Registration Source Types
+
+The `registration.source` field tracks the origin of each user account:
+
+*   **`platform`**: User registered through the web platform's signup flow
+*   **`admin`**: User manually created by an administrator through the admin panel
+*   **`transfer`**: User migrated from the legacy system (old 'members' collection)
+
+This field allows administrators to:
+- Filter users by their registration source in the admin panel
+- Track which users were manually added vs self-registered
+- Identify transferred legacy members for analytics and support
+- Maintain audit trails for compliance and data governance
+
 ## Data Flow and Operations
 
 ### User Creation (Signup)
@@ -81,8 +107,13 @@ The Fornap application primarily uses a single top-level collection named `users
 2.  Firebase Authentication creates a new user record, providing a unique `uid`.
 3.  A new document is created in the `users` collection with the `uid` as its document ID.
 4.  The document is populated with data from the signup form (`SignupFormData`) and default values (e.g., `loyaltyPoints: 0`, initial `activityHistory` entry, `tags: ['actif']`).
-5.  The `qrCode` field is generated using the format `FORNAP-MEMBER:{uid}`.
-6.  This operation is handled by the `signup` function within `src/contexts/AuthContext.tsx`.
+5.  The `registration` object is created with:
+    - `source: 'platform'` for web signups
+    - `source: 'admin'` for admin-created users
+    - `source: 'transfer'` for migrated legacy members
+    - Additional metadata like `createdAt`, `ipAddress`, and `userAgent`
+6.  The `qrCode` field is generated using the format `FORNAP-MEMBER:{uid}`.
+7.  This operation is handled by the `signup` function within `src/contexts/AuthContext.tsx` for platform signups, or `createUserByAdmin` in `src/shared/services/userService.ts` for admin-created users.
 
 ### User Data Retrieval
 

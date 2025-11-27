@@ -55,6 +55,7 @@ import {
   MEMBERSHIP_TYPE_LABELS,
   MEMBERSHIP_STATUS_LABELS,
   AVAILABLE_TAGS,
+  REGISTRATION_SOURCE_LABELS,
 } from '../../../shared/types/user';
 
 const membershipTypeColors: Record<MembershipType, string> = {
@@ -68,6 +69,12 @@ const membershipStatusColors: Record<MembershipStatus, string> = {
   expired: 'red',
   pending: 'orange',
   cancelled: 'gray',
+};
+
+const registrationSourceColors: Record<string, string> = {
+  platform: 'cyan',
+  admin: 'violet',
+  transfer: 'orange',
 };
 
 // Composant pour rendre une ligne de tableau
@@ -142,6 +149,11 @@ function UserTableRow({
             }
           })()}
         </Text>
+      </Table.Td>
+      <Table.Td>
+        <Badge color={registrationSourceColors[user.registrationSource]} variant="light" size="sm">
+          {REGISTRATION_SOURCE_LABELS[user.registrationSource]}
+        </Badge>
       </Table.Td>
       <Table.Td>
         <Group gap={4}>
@@ -238,6 +250,7 @@ export function EnhancedUsersListPage() {
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [blockedFilter, setBlockedFilter] = useState<string | null>(null);
+  const [registrationSourceFilter, setRegistrationSourceFilter] = useState<string | null>(null);
 
   // Pagination
   const [legacyPage, setLegacyPage] = useState(1);
@@ -291,6 +304,10 @@ export function EnhancedUsersListPage() {
         filtered = filtered.filter((user) => user.membership.status === membershipStatus);
       }
 
+      if (registrationSourceFilter) {
+        filtered = filtered.filter((user) => user.registrationSource === registrationSourceFilter);
+      }
+
       return filtered;
     };
 
@@ -316,7 +333,7 @@ export function EnhancedUsersListPage() {
     setFilteredUsers(filteredUsersData);
     setLegacyPage(1);
     setUsersPage(1);
-  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, legacyMembers, users]);
+  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, registrationSourceFilter, legacyMembers, users]);
 
   // Pagination
   const legacyTotalPages = Math.ceil(filteredLegacyMembers.length / itemsPerPage);
@@ -579,6 +596,20 @@ export function EnhancedUsersListPage() {
               style={{ flex: 1 }}
             />
 
+            <Select
+              placeholder="Source d'origine"
+              data={[
+                { value: '', label: 'Toutes' },
+                { value: 'platform', label: REGISTRATION_SOURCE_LABELS.platform },
+                { value: 'admin', label: REGISTRATION_SOURCE_LABELS.admin },
+                { value: 'transfer', label: REGISTRATION_SOURCE_LABELS.transfer },
+              ]}
+              value={registrationSourceFilter || ''}
+              onChange={setRegistrationSourceFilter}
+              clearable
+              style={{ flex: 1 }}
+            />
+
             <MultiSelect
               placeholder="Tags"
               data={AVAILABLE_TAGS.map((tag) => ({ value: tag, label: tag }))}
@@ -594,7 +625,8 @@ export function EnhancedUsersListPage() {
             membershipType ||
             membershipStatus ||
             selectedTags.length > 0 ||
-            blockedFilter) && (
+            blockedFilter ||
+            registrationSourceFilter) && (
             <Group justify="space-between">
               <Text size="sm" c="dimmed">
                 Anciens membres: {filteredLegacyMembers.length} | Utilisateurs: {filteredUsers.length}
@@ -608,6 +640,7 @@ export function EnhancedUsersListPage() {
                   setMembershipStatus(null);
                   setSelectedTags([]);
                   setBlockedFilter(null);
+                  setRegistrationSourceFilter(null);
                 }}
               >
                 Réinitialiser les filtres
@@ -645,6 +678,7 @@ export function EnhancedUsersListPage() {
                   <Table.Th>Statut</Table.Th>
                   <Table.Th>Points</Table.Th>
                   <Table.Th>Inscription</Table.Th>
+                  <Table.Th>Source</Table.Th>
                   <Table.Th>Actions</Table.Th>
                 </Table.Tr>
               </Table.Thead>
@@ -724,6 +758,7 @@ export function EnhancedUsersListPage() {
                     <Table.Th>Statut</Table.Th>
                     <Table.Th>Points</Table.Th>
                     <Table.Th>Inscription</Table.Th>
+                    <Table.Th>Source</Table.Th>
                     <Table.Th>Actions</Table.Th>
                   </Table.Tr>
                 </Table.Thead>

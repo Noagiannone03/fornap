@@ -988,6 +988,7 @@ export async function getAllUsersForListSeparated(): Promise<SeparatedUsersList>
         createdAt: data.createdAt || Timestamp.now(),
         isAccountBlocked: data.status?.isAccountBlocked || false,
         isCardBlocked: data.status?.isCardBlocked || false,
+        registrationSource: data.registration?.source || 'platform',
         isLegacy: false,
       });
     });
@@ -1028,6 +1029,7 @@ export async function getAllUsersForListSeparated(): Promise<SeparatedUsersList>
           createdAt: createdAt,
           isAccountBlocked: false,
           isCardBlocked: false,
+          registrationSource: 'transfer',
           isLegacy: true,
           legacyData: legacy,
         });

@@ -1,0 +1,30 @@
+/* Styles pour le panneau de l'assistant IA */
+
+.messageContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.userMessage {
+  align-self: flex-end;
+  max-width: 70%;
+}
+
+.assistantMessage {
+  align-self: flex-start;
+  max-width: 80%;
+}
+
+.toolCallsContainer {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: var(--mantine-color-gray-1);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.codeBlock {
+  font-size: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+}

@@ -23,6 +23,7 @@ import { EventStatsPage } from './pages/Analytics/EventStatsPage';
 import { ContributionStatsPage } from './pages/Analytics/ContributionStatsPage';
 import { CampaignsListPage, CampaignCreatePage, CampaignEditPage, CampaignDetailPage } from './pages/Campaigns';
 import { EmailDiagnosticsPage } from './pages/EmailDiagnostics';
+import { AIAssistantPage } from './pages/AIAssistantPage';
 
 export function AdminRoutes() {
   return (
@@ -70,6 +71,9 @@ export function AdminRoutes() {
           <Route path="analytics/engagement" element={<EngagementAnalyticsPage />} />
           <Route path="analytics/events" element={<EventStatsPage />} />
           <Route path="analytics/contributions" element={<ContributionStatsPage />} />
+
+          {/* Route AI Assistant */}
+          <Route path="ai-assistant" element={<AIAssistantPage />} />
 
           <Route path="settings" element={<SettingsPage />} />
         </Route>

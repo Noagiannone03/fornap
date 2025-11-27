@@ -21,12 +21,14 @@ import {
   IconBug,
   IconQrcode,
   IconShoppingCart,
+  IconBrain,
 } from '@tabler/icons-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAdminAuth } from '../../shared/contexts/AdminAuthContext';
 import { notifications } from '@mantine/notifications';
 import { ADMIN_ROLES_CONFIG } from '../../shared/types/admin';
+import { AIAssistantDrawer } from '../components/AIAssistant';
 
 interface SubMenuItem {
   icon: React.ComponentType<any>;
@@ -79,6 +81,7 @@ export function AdminLayout() {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+  const [aiSidebarOpened, setAiSidebarOpened] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { adminProfile, logout } = useAdminAuth();
@@ -386,9 +389,20 @@ export function AdminLayout() {
       </AppShell.Navbar>
 
       {/* Main Content */}
-      <AppShell.Main>
+      <AppShell.Main
+        style={{
+          transition: 'margin-right 0.3s ease',
+          marginRight: aiSidebarOpened ? '450px' : '0',
+        }}
+      >
         <Outlet />
       </AppShell.Main>
+
+      {/* Assistant IA - Bouton flottant + Sidebar custom */}
+      <AIAssistantDrawer
+        opened={aiSidebarOpened}
+        onOpenChange={setAiSidebarOpened}
+      />
     </AppShell>
   );
 }

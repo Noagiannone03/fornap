@@ -100,6 +100,59 @@ Les utilisateurs peuvent être créés via **4 sources différentes** :
 
 **Note** : Seuls les forfaits avec membership créent un compte utilisateur. Les dons libres sont enregistrés uniquement dans la collection `contributions`.
 
+## Registration Sources
+
+Les utilisateurs peuvent être créés via **4 sources différentes**, identifiées par le champ `registration.source` :
+
+### 1. `platform` - Inscription Plateforme Web
+
+*   **Description** : Utilisateur inscrit normalement via le formulaire d'inscription du site web FORNAP
+*   **Processus** : Formulaire d'inscription → Paiement membership → Création compte
+*   **Champs spécifiques** :
+    *   `registration.source: 'platform'`
+    *   `registration.ipAddress` : Adresse IP de l'inscription
+    *   `registration.userAgent` : User agent du navigateur
+
+### 2. `admin` - Ajout Manuel par Admin
+
+*   **Description** : Utilisateur créé manuellement par un administrateur depuis le panel admin
+*   **Processus** : Admin panel → Formulaire de création → Validation et sauvegarde
+*   **Champs spécifiques** :
+    *   `registration.source: 'admin'`
+    *   `registration.createdBy` : UID de l'admin qui a créé le compte
+
+### 3. `transfer` - Migration Anciens Membres
+
+*   **Description** : Membre migré depuis l'ancien système (collection `members`)
+*   **Processus** : Interface de migration → Transfert des données → Nouveau compte
+*   **Champs spécifiques** :
+    *   `registration.source: 'transfer'`
+    *   `registration.transferredFrom` : UID de l'ancien système
+    *   `registration.legacyMemberType` : Type original (ex: "4nap-festival")
+    *   `registration.legacyTicketType` : Type de ticket original (ex: "Adhésion annuelle")
+*   **Tags automatiques** : `['MIGRATED_FROM_LEGACY']`
+
+### 4. `crowdfunding` - Contribution Crowdfunding ⭐ NOUVEAU
+
+*   **Description** : Utilisateur créé automatiquement suite à une contribution sur la plateforme crowdfunding
+*   **Processus** : Page crowdfunding → Choix forfait → Paiement Square → Création automatique si membership
+*   **Champs spécifiques** :
+    *   `registration.source: 'crowdfunding'`
+    *   `registration.crowdfundingContributionId` : ID de la contribution dans la collection `contributions`
+*   **Tags automatiques** : `['CROWDFUNDING', 'NEW_MEMBER']`
+*   **Note importante** : Seuls les forfaits avec membership créent un compte. Les dons libres sont enregistrés uniquement dans `contributions`.
+
+### Affichage dans l'admin
+
+Dans la liste des utilisateurs (`EnhancedUsersListPage`), chaque source a une couleur distinctive :
+
+| Source | Badge | Couleur |
+|--------|-------|---------|
+| `platform` | Plateforme | 🔵 Bleu |
+| `admin` | Ajout Admin | 🟣 Violet |
+| `transfer` | Transfert | 🟠 Orange |
+| `crowdfunding` | Crowdfunding | 💗 Rose |
+
 ## Data Flow and Operations
 
 ### User Creation (Signup)
@@ -110,6 +163,19 @@ Les utilisateurs peuvent être créés via **4 sources différentes** :
 4.  The document is populated with data from the signup form (`SignupFormData`) and default values (e.g., `loyaltyPoints: 0`, initial `activityHistory` entry, `tags: ['actif']`).
 5.  The `qrCode` field is generated using the format `FORNAP-MEMBER:{uid}`.
 6.  This operation is handled by the `signup` function within `src/contexts/AuthContext.tsx`.
+
+### User Creation (Crowdfunding)
+
+1.  A contributor chooses a package on the crowdfunding platform.
+2.  After successful Square payment, the contribution is saved in the `contributions` collection.
+3.  If the package includes membership (`isMember === true`), a user document is automatically created.
+4.  The user document includes:
+    *   `registration.source: 'crowdfunding'`
+    *   `registration.crowdfundingContributionId`: Link to the contribution
+    *   `status.tags`: `['CROWDFUNDING', 'NEW_MEMBER']`
+    *   `currentMembership`: Active membership with calculated expiry date
+5.  Sub-collections `membershipHistory` and `actionHistory` are created.
+6.  This operation is handled by the `saveContribution` function in `fornap-crowdfunding/src/services/contributionService.ts`.
 
 ### User Data Retrieval
 

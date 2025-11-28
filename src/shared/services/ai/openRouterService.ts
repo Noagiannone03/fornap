@@ -10,7 +10,7 @@ import type {
   AITool,
 } from '../../types/ai';
 
-const OPENROUTER_API_KEY = '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';
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 /**

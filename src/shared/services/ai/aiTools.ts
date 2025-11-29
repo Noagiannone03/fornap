@@ -663,11 +663,23 @@ export const createItemStatsChartTool: AITool = {
   execute: async (args) => {
     const stats = await getItemStatistics();
 
+    console.log('📊 Item Statistics:', stats);
+
+    // Si aucune donnée, retourner un message d'erreur
+    if (!stats || stats.length === 0) {
+      return {
+        error: 'Aucune contribution trouvée dans la base de données. Impossible de générer le graphique.',
+        emptyData: true,
+      };
+    }
+
     const data = stats.map((s) => ({
       forfait: s.itemName,
       montant: s.totalAmount,
       contributions: s.count,
     }));
+
+    console.log('📊 Chart Data:', data);
 
     const chartType = args.chartType || 'bar';
 
@@ -689,6 +701,263 @@ export const createItemStatsChartTool: AITool = {
       data,
       xKey: 'forfait',
       yKey: 'montant',
+    };
+  },
+};
+
+/**
+ * OUTIL: Navigation vers une page
+ */
+export const navigateToPageTool: AITool = {
+  name: 'navigate_to_page',
+  description: 'Affiche un bouton pour naviguer vers une page spécifique du site',
+  parameters: {
+    type: 'object',
+    properties: {
+      pageName: {
+        type: 'string',
+        enum: [
+          'dashboard',
+          'users',
+          'user_detail',
+          'contributions',
+          'analytics',
+          'settings',
+          'membership_plans',
+        ],
+        description: 'Nom de la page vers laquelle naviguer',
+      },
+      userId: {
+        type: 'string',
+        description: 'ID de l\'utilisateur (pour user_detail)',
+      },
+      description: {
+        type: 'string',
+        description: 'Description de ce qu\'on trouvera sur cette page',
+      },
+    },
+    required: ['pageName'],
+  },
+  execute: async (args) => {
+    // Mapper les noms de pages vers les chemins
+    const pathMap: Record<string, string> = {
+      dashboard: '/admin/dashboard',
+      users: '/admin/users',
+      user_detail: `/admin/users/${args.userId || ''}`,
+      contributions: '/admin/contributions',
+      analytics: '/admin/contributions/analytics',
+      settings: '/admin/settings',
+      membership_plans: '/admin/membership-plans',
+    };
+
+    const titleMap: Record<string, string> = {
+      dashboard: 'Tableau de bord',
+      users: 'Liste des utilisateurs',
+      user_detail: 'Détails de l\'utilisateur',
+      contributions: 'Contributions',
+      analytics: 'Analyses des contributions',
+      settings: 'Paramètres',
+      membership_plans: 'Plans d\'abonnement',
+    };
+
+    const iconMap: Record<string, string> = {
+      dashboard: 'chart',
+      users: 'users',
+      user_detail: 'user',
+      contributions: 'coin',
+      analytics: 'chart',
+      settings: 'settings',
+      membership_plans: 'coin',
+    };
+
+    return {
+      type: 'navigation_card',
+      title: titleMap[args.pageName] || 'Navigation',
+      description: args.description || `Cliquez pour accéder à ${titleMap[args.pageName]}`,
+      path: pathMap[args.pageName],
+      buttonLabel: `Aller à ${titleMap[args.pageName]}`,
+      icon: iconMap[args.pageName] || 'arrow',
+    };
+  },
+};
+
+/**
+ * OUTIL: Préparer la suppression d'un utilisateur (ActionCard)
+ */
+export const prepareDeleteUserTool: AITool = {
+  name: 'prepare_delete_user',
+  description: 'Prépare la suppression d\'un utilisateur en affichant ses infos et un bouton de confirmation',
+  parameters: {
+    type: 'object',
+    properties: {
+      userId: {
+        type: 'string',
+        description: 'L\'UID de l\'utilisateur à supprimer',
+      },
+    },
+    required: ['userId'],
+  },
+  execute: async (args) => {
+    const user = await getUserById(args.userId);
+    if (!user) {
+      throw new Error(`Utilisateur ${args.userId} introuvable`);
+    }
+
+    return {
+      type: 'action_card',
+      variant: 'danger',
+      title: 'Supprimer cet utilisateur',
+      description: 'Cette action est irréversible. Vérifiez les informations avant de continuer.',
+      data: {
+        'Nom complet': `${user.firstName} ${user.lastName}`,
+        'Email': user.email,
+        'Téléphone': user.phone || '-',
+        'Statut': user.status?.isAccountBlocked ? 'Bloqué' : 'Actif',
+        'Points de fidélité': user.loyaltyPoints || 0,
+        'Date de création': user.registration?.createdAt ? new Date(user.registration.createdAt.toDate()).toLocaleDateString('fr-FR') : '-',
+      },
+      actions: [
+        {
+          label: 'Supprimer définitivement',
+          color: 'red',
+          variant: 'filled',
+          icon: 'delete',
+          actionType: 'delete_user',
+          actionData: {
+            userId: args.userId,
+          },
+          confirmMessage: 'Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.',
+        },
+      ],
+    };
+  },
+};
+
+/**
+ * OUTIL: Préparer le blocage/déblocage d'un compte (ActionCard)
+ */
+export const prepareToggleBlockUserTool: AITool = {
+  name: 'prepare_toggle_block_user',
+  description: 'Prépare le blocage ou déblocage d\'un compte en affichant les infos et un bouton',
+  parameters: {
+    type: 'object',
+    properties: {
+      userId: {
+        type: 'string',
+        description: 'L\'UID de l\'utilisateur',
+      },
+      shouldBlock: {
+        type: 'boolean',
+        description: 'true pour bloquer, false pour débloquer',
+      },
+      reason: {
+        type: 'string',
+        description: 'Raison du blocage/déblocage',
+      },
+    },
+    required: ['userId', 'shouldBlock', 'reason'],
+  },
+  execute: async (args) => {
+    const user = await getUserById(args.userId);
+    if (!user) {
+      throw new Error(`Utilisateur ${args.userId} introuvable`);
+    }
+
+    const action = args.shouldBlock ? 'Bloquer' : 'Débloquer';
+    const variant = args.shouldBlock ? 'warning' : 'success';
+
+    return {
+      type: 'action_card',
+      variant,
+      title: `${action} cet utilisateur`,
+      description: args.reason,
+      data: {
+        'Nom complet': `${user.firstName} ${user.lastName}`,
+        'Email': user.email,
+        'Statut actuel': user.status?.isAccountBlocked ? 'Bloqué' : 'Actif',
+        'Action': action,
+        'Raison': args.reason,
+      },
+      actions: [
+        {
+          label: action,
+          color: args.shouldBlock ? 'orange' : 'green',
+          variant: 'filled',
+          icon: args.shouldBlock ? 'lock' : 'unlock',
+          actionType: 'block_user',
+          actionData: {
+            userId: args.userId,
+            shouldBlock: args.shouldBlock,
+            reason: args.reason,
+          },
+          confirmMessage: `Êtes-vous sûr de vouloir ${action.toLowerCase()} cet utilisateur ?`,
+        },
+      ],
+    };
+  },
+};
+
+/**
+ * OUTIL: Préparer l'ajout de points de fidélité (ActionCard)
+ */
+export const prepareAddLoyaltyPointsTool: AITool = {
+  name: 'prepare_add_loyalty_points',
+  description: 'Prépare l\'ajout de points de fidélité en affichant les infos et un bouton',
+  parameters: {
+    type: 'object',
+    properties: {
+      userId: {
+        type: 'string',
+        description: 'L\'UID de l\'utilisateur',
+      },
+      points: {
+        type: 'number',
+        description: 'Nombre de points à ajouter (peut être négatif pour retirer)',
+      },
+      reason: {
+        type: 'string',
+        description: 'Raison de l\'ajout/retrait de points',
+      },
+    },
+    required: ['userId', 'points', 'reason'],
+  },
+  execute: async (args) => {
+    const user = await getUserById(args.userId);
+    if (!user) {
+      throw new Error(`Utilisateur ${args.userId} introuvable`);
+    }
+
+    const isAdding = args.points >= 0;
+    const newBalance = (user.loyaltyPoints || 0) + args.points;
+
+    return {
+      type: 'action_card',
+      variant: 'info',
+      title: `${isAdding ? 'Ajouter' : 'Retirer'} des points de fidélité`,
+      description: args.reason,
+      data: {
+        'Nom complet': `${user.firstName} ${user.lastName}`,
+        'Email': user.email,
+        'Points actuels': user.loyaltyPoints || 0,
+        'Points à ajouter': args.points,
+        'Nouveau solde': newBalance,
+        'Raison': args.reason,
+      },
+      actions: [
+        {
+          label: `${isAdding ? 'Ajouter' : 'Retirer'} ${Math.abs(args.points)} points`,
+          color: 'blue',
+          variant: 'filled',
+          icon: 'coins',
+          actionType: 'add_loyalty_points',
+          actionData: {
+            userId: args.userId,
+            points: args.points,
+            reason: args.reason,
+          },
+          confirmMessage: `Êtes-vous sûr de vouloir ${isAdding ? 'ajouter' : 'retirer'} ${Math.abs(args.points)} points ?`,
+        },
+      ],
     };
   },
 };
@@ -729,6 +998,12 @@ export const ALL_AI_TOOLS: AITool[] = [
   createChartTool,
   createContributionChartTool,
   createItemStatsChartTool,
+
+  // Outils de navigation et actions
+  navigateToPageTool,
+  prepareDeleteUserTool,
+  prepareToggleBlockUserTool,
+  prepareAddLoyaltyPointsTool,
 ];
 
 /**
@@ -736,4 +1011,125 @@ export const ALL_AI_TOOLS: AITool[] = [
  */
 export function getToolByName(name: string): AITool | undefined {
   return ALL_AI_TOOLS.find((tool) => tool.name === name);
+}
+
+/**
+ * OPTIMISATION: Sélectionne intelligemment les outils pertinents selon le contexte
+ * Cela réduit la taille du contexte envoyé à l'API et améliore la vitesse
+ */
+export function getRelevantTools(userMessage: string): AITool[] {
+  const messageLower = userMessage.toLowerCase();
+
+  // Outils toujours disponibles (les plus utilisés)
+  const coreTools = [
+    getUserTool,
+    listUsersTool,
+    getContributionKPIsTool,
+    navigateToPageTool,
+  ];
+
+  // Outils de visualisation (si demande de graphique/stats/chart)
+  if (
+    messageLower.includes('graph') ||
+    messageLower.includes('chart') ||
+    messageLower.includes('visualis') ||
+    messageLower.includes('montre') ||
+    messageLower.includes('affiche') ||
+    messageLower.includes('évolution') ||
+    messageLower.includes('statistique')
+  ) {
+    coreTools.push(
+      createChartTool,
+      createContributionChartTool,
+      createItemStatsChartTool,
+      getContributionEvolutionTool,
+      getItemStatisticsTool
+    );
+  }
+
+  // Outils de modification (si demande de modification/ajout/suppression)
+  if (
+    messageLower.includes('modif') ||
+    messageLower.includes('chang') ||
+    messageLower.includes('supprim') ||
+    messageLower.includes('bloqu') ||
+    messageLower.includes('débloque') ||
+    messageLower.includes('point') ||
+    messageLower.includes('ajout')
+  ) {
+    coreTools.push(
+      updateUserTool,
+      prepareDeleteUserTool,
+      prepareToggleBlockUserTool,
+      prepareAddLoyaltyPointsTool,
+      addLoyaltyPointsTool,
+      toggleAccountBlockedTool
+    );
+  }
+
+  // Outils de contributions (si demande de contributions/crowdfunding)
+  if (
+    messageLower.includes('contribution') ||
+    messageLower.includes('crowdfund') ||
+    messageLower.includes('montant') ||
+    messageLower.includes('forfait')
+  ) {
+    coreTools.push(
+      getContributionEvolutionTool,
+      getItemStatisticsTool,
+      getRecentContributionsTool,
+      getAllContributionsTool,
+      getContributionGeographicDataTool,
+      getContributorDemographicsTool
+    );
+  }
+
+  // Outils de détails utilisateur (si demande spécifique sur un user)
+  if (
+    messageLower.includes('détail') ||
+    messageLower.includes('historique') ||
+    messageLower.includes('action') ||
+    messageLower.includes('abonnement') ||
+    messageLower.includes('membership')
+  ) {
+    coreTools.push(
+      getUserStatsTool,
+      getUserActionHistoryTool,
+      getUserMembershipHistoryTool
+    );
+  }
+
+  // Outils de recherche/calculs (si demande de recherche/calcul)
+  if (
+    messageLower.includes('recherch') ||
+    messageLower.includes('calcul') ||
+    messageLower.includes('combien') ||
+    messageLower.includes('moyenne') ||
+    messageLower.includes('total')
+  ) {
+    coreTools.push(
+      calculateCustomStatsTool,
+      getUsersCountTool,
+      webSearchTool
+    );
+  }
+
+  // Outils de plans (si demande sur les plans/abonnements)
+  if (
+    messageLower.includes('plan') ||
+    messageLower.includes('abonnement') ||
+    messageLower.includes('membership')
+  ) {
+    coreTools.push(
+      getMembershipPlansTool,
+      getMembershipPlanByIdTool
+    );
+  }
+
+  // Dédupliquer les outils
+  const uniqueTools = Array.from(new Set(coreTools));
+
+  console.log(`🚀 Optimization: Sending ${uniqueTools.length} tools instead of ${ALL_AI_TOOLS.length}`);
+
+  return uniqueTools;
 }

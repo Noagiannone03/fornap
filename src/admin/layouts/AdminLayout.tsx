@@ -77,13 +77,40 @@ const navigationItems: NavItem[] = [
 ];
 
 export function AdminLayout() {
-  const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
-  const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
+  const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure();
+  const [desktopOpened, { toggle: toggleDesktop, close: closeDesktop }] = useDisclosure(true);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [aiSidebarOpened, setAiSidebarOpened] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { adminProfile, logout } = useAdminAuth();
+
+  // Gérer l'ouverture de la sidebar gauche - ferme le panel IA
+  const handleToggleDesktop = () => {
+    if (!desktopOpened && aiSidebarOpened) {
+      // Si on ouvre la sidebar et que l'IA est ouverte, fermer l'IA
+      setAiSidebarOpened(false);
+    }
+    toggleDesktop();
+  };
+
+  const handleToggleMobile = () => {
+    if (!mobileOpened && aiSidebarOpened) {
+      // Si on ouvre la sidebar mobile et que l'IA est ouverte, fermer l'IA
+      setAiSidebarOpened(false);
+    }
+    toggleMobile();
+  };
+
+  // Gérer l'ouverture du panel IA - ferme la sidebar gauche si besoin
+  const handleAiSidebarChange = (opened: boolean) => {
+    if (opened) {
+      // Si on ouvre l'IA, fermer les sidebars gauche
+      if (desktopOpened) closeDesktop();
+      if (mobileOpened) closeMobile();
+    }
+    setAiSidebarOpened(opened);
+  };
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -146,8 +173,8 @@ export function AdminLayout() {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group>
-            <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
-            <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="sm" size="sm" />
+            <Burger opened={mobileOpened} onClick={handleToggleMobile} hiddenFrom="sm" size="sm" />
+            <Burger opened={desktopOpened} onClick={handleToggleDesktop} visibleFrom="sm" size="sm" />
             <Text size="xl" fw={700} c="indigo">
               FORNAP Admin
             </Text>
@@ -390,7 +417,7 @@ export function AdminLayout() {
       {/* Main Content */}
       <AppShell.Main
         style={{
-          transition: 'margin-right 0.3s ease',
+          transition: 'margin-right 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
           marginRight: aiSidebarOpened ? '450px' : '0',
         }}
       >
@@ -400,7 +427,7 @@ export function AdminLayout() {
       {/* Assistant IA - Bouton flottant + Sidebar custom */}
       <AIAssistantDrawer
         opened={aiSidebarOpened}
-        onOpenChange={setAiSidebarOpened}
+        onOpenChange={handleAiSidebarChange}
       />
     </AppShell>
   );

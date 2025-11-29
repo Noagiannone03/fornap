@@ -11,7 +11,7 @@ import type {
   ToolResult,
 } from '../../types/ai';
 import { openRouterService } from './openRouterService';
-import { ALL_AI_TOOLS, getToolByName } from './aiTools';
+import { getToolByName, getRelevantTools } from './aiTools';
 
 /**
  * Système prompt pour l'IA
@@ -31,17 +31,32 @@ Tu as accès à de nombreux outils pour:
 1. **Gestion des utilisateurs**: Consulter, modifier, bloquer/débloquer des comptes
 2. **Analytics**: Calculer des KPIs, analyser les contributions, voir l'évolution
 3. **Statistiques**: Démographie, géographie, statistiques par forfait
-4. **Visualisation de données**: Créer des graphiques (lignes, barres, secteurs, aires)
-5. **Recherche web**: Trouver des informations externes
-6. **Calculs personnalisés**: Effectuer des analyses statistiques avancées
+4. **Visualisation de données**: Créer des graphiques (lignes, barres, secteurs, aires) AVEC EXPORT PNG/CSV
+5. **Navigation**: Afficher des boutons pour naviguer vers des pages spécifiques
+6. **Actions interactives**: Afficher des cartes d'action pour les opérations sensibles
+7. **Recherche web**: Trouver des informations externes
+8. **Calculs personnalisés**: Effectuer des analyses statistiques avancées
 
 **CRÉATION DE GRAPHIQUES:**
 Tu peux créer des graphiques avec les outils:
 - \`create_chart\`: Graphique générique avec données personnalisées
 - \`create_contribution_chart\`: Évolution automatique des contributions
 - \`create_item_stats_chart\`: Statistiques par forfait (bar ou pie)
+Tous les graphiques ont un bouton d'export automatique (PNG et CSV)!
 
-Utilise ces outils quand l'utilisateur demande des visualisations ou quand les données sont mieux représentées visuellement.
+**NAVIGATION INTELLIGENTE:**
+Quand l'utilisateur demande "où est X?" ou "comment aller à Y?", utilise \`navigate_to_page\`:
+- Dashboard, liste des utilisateurs, détails utilisateur, contributions, analytics, settings, etc.
+- L'utilisateur verra un bouton cliquable pour y accéder directement
+
+**ACTIONS SUR LES UTILISATEURS:**
+Pour les actions sensibles, TOUJOURS utiliser les outils "prepare_*" qui affichent une carte interactive:
+- \`prepare_delete_user\`: Affiche les infos de l'user + bouton de suppression avec confirmation
+- \`prepare_toggle_block_user\`: Affiche les infos + bouton bloquer/débloquer
+- \`prepare_add_loyalty_points\`: Affiche les infos + bouton pour ajouter/retirer des points
+
+NE JAMAIS utiliser directement \`updateUser\`, \`toggleAccountBlocked\`, etc. pour des actions destructives.
+Utilise TOUJOURS les versions "prepare_*" pour que l'admin puisse confirmer visuellement.
 
 **INSTRUCTIONS:**
 - Réponds toujours en français
@@ -102,6 +117,7 @@ export class AIAssistantService {
 
   /**
    * Convertit l'historique en format OpenRouter
+   * OPTIMISÉ: Ne garde que les 10 derniers messages pour réduire le contexte
    */
   private convertHistoryToOpenRouter(): OpenRouterMessage[] {
     const messages: OpenRouterMessage[] = [
@@ -119,8 +135,12 @@ export class AIAssistantService {
       });
     }
 
-    // Ajouter l'historique
-    for (const msg of this.conversationHistory) {
+    // Limiter l'historique aux 10 derniers messages pour optimiser la vitesse
+    const MAX_HISTORY_LENGTH = 10;
+    const recentHistory = this.conversationHistory.slice(-MAX_HISTORY_LENGTH);
+
+    // Ajouter l'historique récent
+    for (const msg of recentHistory) {
       if (msg.role === 'user') {
         messages.push({
           role: 'user',
@@ -209,8 +229,11 @@ export class AIAssistantService {
       // Convertir l'historique
       const messages = this.convertHistoryToOpenRouter();
 
-      // Première requête à l'IA
-      let response = await openRouterService.chat(messages, ALL_AI_TOOLS);
+      // OPTIMISÉ: Sélectionner uniquement les outils pertinents pour cette requête
+      const relevantTools = getRelevantTools(userMessage);
+
+      // Première requête à l'IA avec outils optimisés
+      let response = await openRouterService.chat(messages, relevantTools);
 
       let assistantMessage = response.choices[0].message;
       let toolCalls: ToolCall[] = [];
@@ -242,8 +265,8 @@ export class AIAssistantService {
         // Convertir à nouveau l'historique avec les résultats des tools
         const messagesWithToolResults = this.convertHistoryToOpenRouter();
 
-        // Deuxième requête pour obtenir la réponse finale
-        response = await openRouterService.chat(messagesWithToolResults, ALL_AI_TOOLS);
+        // Deuxième requête pour obtenir la réponse finale (avec mêmes outils)
+        response = await openRouterService.chat(messagesWithToolResults, relevantTools);
         assistantMessage = response.choices[0].message;
 
         // Retirer le message temporaire
@@ -265,10 +288,24 @@ export class AIAssistantService {
       return assistantMsg;
     } catch (error) {
       console.error('AI chat error:', error);
+
+      // Message d'erreur personnalisé selon le type d'erreur
+      let errorMessage = 'Désolé, une erreur s\'est produite.';
+      if (error instanceof Error) {
+        if (error.message.includes('Limite de requêtes')) {
+          // Afficher le message complet avec le lien
+          errorMessage = error.message;
+        } else if (error.message.includes('indisponibles')) {
+          errorMessage = '🔄 Les modèles d\'IA sont temporairement indisponibles. Veuillez réessayer dans un instant.';
+        } else {
+          errorMessage = `❌ ${error.message}`;
+        }
+      }
+
       const errorMsg: ChatMessage = {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: `Désolé, une erreur s'est produite: ${error instanceof Error ? error.message : String(error)}`,
+        content: errorMessage,
         timestamp: new Date(),
         status: 'error',
         error: error instanceof Error ? error.message : String(error),
@@ -298,8 +335,11 @@ export class AIAssistantService {
     try {
       const messages = this.convertHistoryToOpenRouter();
 
-      // Stream la réponse
-      for await (const chunk of openRouterService.chatStream(messages, ALL_AI_TOOLS)) {
+      // OPTIMISÉ: Sélectionner uniquement les outils pertinents
+      const relevantTools = getRelevantTools(userMessage);
+
+      // Stream la réponse avec outils optimisés
+      for await (const chunk of openRouterService.chatStream(messages, relevantTools)) {
         fullContent += chunk;
         yield chunk;
       }

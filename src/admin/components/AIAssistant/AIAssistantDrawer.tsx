@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { Affix, ActionIcon, rem, Text, Paper, Box, CloseButton } from '@mantine/core';
-import { IconBrain } from '@tabler/icons-react';
+import { IconBrain, IconX } from '@tabler/icons-react';
 import { AIAssistantPanel } from './AIAssistantPanel';
 
 interface AIAssistantDrawerProps {
@@ -39,7 +39,12 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
     <>
       {/* Bouton flottant en bas à droite */}
       <Affix position={{ bottom: rem(20), right: opened ? rem(470) : rem(20) }} zIndex={100}>
-        <div style={{ position: 'relative', transition: 'right 0.3s ease' }}>
+        <div
+          style={{
+            position: 'relative',
+            transition: 'right 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
           {/* Bulle d'aide animée */}
           {showHelpBubble && !opened && (
             <Paper
@@ -51,25 +56,26 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
                 bottom: '70px',
                 right: 0,
                 backgroundColor: 'white',
-                minWidth: '200px',
-                animation: 'bounceIn 0.5s ease-out',
+                minWidth: '220px',
+                animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
                 cursor: 'pointer',
+                border: '2px solid var(--mantine-color-indigo-1)',
               }}
               onClick={handleOpen}
             >
               <Text size="sm" fw={500} c="dark">
-                Que puis-je faire pour vous ?
+                👋 Que puis-je faire pour vous ?
               </Text>
               <div
                 style={{
                   position: 'absolute',
-                  bottom: '-8px',
+                  bottom: '-10px',
                   right: '20px',
                   width: 0,
                   height: 0,
-                  borderLeft: '8px solid transparent',
-                  borderRight: '8px solid transparent',
-                  borderTop: '8px solid white',
+                  borderLeft: '10px solid transparent',
+                  borderRight: '10px solid transparent',
+                  borderTop: '10px solid white',
                 }}
               />
             </Paper>
@@ -83,7 +89,7 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
             onClick={() => onOpenChange(!opened)}
             style={{
               boxShadow: '0 8px 24px rgba(99, 102, 241, 0.35)',
-              transition: 'all 0.3s ease',
+              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
               position: 'relative',
             }}
             onMouseEnter={(e) => {
@@ -95,43 +101,66 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
               e.currentTarget.style.boxShadow = '0 8px 24px rgba(99, 102, 241, 0.35)';
             }}
           >
-            <IconBrain size={32} stroke={2} />
-            {/* Pulse animation */}
+            {/* Icône qui change selon l'état ouvert/fermé */}
             <div
               style={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderRadius: '50%',
-                background: 'rgba(99, 102, 241, 0.4)',
-                animation: 'pulse 2s infinite',
-                pointerEvents: 'none',
+                transition: 'all 0.3s ease',
+                opacity: opened ? 0 : 1,
+                transform: opened ? 'rotate(-180deg) scale(0.5)' : 'rotate(0deg) scale(1)',
               }}
-            />
+            >
+              <IconBrain size={32} stroke={2} />
+            </div>
+            <div
+              style={{
+                position: 'absolute',
+                transition: 'all 0.3s ease',
+                opacity: opened ? 1 : 0,
+                transform: opened ? 'rotate(0deg) scale(1)' : 'rotate(180deg) scale(0.5)',
+              }}
+            >
+              <IconX size={32} stroke={2} />
+            </div>
+            {/* Pulse animation */}
+            {!opened && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: '50%',
+                  background: 'rgba(99, 102, 241, 0.4)',
+                  animation: 'pulse 2s infinite',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
           </ActionIcon>
         </div>
       </Affix>
 
-      {/* Sidebar custom qui pousse le contenu */}
+      {/* Sidebar custom qui slide depuis la droite */}
       <Box
         style={{
           position: 'fixed',
           top: 0,
-          right: opened ? 0 : '-450px',
+          right: 0,
           width: '450px',
           height: '100vh',
           backgroundColor: 'white',
-          boxShadow: opened ? '-4px 0 20px rgba(0, 0, 0, 0.1)' : 'none',
-          transition: 'right 0.3s ease',
+          boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.12)',
+          transform: opened ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
           zIndex: 99,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}
       >
-        {/* Header */}
+        {/* Header avec animation */}
         <Box
           style={{
             padding: '1rem 1.5rem',
@@ -139,10 +168,25 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)',
+            opacity: opened ? 1 : 0,
+            transform: opened ? 'translateY(0)' : 'translateY(-20px)',
+            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s',
           }}
         >
           <Box style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <IconBrain size={28} color="var(--mantine-color-indigo-6)" />
+            <Box
+              style={{
+                padding: '8px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, var(--mantine-color-indigo-6), var(--mantine-color-violet-6))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <IconBrain size={24} color="white" />
+            </Box>
             <div>
               <Text size="lg" fw={700} c="dark">
                 Guillaume
@@ -152,10 +196,22 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
               </Text>
             </div>
           </Box>
-          <CloseButton onClick={handleClose} size="lg" />
+          <CloseButton
+            onClick={handleClose}
+            size="lg"
+            style={{
+              transition: 'transform 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'rotate(90deg)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'rotate(0deg)';
+            }}
+          />
         </Box>
 
-        {/* Content */}
+        {/* Content avec animation décalée */}
         <Box
           style={{
             flex: 1,
@@ -164,6 +220,9 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
             padding: '1rem',
             overflow: 'hidden',
             minHeight: 0,
+            opacity: opened ? 1 : 0,
+            transform: opened ? 'translateY(0)' : 'translateY(20px)',
+            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.2s',
           }}
         >
           <AIAssistantPanel />
@@ -178,7 +237,7 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
             opacity: 1;
           }
           50% {
-            transform: scale(1.3);
+            transform: scale(1.4);
             opacity: 0;
           }
           100% {
@@ -190,14 +249,14 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
         @keyframes bounceIn {
           0% {
             opacity: 0;
-            transform: scale(0.3) translateY(20px);
+            transform: scale(0.5) translateY(30px);
           }
-          50% {
+          60% {
             opacity: 1;
-            transform: scale(1.05);
+            transform: scale(1.1) translateY(-5px);
           }
-          70% {
-            transform: scale(0.9);
+          80% {
+            transform: scale(0.95) translateY(2px);
           }
           100% {
             transform: scale(1) translateY(0);

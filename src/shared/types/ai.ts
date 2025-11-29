@@ -48,6 +48,43 @@ export interface ToolResult {
 }
 
 /**
+ * Action à afficher dans une ActionCard
+ */
+export interface ActionCardAction {
+  label: string;
+  color?: string;
+  variant?: 'filled' | 'outline' | 'light';
+  icon?: string;
+  actionType: string; // Type d'action à exécuter (ex: "delete_user", "block_user")
+  actionData: Record<string, any>; // Données pour l'action
+  confirmMessage?: string; // Si présent, demander confirmation avant d'exécuter
+}
+
+/**
+ * ActionCard - Carte interactive avec des boutons d'action
+ */
+export interface ActionCard {
+  type: 'action_card';
+  title: string;
+  description?: string;
+  data?: Record<string, any>; // Données à afficher
+  actions: ActionCardAction[];
+  variant?: 'info' | 'warning' | 'danger' | 'success';
+}
+
+/**
+ * NavigationCard - Carte avec un bouton de navigation
+ */
+export interface NavigationCard {
+  type: 'navigation_card';
+  title: string;
+  description: string;
+  path: string; // Chemin de navigation (ex: '/admin/users/123')
+  buttonLabel: string;
+  icon?: string;
+}
+
+/**
  * Conversation IA persistante
  */
 export interface AIConversation {
@@ -101,15 +138,18 @@ export interface ModelConfig {
 
 /**
  * Modèles gratuits disponibles sur OpenRouter
+ * IMPORTANT:
+ * - Tous ces modèles ont le suffixe `:free` et sont confirmés gratuits
+ * - Tous supportent le function calling (tools) nécessaire pour l'assistant IA
  */
 export const FREE_MODELS = {
-  // Modèles performants gratuits
-  QWEN_32B: 'qwen/qwen-2.5-72b-instruct:free',
-  LLAMA_70B: 'meta-llama/llama-3.3-70b-instruct:free',
-  MISTRAL_7B: 'mistralai/mistral-7b-instruct:free',
-  GEMMA_9B: 'google/gemma-2-9b-it:free',
+  // Modèles performants gratuits qui supportent les tools
+  LLAMA_3_3_70B: 'meta-llama/llama-3.3-70b-instruct:free',
+  QWEN_72B: 'qwen/qwen-2.5-72b-instruct:free',
+  GEMINI_FLASH: 'google/gemini-2.0-flash-thinking-exp:free',
+  LLAMA_3_1_70B: 'meta-llama/llama-3.1-70b-instruct:free',
 
-  // Modèle par défaut (équilibre performance/vitesse)
+  // Modèle par défaut (meilleur équilibre performance/vitesse/support des tools)
   DEFAULT: 'meta-llama/llama-3.3-70b-instruct:free',
 } as const;
 

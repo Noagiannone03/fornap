@@ -34,6 +34,8 @@ import {
 import { aiAssistant } from '../../../shared/services/ai/aiAssistantService';
 import type { ChatMessage } from '../../../shared/types/ai';
 import { ChartDisplay } from './ChartDisplay';
+import { ActionCardDisplay } from './ActionCardDisplay';
+import { NavigationCardDisplay } from './NavigationCardDisplay';
 
 export function AIAssistantPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -350,9 +352,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             const ToolIcon = getToolIcon(toolCall.name);
             const label = getToolLabel(toolCall.name);
 
-            // Vérifier si ce tool a retourné un graphique
+            // Vérifier le type de résultat
             const toolResult = message.toolResults?.find(r => r.toolCallId === toolCall.id);
             const hasChart = toolResult?.result?.chartType === 'chart';
+            const hasActionCard = toolResult?.result?.type === 'action_card';
+            const hasNavigationCard = toolResult?.result?.type === 'navigation_card';
 
             return (
               <Box key={toolCall.id}>
@@ -383,6 +387,20 @@ function MessageBubble({ message }: { message: ChatMessage }) {
                 {hasChart && index < showingSteps && (
                   <Box mt="xs" style={{ animation: 'fadeIn 0.5s ease-out' }}>
                     <ChartDisplay chartData={toolResult.result} />
+                  </Box>
+                )}
+
+                {/* Afficher l'ActionCard si présente */}
+                {hasActionCard && index < showingSteps && (
+                  <Box mt="xs" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+                    <ActionCardDisplay actionCard={toolResult.result} />
+                  </Box>
+                )}
+
+                {/* Afficher la NavigationCard si présente */}
+                {hasNavigationCard && index < showingSteps && (
+                  <Box mt="xs" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+                    <NavigationCardDisplay navigationCard={toolResult.result} />
                   </Box>
                 )}
               </Box>
@@ -419,6 +437,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             : isUser
             ? 'var(--mantine-color-blue-2)'
             : 'var(--mantine-color-gray-3)',
+          borderLeft: isError ? '4px solid var(--mantine-color-red-6)' : undefined,
           animation: isUser ? 'slideInRight 0.3s ease-out' : 'slideInLeft 0.3s ease-out',
         }}
       >
@@ -426,11 +445,12 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           <Text
             size="sm"
             style={{ whiteSpace: 'pre-wrap', flex: 1, lineHeight: 1.6 }}
-            c={isError ? 'red' : 'dark'}
+            c={isError ? 'red.7' : 'dark'}
+            fw={isError ? 500 : 400}
           >
             {message.content}
           </Text>
-          {!isUser && (
+          {!isUser && !isError && (
             <Tooltip label={copied ? 'Copié !' : 'Copier'}>
               <ActionIcon
                 variant="subtle"

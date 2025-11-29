@@ -31,3 +31,4 @@ serviceAccountKey.json
 *.njsproj
 *.sln
 *.sw?
+.env*.local

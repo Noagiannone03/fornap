@@ -2,7 +2,9 @@
  * Composant pour afficher les graphiques générés par l'IA
  */
 
-import { Card, Text } from '@mantine/core';
+import { useRef } from 'react';
+import { Card, Text, Group, Button, Menu } from '@mantine/core';
+import { IconDownload, IconFileTypeCsv, IconFileTypePng } from '@tabler/icons-react';
 import {
   LineChart,
   Line,
@@ -51,6 +53,69 @@ const COLORS = [
 
 export function ChartDisplay({ chartData }: ChartDisplayProps) {
   const { type, title, data, xKey, yKey, nameKey, valueKey } = chartData;
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  console.log('📈 ChartDisplay - Rendering chart:', { type, title, data, xKey, yKey, nameKey, valueKey });
+
+  // Vérifier si les données sont vides
+  if (!data || data.length === 0) {
+    return (
+      <Card
+        withBorder
+        p="lg"
+        style={{
+          backgroundColor: 'var(--mantine-color-yellow-0)',
+          borderColor: 'var(--mantine-color-yellow-3)',
+        }}
+      >
+        <Text size="md" fw={600} c="dark" mb="sm">
+          {title}
+        </Text>
+        <Text size="sm" c="dimmed">
+          Aucune donnée disponible pour générer ce graphique.
+        </Text>
+      </Card>
+    );
+  }
+
+  // Export en CSV
+  const exportToCSV = () => {
+    const headers = Object.keys(data[0] || {});
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => row[h]).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${title.replace(/[^a-z0-9]/gi, '_')}.csv`;
+    link.click();
+  };
+
+  // Export en PNG
+  const exportToPNG = async () => {
+    if (!chartRef.current) return;
+
+    try {
+      // Utiliser html2canvas pour capturer le graphique
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(chartRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2, // Meilleure qualité
+      });
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${title.replace(/[^a-z0-9]/gi, '_')}.png`;
+        link.click();
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'export PNG:', error);
+    }
+  };
 
   return (
     <Card
@@ -61,9 +126,39 @@ export function ChartDisplay({ chartData }: ChartDisplayProps) {
         borderColor: 'var(--mantine-color-indigo-3)',
       }}
     >
-      <Text size="md" fw={600} mb="md" c="dark">
-        {title}
-      </Text>
+      <Group justify="space-between" mb="md">
+        <Text size="md" fw={600} c="dark">
+          {title}
+        </Text>
+        <Menu shadow="md" width={200}>
+          <Menu.Target>
+            <Button
+              size="xs"
+              variant="light"
+              color="indigo"
+              leftSection={<IconDownload size={16} />}
+            >
+              Exporter
+            </Button>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item
+              leftSection={<IconFileTypePng size={16} />}
+              onClick={exportToPNG}
+            >
+              Exporter en PNG
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconFileTypeCsv size={16} />}
+              onClick={exportToCSV}
+            >
+              Exporter en CSV
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      </Group>
+
+      <div ref={chartRef}>
 
       <ResponsiveContainer width="100%" height={300}>
         {type === 'line' && (
@@ -156,6 +251,7 @@ export function ChartDisplay({ chartData }: ChartDisplayProps) {
           </PieChart>
         )}
       </ResponsiveContainer>
+      </div>
     </Card>
   );
 }

@@ -270,6 +270,31 @@ export async function getAllEventsForList(): Promise<EventListItem[]> {
 }
 
 /**
+ * Recherche efficace d'événements (Server-side)
+ */
+export async function searchEvents(searchQuery: string): Promise<EventListItem[]> {
+  if (!searchQuery || searchQuery.length < 2) return [];
+
+  try {
+    const eventsRef = collection(db, EVENTS_COLLECTION);
+    // Recherche par titre (sensible à la casse, on essaie l'exact tel quel)
+    // Note: Idéalement il faudrait un champ titre en minuscule pour la recherche
+    const qTitle = query(
+      eventsRef,
+      where('title', '>=', searchQuery),
+      where('title', '<=', searchQuery + '\uf8ff'),
+      limit(5)
+    );
+
+    const snapshot = await getDocs(qTitle);
+    return snapshot.docs.map(doc => eventToListItem({ ...doc.data(), id: doc.id } as Event));
+  } catch (error) {
+    console.error('Error searching events:', error);
+    return [];
+  }
+}
+
+/**
  * Get event by ID
  */
 export async function getEventById(eventId: string): Promise<Event | null> {

@@ -1090,6 +1090,88 @@ export async function getUsersCount(): Promise<number> {
   }
 }
 
+/**
+ * Recherche efficace d'utilisateurs (Server-side)
+ * Utilise des range queries pour email, nom et prénom
+ */
+export async function searchUsers(searchQuery: string): Promise<UserListItem[]> {
+  if (!searchQuery || searchQuery.length < 2) return [];
+  
+  try {
+    const usersRef = collection(db, USERS_COLLECTION);
+    const qLower = searchQuery.toLowerCase();
+    const qCap = searchQuery.charAt(0).toUpperCase() + searchQuery.slice(1).toLowerCase();
+    
+    // Firestore est sensible à la casse par défaut.
+    // Stratégie: On lance quelques requêtes parallèles ciblées.
+    // Idéalement, il faudrait un champ "keywords" array en minuscule dans le document pour la recherche.
+    
+    // 1. Recherche par email (très fiable si exact)
+    const emailQuery = query(
+      usersRef, 
+      where('email', '>=', qLower),
+      where('email', '<=', qLower + '\uf8ff'),
+      limit(5)
+    );
+
+    // 2. Recherche par Nom (Capitalisé)
+    const lastNameQuery = query(
+      usersRef,
+      where('lastName', '>=', qCap),
+      where('lastName', '<=', qCap + '\uf8ff'),
+      limit(5)
+    );
+
+    // 3. Recherche par Prénom (Capitalisé)
+    const firstNameQuery = query(
+      usersRef,
+      where('firstName', '>=', qCap),
+      where('firstName', '<=', qCap + '\uf8ff'),
+      limit(5)
+    );
+
+    const [emailSnap, lastNameSnap, firstNameSnap] = await Promise.all([
+      getDocs(emailQuery),
+      getDocs(lastNameQuery),
+      getDocs(firstNameQuery)
+    ]);
+
+    const userMap = new Map<string, UserListItem>();
+
+    const processDoc = (doc: any) => {
+      if (userMap.has(doc.id)) return;
+      const data = doc.data() as User;
+      userMap.set(doc.id, {
+        uid: doc.id,
+        email: data.email || '',
+        firstName: data.firstName || '',
+        lastName: data.lastName || '',
+        membership: {
+          type: data.currentMembership?.planType || 'monthly',
+          status: data.currentMembership?.status || 'pending',
+          planName: data.currentMembership?.planName || '',
+        },
+        loyaltyPoints: data.loyaltyPoints || 0,
+        tags: data.status?.tags || [],
+        createdAt: data.createdAt,
+        isAccountBlocked: data.status?.isAccountBlocked || false,
+        isCardBlocked: data.status?.isCardBlocked || false,
+        registrationSource: data.registration?.source || 'platform',
+        isLegacy: false
+      });
+    };
+
+    emailSnap.forEach(processDoc);
+    lastNameSnap.forEach(processDoc);
+    firstNameSnap.forEach(processDoc);
+
+    return Array.from(userMap.values()).slice(0, 10); // Max 10 résultats combinés
+  } catch (error) {
+    console.error('Error searching users:', error);
+    return [];
+  }
+}
+
 // ============================================================================
 // EXPORT DE DONNÉES
 // ============================================================================

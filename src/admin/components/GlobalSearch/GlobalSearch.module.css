@@ -1,0 +1,149 @@
+.content {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--mantine-color-gray-2);
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.15);
+  background-color: var(--mantine-color-white);
+}
+
+.search {
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+  background-color: var(--mantine-color-white);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.searchInput {
+  font-size: 1.2rem;
+  height: 64px;
+  background-color: transparent;
+  padding-left: 16px; /* Space for left section is handled by Input component usually, but since unstyled we check */
+  color: var(--mantine-color-dark-9);
+}
+
+/* Reset styles for inner input to ensure it takes height */
+.searchInput input {
+  height: 100%;
+}
+
+/* Action Item Container */
+.action {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: calc(100% - 16px);
+  padding: 12px;
+  margin: 4px 8px;
+  border-radius: 12px;
+  background-color: transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  text-decoration: none;
+  /* Ensure height is not collapsed */
+  min-height: 70px;
+}
+
+.action:hover {
+  background-color: var(--mantine-color-gray-0);
+}
+
+.action[data-selected] {
+  background-color: var(--mantine-color-blue-0);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Left/Right Sections (Icons) */
+.actionSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+}
+
+/* Body (Label + Description) */
+.actionBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px; /* Space between label and description */
+  min-width: 0; /* Prevent flex text overflow */
+}
+
+/* Specific styling for the custom wrappers we injected */
+.actionIcon {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background-color: var(--mantine-color-gray-1);
+  color: var(--mantine-color-gray-7);
+  transition: all 0.2s ease;
+}
+
+.action[data-selected] .actionIcon {
+  background-color: var(--mantine-color-white);
+  color: var(--mantine-color-blue-6);
+}
+
+/* Icon Variants */
+.iconUser {
+  color: var(--mantine-color-violet-6);
+  background-color: var(--mantine-color-violet-0);
+}
+.action[data-selected] .iconUser {
+  background-color: var(--mantine-color-white);
+}
+
+.iconEvent {
+  color: var(--mantine-color-orange-6);
+  background-color: var(--mantine-color-orange-0);
+}
+.action[data-selected] .iconEvent {
+  background-color: var(--mantine-color-white);
+}
+
+.iconNav {
+  color: var(--mantine-color-gray-6);
+  background-color: var(--mantine-color-gray-1);
+}
+.action[data-selected] .iconNav {
+  background-color: var(--mantine-color-white);
+}
+
+.iconAction {
+  color: var(--mantine-color-teal-6);
+  background-color: var(--mantine-color-teal-0);
+}
+
+/* Text Styles */
+.actionLabel {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--mantine-color-dark-9);
+  line-height: 1.2;
+  display: block; /* Force block */
+}
+
+.actionDescription {
+  color: var(--mantine-color-dimmed);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  display: block; /* Force block */
+  margin-top: 2px;
+}
+
+/* Categories Header */
+.actionsGroup {
+  padding: 20px 16px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--mantine-color-gray-5);
+  background-color: var(--mantine-color-white);
+}

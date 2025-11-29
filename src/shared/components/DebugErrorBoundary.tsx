@@ -1,4 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { Alert, Button, Group, Text, Code } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 

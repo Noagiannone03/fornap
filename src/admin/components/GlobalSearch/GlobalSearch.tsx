@@ -4,19 +4,14 @@ import { Spotlight } from '@mantine/spotlight';
 import type { SpotlightActionData } from '@mantine/spotlight';
 import { 
   IconSearch, 
-  IconUser, 
   IconCalendar, 
   IconArrowRight, 
-  IconDashboard, 
-  IconSettings, 
   IconChartBar, 
   IconPlus,
-  IconCreditCard,
-  IconScan,
-  IconDatabase
+  IconScan
 } from '@tabler/icons-react';
 import { useDebouncedValue } from '@mantine/hooks';
-import { Badge, Avatar, Loader, Center, Group, Text } from '@mantine/core';
+import { Badge, Avatar, Loader } from '@mantine/core';
 import { navigationItems } from '../../config/navigation';
 import type { NavItem } from '../../config/navigation';
 import { searchUsers } from '../../../shared/services/userService';
@@ -236,7 +231,7 @@ export function GlobalSearch() {
         variant: 'unstyled',
         className: classes.searchInput,
       }}
-      filter={(query, actions) => actions} // Disable internal filtering since we handle it
+      filter={(_query, actions) => actions} // Disable internal filtering since we handle it
       query={query}
       onQueryChange={setQuery}
       scrollable

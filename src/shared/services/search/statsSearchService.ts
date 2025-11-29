@@ -1,6 +1,4 @@
 import { getStatsForSearch } from '../analytics/analyticsService';
-import { getUsersCount } from '../userService';
-import type { OverviewKPIs } from '../../types/user';
 
 export interface StatSearchResult {
   label: string;

@@ -29,8 +29,17 @@ import type {
   MembersEvolutionData,
   MembershipDistribution,
 } from '../../../shared/types/user';
+import { DebugErrorBoundary } from '../../../shared/components/DebugErrorBoundary';
 
 export function AnalyticsOverviewPage() {
+  return (
+    <DebugErrorBoundary>
+      <AnalyticsOverviewContent />
+    </DebugErrorBoundary>
+  );
+}
+
+function AnalyticsOverviewContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [kpis, setKpis] = useState<OverviewKPIs | null>(null);
@@ -112,9 +121,10 @@ export function AnalyticsOverviewPage() {
           icon={<IconUsers size={22} />}
           color="indigo"
           trend={{
-            value: kpis?.trends.members || 0,
+            value: kpis?.trends?.members || 0,
             period: 'vs semaine dernière',
           }}
+          loading={loading}
         />
 
         <KPICard
@@ -122,27 +132,30 @@ export function AnalyticsOverviewPage() {
           value={kpis?.activeMembers || 0}
           icon={<IconUserCheck size={22} />}
           color="green"
-          description={`${kpis?.activityRate.toFixed(1)}% du total`}
+          description={kpis ? `${kpis.activityRate.toFixed(1)}% du total` : '-'}
+          loading={loading}
         />
 
         <KPICard
           title="MRR"
-          value={`${kpis?.mrr.toFixed(0)}€`}
+          value={kpis ? `${kpis.mrr.toFixed(0)}€` : '0€'}
           icon={<IconCurrencyEuro size={22} />}
           color="teal"
           description="Revenu Récurrent Mensuel"
           trend={{
-            value: kpis?.trends.revenue || 0,
+            value: kpis?.trends?.revenue || 0,
             period: 'vs mois dernier',
           }}
+          loading={loading}
         />
 
         <KPICard
           title="Taux de Renouvellement"
-          value={`${kpis?.renewalRate.toFixed(1)}%`}
+          value={kpis ? `${kpis.renewalRate.toFixed(1)}%` : '0%'}
           icon={<IconRepeat size={22} />}
           color="cyan"
           description="Sur 12 mois glissants"
+          loading={loading}
         />
       </SimpleGrid>
 
@@ -150,17 +163,19 @@ export function AnalyticsOverviewPage() {
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="xl">
         <KPICard
           title="ARR"
-          value={`${kpis?.arr.toFixed(0)}€`}
+          value={kpis ? `${kpis.arr.toFixed(0)}€` : '0€'}
           icon={<IconTrendingUp size={22} />}
           color="violet"
           description="Revenu Récurrent Annuel"
+          loading={loading}
         />
 
         <KPICard
           title="Âge Moyen"
-          value={`${kpis?.averageAge || 0} ans`}
+          value={kpis ? `${kpis.averageAge || 0} ans` : '-'}
           icon={<IconCalendar size={22} />}
           color="orange"
+          loading={loading}
         />
 
         <KPICard
@@ -168,6 +183,7 @@ export function AnalyticsOverviewPage() {
           value={kpis?.newThisWeek || 0}
           icon={<IconUsers size={22} />}
           color="blue"
+          loading={loading}
         />
 
         <KPICard
@@ -175,6 +191,7 @@ export function AnalyticsOverviewPage() {
           value={kpis?.newThisMonth || 0}
           icon={<IconUsers size={22} />}
           color="grape"
+          loading={loading}
         />
       </SimpleGrid>
 

@@ -68,7 +68,7 @@ export function AdminRoutes() {
           <Route path="campaigns/diagnostics" element={<EmailDiagnosticsPage />} />
 
           {/* Routes Analytics */}
-          <Route path="analytics" element={<Navigate to="analytics/overview" replace />} />
+          <Route path="analytics" element={<Navigate to="/admin/analytics/overview" replace />} />
           <Route path="analytics/overview" element={<AnalyticsOverviewPage />} />
           <Route path="analytics/financial" element={<FinancialAnalyticsPage />} />
           <Route path="analytics/demographics" element={<DemographicsAnalyticsPage />} />

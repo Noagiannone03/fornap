@@ -126,10 +126,47 @@ export function AdminLayout() {
             </Group>
 
             <Group>
-              {/* Search */}
-              <ActionIcon variant="subtle" size="lg" aria-label="Search" onClick={() => spotlight.open()}>
-                <IconSearch style={{ width: rem(20) }} />
-              </ActionIcon>
+              {/* Search Bar */}
+              <UnstyledButton
+                onClick={() => spotlight.open()}
+                style={{
+                  backgroundColor: 'var(--mantine-color-gray-0)',
+                  border: '1px solid var(--mantine-color-gray-3)',
+                  borderRadius: '10px',
+                  padding: '6px 16px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  width: '320px',
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--mantine-color-indigo-3)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
+                  e.currentTarget.style.backgroundColor = 'var(--mantine-color-white)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--mantine-color-gray-3)';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)';
+                }}
+              >
+                <IconSearch size={18} stroke={2} color="var(--mantine-color-indigo-5)" />
+                <Text size="sm" c="dimmed" fw={500} style={{ flex: 1, userSelect: 'none' }}>
+                  Rechercher partout...
+                </Text>
+                <Badge 
+                  variant="light" 
+                  color="gray" 
+                  size="sm" 
+                  radius="sm"
+                  styles={{ root: { textTransform: 'none', fontSize: '10px', fontWeight: 700 } }}
+                >
+                  ⌘ K
+                </Badge>
+              </UnstyledButton>
 
               {/* Notifications */}
               <Indicator inline processing color="red" size={8}>

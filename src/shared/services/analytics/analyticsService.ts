@@ -1,4 +1,4 @@
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import type { OverviewKPIs } from '../../types/user';
 import { getFinancialKPIs } from './financialAnalytics';
@@ -6,6 +6,7 @@ import { getRenewalRate } from './membershipAnalytics';
 import { getAgeDistribution } from './demographicAnalytics';
 
 const USERS_COLLECTION = 'users';
+const ANALYTICS_CACHE_DOC = 'analytics/summary';
 
 /**
  * Convertit une date Firestore Timestamp ou Date en objet Date JavaScript
@@ -36,10 +37,61 @@ function toDate(value: any): Date | null {
 }
 
 /**
- * Récupère tous les KPIs pour le dashboard principal
+ * Récupère les KPIs cachés s'ils sont récents (< 1 heure)
  */
-export async function getOverviewKPIs(): Promise<OverviewKPIs> {
+async function getCachedKPIs(): Promise<OverviewKPIs | null> {
   try {
+    // Parse collection/doc path
+    const [col, docId] = ANALYTICS_CACHE_DOC.split('/');
+    const docRef = doc(db, col, docId);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const updatedAt = data.updatedAt?.toDate();
+      const now = new Date();
+
+      // Si le cache a moins de 1 heure
+      if (updatedAt && (now.getTime() - updatedAt.getTime()) < 60 * 60 * 1000) {
+        return data.kpis as OverviewKPIs;
+      }
+    }
+    return null;
+  } catch (e) {
+    console.warn('Failed to fetch cached KPIs', e);
+    return null;
+  }
+}
+
+/**
+ * Sauvegarde les KPIs dans le cache
+ */
+async function cacheKPIs(kpis: OverviewKPIs): Promise<void> {
+  try {
+    const [col, docId] = ANALYTICS_CACHE_DOC.split('/');
+    const docRef = doc(db, col, docId);
+    await setDoc(docRef, {
+      kpis,
+      updatedAt: Timestamp.now()
+    });
+  } catch (e) {
+    console.warn('Failed to cache KPIs', e);
+  }
+}
+
+/**
+ * Récupère tous les KPIs pour le dashboard principal
+ * Tente d'utiliser le cache d'abord, sinon recalcule et met à jour le cache.
+ * @param forceRefresh Si true, ignore le cache et force le recalcul
+ */
+export async function getOverviewKPIs(forceRefresh = false): Promise<OverviewKPIs> {
+  try {
+    // 1. Essayer le cache (sauf si forcé)
+    if (!forceRefresh) {
+      const cached = await getCachedKPIs();
+      if (cached) return cached;
+    }
+
     const usersRef = collection(db, USERS_COLLECTION);
     const snapshot = await getDocs(usersRef);
 
@@ -114,7 +166,7 @@ export async function getOverviewKPIs(): Promise<OverviewKPIs> {
 
     const activeMembersTrend = 0; // Idem
 
-    return {
+    const result: OverviewKPIs = {
       totalMembers,
       activeMembers,
       activityRate: Math.round(activityRate * 10) / 10,
@@ -132,10 +184,22 @@ export async function getOverviewKPIs(): Promise<OverviewKPIs> {
         renewalRate: 0, // Nécessite historique
       },
     };
+
+    // 2. Mettre à jour le cache (background)
+    cacheKPIs(result);
+
+    return result;
   } catch (error) {
     console.error('Error getting overview KPIs:', error);
     throw error;
   }
+}
+
+/**
+ * Fonction dédiée à la recherche pour récupérer les stats très rapidement (uniquement via cache)
+ */
+export async function getStatsForSearch(): Promise<OverviewKPIs | null> {
+  return getCachedKPIs();
 }
 
 /**

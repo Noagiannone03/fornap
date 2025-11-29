@@ -12,7 +12,8 @@ import {
   IconChartBar, 
   IconPlus,
   IconCreditCard,
-  IconScan
+  IconScan,
+  IconDatabase
 } from '@tabler/icons-react';
 import { useDebouncedValue } from '@mantine/hooks';
 import { Badge, Avatar, Loader, Center, Group, Text } from '@mantine/core';
@@ -20,6 +21,7 @@ import { navigationItems } from '../../config/navigation';
 import type { NavItem } from '../../config/navigation';
 import { searchUsers } from '../../../shared/services/userService';
 import { searchEvents } from '../../../shared/services/eventService';
+import { searchStats } from '../../../shared/services/search/statsSearchService';
 import classes from './GlobalSearch.module.css';
 
 // Helper to wrap icon
@@ -44,7 +46,7 @@ export function GlobalSearch() {
     const processItem = (item: NavItem) => {
       const ItemIcon = item.icon || IconArrowRight;
       actions.push({
-        id: `nav-${item.path}`,
+        id: `nav-root-${item.path}`,
         label: item.label,
         description: `Aller à ${item.label}`,
         onClick: () => navigate(item.path),
@@ -61,7 +63,7 @@ export function GlobalSearch() {
         item.submenu.forEach((sub) => {
           const SubIcon = sub.icon || IconArrowRight;
           actions.push({
-            id: `nav-${sub.path}`,
+            id: `nav-sub-${sub.path}`,
             label: sub.label,
             description: `Aller à ${sub.label}`,
             onClick: () => navigate(sub.path),
@@ -102,13 +104,13 @@ export function GlobalSearch() {
       id: 'cmd-stats',
       label: 'Vue d\'ensemble Analytics',
       description: 'Voir les statistiques globales',
-      onClick: () => navigate('/admin/analytics'),
+      onClick: () => navigate('/admin/analytics/overview'),
       leftSection: <ActionIconWrapper className={classes.iconAction}><IconChartBar size={20} /></ActionIconWrapper>,
       group: 'Commandes Rapides',
     }
   ], [navigate]);
 
-  // 3. Fetch Async Data (Users & Events)
+  // 3. Fetch Async Data (Users, Events & Stats)
   useEffect(() => {
     if (!debouncedQuery || debouncedQuery.trim().length < 2) {
       setAsyncActions([]);
@@ -118,12 +120,30 @@ export function GlobalSearch() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [users, events] = await Promise.all([
+        const [users, events, stats] = await Promise.all([
           searchUsers(debouncedQuery),
-          searchEvents(debouncedQuery)
+          searchEvents(debouncedQuery),
+          searchStats(debouncedQuery)
         ]);
 
         const newActions: SpotlightActionData[] = [];
+
+        // Stats (Data)
+        stats.forEach(stat => {
+          newActions.push({
+            id: `stat-${stat.label}`,
+            label: stat.label,
+            description: stat.description,
+            onClick: () => navigate(stat.path),
+            leftSection: (
+              <ActionIconWrapper className={classes.iconData}>
+                <IconChartBar size={20} stroke={1.5} />
+              </ActionIconWrapper>
+            ),
+            rightSection: <Badge size="md" variant="filled" color="teal">{stat.value}</Badge>,
+            group: 'Données & Statistiques',
+          });
+        });
 
         // Users
         users.forEach(user => {
@@ -133,25 +153,11 @@ export function GlobalSearch() {
             description: user.email,
             onClick: () => navigate(`/admin/users/${user.uid}`),
             leftSection: (
-              <Avatar 
-                color="blue" 
-                radius="md" 
-                size={40}
-                className={classes.actionAvatar}
-              >
+              <Avatar color="blue" radius="md" size={36}>
                 {user.firstName?.[0]}{user.lastName?.[0]}
               </Avatar>
             ),
-            rightSection: (
-              <Badge 
-                size="xs" 
-                variant="light" 
-                color="blue"
-                className={classes.actionBadge}
-              >
-                User
-              </Badge>
-            ),
+            rightSection: <Badge size="xs" variant="light" color="blue">User</Badge>,
             group: 'Utilisateurs',
           });
         });
@@ -168,16 +174,7 @@ export function GlobalSearch() {
                 <IconCalendar size={20} stroke={1.5} />
               </ActionIconWrapper>
             ),
-            rightSection: (
-              <Badge 
-                size="xs" 
-                variant="light" 
-                color="orange"
-                className={classes.actionBadge}
-              >
-                Event
-              </Badge>
-            ),
+            rightSection: <Badge size="xs" variant="light" color="orange">Event</Badge>,
             group: 'Événements',
           });
         });

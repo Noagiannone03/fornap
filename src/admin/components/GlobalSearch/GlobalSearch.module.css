@@ -120,6 +120,15 @@
   background-color: var(--mantine-color-teal-0);
 }
 
+.iconData {
+  color: var(--mantine-color-green-6);
+  background-color: var(--mantine-color-green-0);
+}
+.action[data-selected] .iconData {
+  background-color: var(--mantine-color-white);
+  color: var(--mantine-color-green-7);
+}
+
 /* Text Styles */
 .actionLabel {
   font-weight: 600;

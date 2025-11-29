@@ -278,15 +278,39 @@ export class AIAssistantService {
         response = await openRouterService.chat(messagesWithToolResults, relevantTools);
         assistantMessage = response.choices[0].message;
 
+        // Vérifier que la réponse n'est pas vide
+        if (!assistantMessage.content || assistantMessage.content.trim() === '') {
+          console.warn('⚠️ Empty response from AI after tool execution, retrying...');
+
+          // Réessayer une fois sans les tool results dans l'historique
+          const simpleMessages = this.convertHistoryToOpenRouter();
+          simpleMessages.push({
+            role: 'user',
+            content: 'Merci pour les résultats des outils. Peux-tu maintenant me donner une réponse complète en français basée sur ces données ?'
+          });
+
+          response = await openRouterService.chat(simpleMessages, relevantTools);
+          assistantMessage = response.choices[0].message;
+
+          // Si toujours vide, utiliser un message par défaut
+          if (!assistantMessage.content || assistantMessage.content.trim() === '') {
+            console.error('❌ AI returned empty response even after retry');
+            assistantMessage.content = 'Les outils ont été exécutés avec succès, mais je n\'ai pas pu générer de réponse. Veuillez réessayer votre question.';
+          }
+        }
+
         // Retirer le message temporaire
         this.conversationHistory.pop();
       }
 
       // Créer le message assistant final
+      // Protection supplémentaire: ne jamais renvoyer de contenu vide
+      const finalContent = assistantMessage.content?.trim() || 'Désolé, je n\'ai pas pu générer de réponse. Veuillez réessayer.';
+
       const assistantMsg: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: assistantMessage.content || '',
+        content: finalContent,
         timestamp: new Date(),
         status: 'completed',
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,

@@ -138,9 +138,9 @@ export class OpenRouterService {
             }
           }
 
-          // Si erreur 400, essayer le prochain modèle
-          if (response.status === 400 && attempt < FREE_MODELS_FALLBACK.length - 1) {
-            console.warn(`Model ${modelToUse} failed with 400, trying next model...`);
+          // Si erreur 400 ou 404, essayer le prochain modèle
+          if ((response.status === 400 || response.status === 404) && attempt < FREE_MODELS_FALLBACK.length - 1) {
+            console.warn(`Model ${modelToUse} failed with ${response.status}, trying next model...`);
             continue;
           }
 
@@ -149,10 +149,17 @@ export class OpenRouterService {
 
         const data: OpenRouterResponse = await response.json();
 
+        // Vérifier que la réponse contient bien des données
+        if (!data.choices || data.choices.length === 0) {
+          throw new Error('Invalid response: no choices returned');
+        }
+
         // Sauvegarder le modèle qui a fonctionné
         if (attempt > 0) {
           this.defaultModel = modelToUse;
-          console.log(`Switched to fallback model: ${modelToUse}`);
+          console.log(`✅ Switched to fallback model: ${modelToUse}`);
+        } else {
+          console.log(`✅ Request successful with model: ${modelToUse}`);
         }
 
         return data;

@@ -335,18 +335,30 @@ export async function deleteUser(
   adminUserId: string
 ): Promise<void> {
   try {
-    // Logger l'action avant de supprimer
-    await addActionHistory(userId, {
-      actionType: 'profile_update',
-      details: {
-        description: 'Compte supprimé définitivement',
-        updatedBy: adminUserId,
-      },
-      deviceType: 'web',
-    });
+    const userRef = doc(db, USERS_COLLECTION, userId);
+    
+    // Vérifier que le document existe avant de le supprimer
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      throw new Error(`L'utilisateur avec l'ID ${userId} n'existe pas`);
+    }
+
+    // Essayer d'ajouter l'historique avant la suppression (mais ne pas faire échouer si ça échoue)
+    try {
+      await addActionHistory(userId, {
+        actionType: 'profile_update',
+        details: {
+          description: 'Compte supprimé définitivement',
+          updatedBy: adminUserId,
+        },
+        deviceType: 'web',
+      });
+    } catch (historyError) {
+      // Ne pas faire échouer la suppression si l'ajout de l'historique échoue
+      console.warn('Impossible d\'ajouter l\'historique avant suppression, continuation de la suppression:', historyError);
+    }
 
     // Hard delete: Suppression complète du document
-    const userRef = doc(db, USERS_COLLECTION, userId);
     await deleteDoc(userRef);
 
     // Note: Les sous-collections (actionHistory, membershipHistory) ne sont pas automatiquement supprimées

@@ -39,6 +39,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import { modals } from '@mantine/modals';
+import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 import {
   getAllUsersForListSeparated,
   toggleAccountBlocked,
@@ -244,11 +245,14 @@ function UserTableRow({
 
 export function EnhancedUsersListPage() {
   const navigate = useNavigate();
+  const { currentUser } = useAdminAuth();
   const [legacyMembers, setLegacyMembers] = useState<UserListItem[]>([]);
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [filteredLegacyMembers, setFilteredLegacyMembers] = useState<UserListItem[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const adminUserId = currentUser?.uid || 'system';
 
   // Filtres
   const [search, setSearch] = useState('');
@@ -367,7 +371,7 @@ export function EnhancedUsersListPage() {
       confirmProps: { color: 'red' },
       onConfirm: async () => {
         try {
-          await deleteUser(uid, 'current-admin-id');
+          await deleteUser(uid, adminUserId);
           notifications.show({
             title: 'Succès',
             message: 'Utilisateur supprimé',
@@ -399,7 +403,7 @@ export function EnhancedUsersListPage() {
         userId,
         !currentState,
         currentState ? '' : 'Bloqué via interface admin',
-        'current-admin-id'
+        adminUserId
       );
       notifications.show({
         title: 'Succès',
@@ -422,7 +426,7 @@ export function EnhancedUsersListPage() {
         userId,
         !currentState,
         currentState ? '' : 'Carte bloquée via interface admin',
-        'current-admin-id'
+        adminUserId
       );
       notifications.show({
         title: 'Succès',
@@ -465,7 +469,7 @@ export function EnhancedUsersListPage() {
       confirmProps: { color: 'blue' },
       onConfirm: async () => {
         try {
-          await migrateLegacyMember(uid, 'current-admin-id');
+          await migrateLegacyMember(uid, adminUserId);
           notifications.show({
             title: 'Succès',
             message: 'Membre migré avec succès',

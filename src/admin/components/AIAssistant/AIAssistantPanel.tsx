@@ -163,14 +163,14 @@ export function AIAssistantPanel() {
                 withBorder
                 p="md"
                 style={{
-                  backgroundColor: 'var(--mantine-color-gray-0)',
-                  borderColor: 'var(--mantine-color-indigo-2)',
+                  backgroundColor: 'var(--mantine-color-indigo-0)',
+                  borderLeft: '3px solid var(--mantine-color-indigo-5)',
                 }}
               >
                 <Group gap="sm">
                   <Loader size="sm" color="indigo" />
-                  <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
-                    Je réfléchis...
+                  <Text size="sm" c="indigo.7" fw={500}>
+                    Analyse de votre demande...
                   </Text>
                 </Group>
               </Card>
@@ -303,20 +303,89 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
   // Mapper les noms d'outils à des icônes et des labels jolis
   const getToolIcon = (toolName: string) => {
-    if (toolName.includes('search') || toolName.includes('query')) return IconSearch;
-    if (toolName.includes('database') || toolName.includes('firestore')) return IconDatabase;
-    if (toolName.includes('code') || toolName.includes('execute')) return IconCode;
-    if (toolName.includes('chart') || toolName.includes('graph')) return IconChartBar;
+    // Outils utilisateurs
+    if (toolName === 'get_user') return IconUser;
+    if (toolName === 'list_users') return IconUser;
+    if (toolName === 'get_users_count') return IconUser;
+    if (toolName === 'get_user_stats') return IconChartBar;
+    if (toolName === 'get_user_action_history') return IconDatabase;
+    if (toolName === 'get_user_membership_history') return IconDatabase;
+
+    // Outils de modification
+    if (toolName === 'update_user') return IconCode;
+    if (toolName === 'add_loyalty_points') return IconSparkles;
+    if (toolName === 'toggle_account_blocked') return IconCode;
+
+    // Outils de visualisation
+    if (toolName === 'create_chart') return IconChartBar;
+    if (toolName === 'create_contribution_chart') return IconChartBar;
+    if (toolName === 'create_item_stats_chart') return IconChartBar;
+
+    // Outils de contributions
+    if (toolName === 'get_contribution_kpis') return IconChartBar;
+    if (toolName === 'get_contribution_evolution') return IconChartBar;
+    if (toolName === 'get_item_statistics') return IconChartBar;
+    if (toolName === 'get_contribution_geographic_data') return IconDatabase;
+    if (toolName === 'get_contributor_demographics') return IconDatabase;
+    if (toolName === 'get_recent_contributions') return IconDatabase;
+    if (toolName === 'get_all_contributions') return IconDatabase;
+
+    // Outils de navigation et actions
+    if (toolName === 'navigate_to_page') return IconSparkles;
+    if (toolName.includes('prepare_')) return IconSparkles;
+
+    // Autres
+    if (toolName === 'web_search') return IconSearch;
+    if (toolName === 'calculate_custom_stats') return IconCode;
+
     return IconSparkles;
   };
 
-  const getToolLabel = (toolName: string) => {
-    if (toolName.includes('search')) return 'Recherche dans les données';
-    if (toolName.includes('database') || toolName.includes('firestore')) return 'Consultation de la base';
-    if (toolName.includes('query')) return 'Analyse des informations';
-    if (toolName.includes('code')) return 'Calculs en cours';
-    if (toolName.includes('chart') || toolName.includes('graph')) return 'Génération de graphique';
-    return toolName;
+  const getToolLabel = (toolName: string): string => {
+    const toolLabels: Record<string, string> = {
+      // Outils utilisateurs
+      'get_user': 'Récupération des informations utilisateur',
+      'list_users': 'Consultation de la liste des utilisateurs',
+      'get_users_count': 'Comptage du nombre d\'utilisateurs',
+      'get_user_stats': 'Calcul des statistiques utilisateur',
+      'get_user_action_history': 'Consultation de l\'historique d\'actions',
+      'get_user_membership_history': 'Consultation de l\'historique d\'abonnement',
+
+      // Outils de modification
+      'update_user': 'Mise à jour des informations utilisateur',
+      'add_loyalty_points': 'Ajout de points de fidélité',
+      'toggle_account_blocked': 'Modification du statut du compte',
+
+      // Outils de visualisation
+      'create_chart': 'Génération du graphique',
+      'create_contribution_chart': 'Création du graphique des contributions',
+      'create_item_stats_chart': 'Génération des statistiques par forfait',
+
+      // Outils de contributions
+      'get_contribution_kpis': 'Calcul des indicateurs de performance',
+      'get_contribution_evolution': 'Analyse de l\'évolution des contributions',
+      'get_item_statistics': 'Calcul des statistiques par forfait',
+      'get_contribution_geographic_data': 'Analyse de la répartition géographique',
+      'get_contributor_demographics': 'Analyse démographique des contributeurs',
+      'get_recent_contributions': 'Récupération des dernières contributions',
+      'get_all_contributions': 'Chargement de toutes les contributions',
+
+      // Outils plans
+      'get_membership_plans': 'Consultation des plans d\'abonnement',
+      'get_membership_plan_by_id': 'Récupération du plan d\'abonnement',
+
+      // Outils de navigation et actions
+      'navigate_to_page': 'Préparation de la navigation',
+      'prepare_delete_user': 'Préparation de la suppression',
+      'prepare_toggle_block_user': 'Préparation du blocage/déblocage',
+      'prepare_add_loyalty_points': 'Préparation de l\'ajout de points',
+
+      // Autres
+      'web_search': 'Recherche sur le web',
+      'calculate_custom_stats': 'Calculs statistiques personnalisés',
+    };
+
+    return toolLabels[toolName] || toolName;
   };
 
   return (
@@ -348,6 +417,9 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       {/* Afficher les outils utilisés AVANT la réponse (psychologie) - progressivement */}
       {!isUser && message.toolCalls && message.toolCalls.length > 0 && (
         <Stack gap="xs" mb="md">
+          <Text size="xs" fw={600} c="dimmed" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Étapes d'exécution
+          </Text>
           {message.toolCalls.slice(0, showingSteps).map((toolCall, index) => {
             const ToolIcon = getToolIcon(toolCall.name);
             const label = getToolLabel(toolCall.name);
@@ -357,29 +429,71 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             const hasChart = toolResult?.result?.chartType === 'chart';
             const hasActionCard = toolResult?.result?.type === 'action_card';
             const hasNavigationCard = toolResult?.result?.type === 'navigation_card';
+            const isProcessing = index === showingSteps - 1 && showingSteps < message.toolCalls!.length;
+            const isCompleted = index < showingSteps - 1;
 
             return (
               <Box key={toolCall.id}>
                 <Card
                   withBorder
-                  p="sm"
-                  bg="var(--mantine-color-indigo-0)"
+                  p="md"
                   style={{
-                    borderLeft: '3px solid var(--mantine-color-indigo-5)',
-                    animation: 'slideInLeft 0.3s ease-out',
+                    background: isProcessing
+                      ? 'linear-gradient(135deg, var(--mantine-color-indigo-0) 0%, var(--mantine-color-violet-0) 100%)'
+                      : isCompleted
+                      ? 'var(--mantine-color-green-0)'
+                      : 'var(--mantine-color-gray-0)',
+                    borderLeft: `4px solid ${
+                      isProcessing
+                        ? 'var(--mantine-color-indigo-5)'
+                        : isCompleted
+                        ? 'var(--mantine-color-green-5)'
+                        : 'var(--mantine-color-gray-4)'
+                    }`,
+                    animation: 'slideInLeft 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: isProcessing ? '0 4px 12px rgba(79, 70, 229, 0.15)' : 'none',
+                    transition: 'all 0.3s ease',
                   }}
                 >
-                  <Group gap="xs" justify="space-between">
-                    <Group gap="xs">
-                      <ToolIcon size={18} color="var(--mantine-color-indigo-7)" />
-                      <Text size="xs" fw={500} c="indigo.7">
-                        {label}
-                      </Text>
+                  <Group gap="sm" justify="space-between">
+                    <Group gap="sm">
+                      <Box
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '8px',
+                          background: isCompleted
+                            ? 'var(--mantine-color-green-1)'
+                            : 'var(--mantine-color-indigo-1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <ToolIcon
+                          size={18}
+                          color={isCompleted
+                            ? 'var(--mantine-color-green-7)'
+                            : 'var(--mantine-color-indigo-7)'
+                          }
+                        />
+                      </Box>
+                      <Box>
+                        <Text size="sm" fw={600} c={isCompleted ? 'green.8' : 'indigo.8'}>
+                          {label}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {isProcessing && 'En cours...'}
+                          {isCompleted && 'Terminé'}
+                        </Text>
+                      </Box>
                     </Group>
-                    {index === showingSteps - 1 && showingSteps < message.toolCalls!.length && (
-                      <Loader size="xs" color="indigo" />
+                    {isProcessing && (
+                      <Loader size="sm" color="indigo" />
                     )}
-                    {index < showingSteps - 1 && <IconCheck size={16} color="var(--mantine-color-green-6)" />}
+                    {isCompleted && (
+                      <IconCheck size={20} color="var(--mantine-color-green-6)" strokeWidth={2.5} />
+                    )}
                   </Group>
                 </Card>
 
@@ -421,6 +535,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             transform: translateY(0);
           }
         }
+
       `}</style>
 
       <Card

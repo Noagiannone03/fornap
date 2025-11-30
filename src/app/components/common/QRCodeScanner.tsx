@@ -148,24 +148,93 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
     }
     lastScanTimeRef.current = now;
 
-    // Parser le contenu du QR code
-    const { parseQRCodeContent } = await import('../../../shared/utils/qrcode');
-    const uid = parseQRCodeContent(qrContent);
+    let uid: string | null = null;
+    let isPending = false;
 
-    if (uid) {
-      setSuccess(true);
-      setError(null);
+    // Vérifier si c'est un QR code PENDING (format: FORNAP-MEMBER:uid:PENDING)
+    if (qrContent.includes(':PENDING')) {
+      const parts = qrContent.split(':');
+      if (parts.length === 3 && parts[0] === 'FORNAP-MEMBER' && parts[2] === 'PENDING') {
+        uid = parts[1];
+        isPending = true;
+      }
+    }
 
-      // Appeler onScan mais garder le scanner actif
-      onScan(uid);
+    // Si ce n'est pas un QR PENDING, parser normalement
+    if (!uid) {
+      const { parseQRCodeContent } = await import('../../../shared/utils/qrcode');
+      uid = parseQRCodeContent(qrContent);
+    }
 
-      // Réinitialiser le message de succès après 1.5 secondes
-      setTimeout(() => {
-        setSuccess(false);
-      }, 1500);
-    } else {
+    // Vérifier qu'on a bien un UID valide
+    if (!uid) {
       setError('QR code invalide. Veuillez scanner un QR code Fornap.');
       onError?.('QR code invalide');
+      return;
+    }
+
+    // Si c'est un utilisateur PENDING, proposer la validation
+    if (isPending) {
+      handlePendingPayment(uid);
+      return;
+    }
+
+    // Scan normal
+    setSuccess(true);
+    setError(null);
+    onScan(uid);
+
+    // Réinitialiser le message de succès après 1.5 secondes
+    setTimeout(() => {
+      setSuccess(false);
+    }, 1500);
+  };
+
+  // Gérer les paiements pending
+  const handlePendingPayment = async (uid: string) => {
+    const shouldValidate = window.confirm(
+      '⚠️ ATTENTION: Ce membre est en attente de paiement.\n\n' +
+      'Cliquez sur "OK" pour VALIDER LE PAIEMENT et envoyer la carte d\'adhérent par email.\n' +
+      'Cliquez sur "Annuler" pour SCANNER NORMALEMENT sans valider le paiement.'
+    );
+
+    if (shouldValidate) {
+      // L'utilisateur veut valider le paiement
+      try {
+        // Appeler l'API pour valider le paiement
+        const response = await fetch('/api/adhesion/validate-pending-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId: uid }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert('✅ Paiement validé avec succès ! Un email a été envoyé au membre.');
+          setSuccess(true);
+          
+          // Scanner l'utilisateur maintenant qu'il est validé
+          onScan(uid);
+          
+          setTimeout(() => setSuccess(false), 1500);
+        } else {
+          alert('❌ Erreur lors de la validation du paiement: ' + data.error);
+          setError('Erreur lors de la validation du paiement');
+        }
+      } catch (error) {
+        console.error('❌ Erreur:', error);
+        alert('❌ Erreur lors de la validation du paiement');
+        setError('Erreur réseau lors de la validation');
+      }
+    } else {
+      // L'utilisateur veut juste scanner sans valider
+      // Scanner normalement même si le paiement est pending
+      setSuccess(true);
+      onScan(uid);
+      setTimeout(() => setSuccess(false), 1500);
     }
   };
 

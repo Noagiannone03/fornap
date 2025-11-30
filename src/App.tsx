@@ -11,6 +11,7 @@ import { Dashboard } from './app/pages/Dashboard';
 import { Profile } from './app/pages/Profile';
 import { QRCodeSuccess } from './app/pages/QRCodeSuccess';
 import { CheckIn } from './app/pages/CheckIn';
+import { Adhesion } from './app/pages/Adhesion';
 import { AdminRoutes } from './admin/routes';
 import { AdminAuthProvider } from './shared/contexts/AdminAuthContext';
 import { EventScannerPage } from './admin/pages/Scanner/EventScannerPage';
@@ -44,8 +45,9 @@ function App() {
             }
           />
 
-          {/* Routes sans navbar (inscription et QR login) */}
+          {/* Routes sans navbar (inscription, adhésion et QR login) */}
           <Route path="/signup" element={<EnhancedSignup />} />
+          <Route path="/adhesion" element={<Adhesion />} />
           <Route path="/qr-login" element={<QRLogin />} />
           <Route path="/signup-success" element={
             <ProtectedRoute>

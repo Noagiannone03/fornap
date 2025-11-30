@@ -82,3 +82,20 @@ export function getAuth(): Auth {
   const app = getFirebaseAdmin();
   return admin.auth(app);
 }
+
+/**
+ * Retourne FieldValue pour les opérations Firestore
+ * (serverTimestamp, increment, etc.)
+ */
+export function getFieldValue() {
+  getFirebaseAdmin(); // S'assurer que Firebase est initialisé
+  return admin.firestore.FieldValue;
+}
+
+/**
+ * Retourne Timestamp pour créer des timestamps Firestore
+ */
+export function getTimestamp() {
+  getFirebaseAdmin(); // S'assurer que Firebase est initialisé
+  return admin.firestore.Timestamp;
+}

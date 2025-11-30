@@ -17,7 +17,7 @@ import * as admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { getFirestore } from '../_lib/firebase-admin.js';
+import { getFirestore, getFieldValue, getTimestamp } from '../_lib/firebase-admin.js';
 
 // Types
 interface MembershipCardEmailData {
@@ -32,7 +32,7 @@ interface UserData {
   lastName: string;
   currentMembership: {
     planType: 'monthly' | 'annual' | 'lifetime';
-    expiryDate: admin.firestore.Timestamp | Date | string | number | { _seconds: number; _nanoseconds: number } | null;
+    expiryDate: admin.firestore.Timestamp | Date | string | number | { _seconds: number; _nanoseconds: number } | { seconds: number; nanoseconds: number } | null;
     planName: string;
   };
   emailStatus?: {
@@ -126,9 +126,10 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
           // C'est un Timestamp Firestore
           expiryDate = userData.currentMembership.expiryDate.toDate();
         } else if (typeof userData.currentMembership.expiryDate === 'object' && 
-                   '_seconds' in userData.currentMembership.expiryDate) {
-          // Format sérialisé avec _seconds et _nanoseconds
-          expiryDate = new Date((userData.currentMembership.expiryDate as any)._seconds * 1000);
+                   ('_seconds' in userData.currentMembership.expiryDate || 'seconds' in userData.currentMembership.expiryDate)) {
+          // Format sérialisé avec _seconds/_nanoseconds ou seconds/nanoseconds
+          const seconds = (userData.currentMembership.expiryDate as any)._seconds || (userData.currentMembership.expiryDate as any).seconds;
+          expiryDate = new Date(seconds * 1000);
         } else if (userData.currentMembership.expiryDate instanceof Date) {
           // C'est déjà un objet Date
           expiryDate = userData.currentMembership.expiryDate;
@@ -270,16 +271,20 @@ async function markEmailAsSent(userId: string, isResend: boolean): Promise<void>
 
     const newCount = isResend ? currentEmailStatus.membershipCardSentCount + 1 : 1;
 
+    // Utiliser la fonction helper getFieldValue() pour obtenir FieldValue
+    const FieldValue = getFieldValue();
+
     await userRef.update({
       'emailStatus.membershipCardSent': true,
-      'emailStatus.membershipCardSentAt': admin.firestore.FieldValue.serverTimestamp(),
+      'emailStatus.membershipCardSentAt': FieldValue.serverTimestamp(),
       'emailStatus.membershipCardSentCount': newCount,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     console.log(`✅ Email status updated for user ${userId} (count: ${newCount})`);
   } catch (error) {
     console.error('❌ Error marking email as sent:', error);
+    console.error('Error details:', error);
     throw new Error('Failed to update email status in database');
   }
 }

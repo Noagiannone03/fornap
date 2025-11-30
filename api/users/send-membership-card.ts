@@ -17,7 +17,7 @@ import * as admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { getFirebaseAdmin, getFirestore } from '../_lib/firebase-admin.js';
+import { getFirestore } from '../_lib/firebase-admin.js';
 
 // Types
 interface MembershipCardEmailData {
@@ -263,8 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Initialiser Firebase Admin
-    getFirebaseAdmin();
+    // Récupérer l'instance Firestore (initialise Firebase Admin automatiquement)
     const db = getFirestore();
 
     // Valider le body

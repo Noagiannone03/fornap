@@ -5,7 +5,7 @@
  * et fournit des helpers pour accéder à Firestore.
  */
 
-import * as admin from 'firebase-admin';
+import admin from 'firebase-admin';
 
 // Variable pour stocker l'instance initialisée
 let firebaseApp: admin.app.App | null = null;
@@ -35,11 +35,21 @@ export function getFirebaseAdmin(): admin.app.App {
       throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set');
     }
 
+    console.log('🔍 Parsing service account key...');
     const serviceAccount = JSON.parse(serviceAccountKey);
+
+    console.log('🔍 Initializing Firebase Admin with credential...');
+    console.log('Project ID:', serviceAccount.project_id);
+    
+    // Vérifier que admin.credential existe
+    if (!admin.credential) {
+      console.error('❌ admin.credential is undefined');
+      throw new Error('Firebase Admin credential module is not available');
+    }
 
     // Initialiser Firebase Admin avec la bonne syntaxe
     firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+      credential: admin.credential.cert(serviceAccount),
       projectId: serviceAccount.project_id || process.env.VITE_FIREBASE_PROJECT_ID,
     });
 
@@ -47,7 +57,8 @@ export function getFirebaseAdmin(): admin.app.App {
     return firebaseApp;
   } catch (error) {
     console.error('❌ Error initializing Firebase Admin:', error);
-    throw new Error('Failed to initialize Firebase Admin');
+    console.error('Error details:', error);
+    throw new Error(`Failed to initialize Firebase Admin: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 

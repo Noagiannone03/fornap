@@ -8,11 +8,16 @@ import {
   Alert,
   Box,
   Center,
+  Modal,
+  Title,
+  Badge,
 } from '@mantine/core';
 import {
   IconAlertCircle,
   IconCheck,
   IconRefresh,
+  IconCreditCard,
+  IconClock,
 } from '@tabler/icons-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -26,6 +31,9 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [startRequested, setStartRequested] = useState(false);
+  const [pendingModalOpen, setPendingModalOpen] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [validatingPayment, setValidatingPayment] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerDivRef = useRef<HTMLDivElement>(null);
   const lastScanTimeRef = useRef<number>(0);
@@ -192,50 +200,65 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
 
   // Gérer les paiements pending
   const handlePendingPayment = async (uid: string) => {
-    const shouldValidate = window.confirm(
-      '⚠️ ATTENTION: Ce membre est en attente de paiement.\n\n' +
-      'Cliquez sur "OK" pour VALIDER LE PAIEMENT et envoyer la carte d\'adhérent par email.\n' +
-      'Cliquez sur "Annuler" pour SCANNER NORMALEMENT sans valider le paiement.'
-    );
+    // Ouvrir le modal élégant au lieu du window.confirm
+    setPendingUserId(uid);
+    setPendingModalOpen(true);
+  };
 
-    if (shouldValidate) {
-      // L'utilisateur veut valider le paiement
-      try {
-        // Appeler l'API pour valider le paiement
-        const response = await fetch('/api/adhesion/validate-pending-payment', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userId: uid }),
-        });
+  // Valider le paiement depuis le modal
+  const handleValidatePayment = async () => {
+    if (!pendingUserId) return;
 
-        const data = await response.json();
+    setValidatingPayment(true);
 
-        if (data.success) {
-          alert('✅ Paiement validé avec succès ! Un email a été envoyé au membre.');
-          setSuccess(true);
-          
-          // Scanner l'utilisateur maintenant qu'il est validé
-          onScan(uid);
-          
-          setTimeout(() => setSuccess(false), 1500);
-        } else {
-          alert('❌ Erreur lors de la validation du paiement: ' + data.error);
-          setError('Erreur lors de la validation du paiement');
-        }
-      } catch (error) {
-        console.error('❌ Erreur:', error);
-        alert('❌ Erreur lors de la validation du paiement');
-        setError('Erreur réseau lors de la validation');
+    try {
+      // Appeler l'API pour valider le paiement
+      const response = await fetch('/api/adhesion/validate-pending-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: pendingUserId }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(true);
+        setPendingModalOpen(false);
+        
+        // Scanner l'utilisateur maintenant qu'il est validé
+        onScan(pendingUserId);
+        
+        // Message de succès
+        setTimeout(() => {
+          setSuccess(false);
+        }, 2000);
+      } else {
+        setError('Erreur lors de la validation du paiement: ' + data.error);
+        setPendingModalOpen(false);
       }
-    } else {
-      // L'utilisateur veut juste scanner sans valider
-      // Scanner normalement même si le paiement est pending
-      setSuccess(true);
-      onScan(uid);
-      setTimeout(() => setSuccess(false), 1500);
+    } catch (error) {
+      console.error('❌ Erreur:', error);
+      setError('Erreur réseau lors de la validation');
+      setPendingModalOpen(false);
+    } finally {
+      setValidatingPayment(false);
+      setPendingUserId(null);
     }
+  };
+
+  // Scanner sans valider le paiement
+  const handleScanWithoutValidation = () => {
+    if (!pendingUserId) return;
+
+    setSuccess(true);
+    onScan(pendingUserId);
+    
+    setPendingModalOpen(false);
+    setPendingUserId(null);
+    
+    setTimeout(() => setSuccess(false), 1500);
   };
 
   // Auto-start scanner on mount
@@ -245,6 +268,128 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
 
   return (
     <Stack gap="md">
+      {/* Modal de validation de paiement en attente */}
+      <Modal
+        opened={pendingModalOpen}
+        onClose={() => {
+          if (!validatingPayment) {
+            setPendingModalOpen(false);
+            setPendingUserId(null);
+          }
+        }}
+        title={
+          <Group gap="sm">
+            <IconClock size={24} color="#f59f00" />
+            <Title order={3}>Paiement en attente</Title>
+          </Group>
+        }
+        centered
+        size="md"
+        styles={{
+          title: {
+            fontWeight: 600,
+          },
+          header: {
+            borderBottom: '2px solid #f59f00',
+            paddingBottom: '12px',
+          },
+        }}
+      >
+        <Stack gap="lg" py="md">
+          {/* Badge d'alerte */}
+          <Center>
+            <Badge
+              size="xl"
+              variant="light"
+              color="orange"
+              leftSection={<IconClock size={18} />}
+              styles={{
+                root: {
+                  paddingLeft: 12,
+                  paddingRight: 16,
+                  height: 36,
+                },
+              }}
+            >
+              En attente de validation
+            </Badge>
+          </Center>
+
+          {/* Message explicatif */}
+          <Box
+            p="md"
+            style={{
+              backgroundColor: '#fff3e0',
+              borderRadius: '12px',
+              border: '2px solid #f59f00',
+            }}
+          >
+            <Stack gap="sm">
+              <Text size="md" fw={500} c="#e67700">
+                ⚠️ Ce membre a effectué son inscription mais son paiement n'a pas encore été validé.
+              </Text>
+              <Text size="sm" c="dimmed">
+                Avant de continuer, vérifiez avec le membre qu'il a bien effectué son paiement au comptoir ou par le moyen convenu.
+              </Text>
+            </Stack>
+          </Box>
+
+          {/* Options */}
+          <Stack gap="md">
+            <Button
+              size="lg"
+              color="green"
+              leftSection={<IconCreditCard size={20} />}
+              onClick={handleValidatePayment}
+              loading={validatingPayment}
+              fullWidth
+              styles={{
+                root: {
+                  height: 56,
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                },
+              }}
+            >
+              Valider le paiement et envoyer la carte
+            </Button>
+
+            <Button
+              size="md"
+              variant="light"
+              color="gray"
+              onClick={handleScanWithoutValidation}
+              disabled={validatingPayment}
+              fullWidth
+              styles={{
+                root: {
+                  height: 48,
+                  borderRadius: '10px',
+                },
+              }}
+            >
+              Scanner sans valider le paiement
+            </Button>
+          </Stack>
+
+          {/* Note informative */}
+          <Alert
+            color="blue"
+            variant="light"
+            styles={{
+              root: {
+                borderRadius: '10px',
+              },
+            }}
+          >
+            <Text size="xs" c="dimmed">
+              💡 <strong>Note:</strong> La validation du paiement enverra automatiquement un email avec la carte d'adhérent au membre.
+            </Text>
+          </Alert>
+        </Stack>
+      </Modal>
+
       {/* Zone de scan caméra */}
       {(scanning || startRequested) ? (
         <Box

@@ -32,7 +32,7 @@ interface UserData {
   lastName: string;
   currentMembership: {
     planType: 'monthly' | 'annual' | 'lifetime';
-    expiryDate: admin.firestore.Timestamp | null;
+    expiryDate: admin.firestore.Timestamp | Date | string | number | { _seconds: number; _nanoseconds: number } | null;
     planName: string;
   };
   emailStatus?: {
@@ -116,8 +116,39 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     // Date d'expiration
     let expiryText = 'Membre honoraire';
     if (userData.currentMembership.expiryDate) {
-      const expiryDate = userData.currentMembership.expiryDate.toDate();
-      expiryText = `expire le ${expiryDate.toLocaleDateString('fr-FR')}`;
+      try {
+        let expiryDate: Date;
+        
+        // Gérer différents formats de date possibles
+        if (typeof userData.currentMembership.expiryDate === 'object' && 
+            'toDate' in userData.currentMembership.expiryDate && 
+            typeof userData.currentMembership.expiryDate.toDate === 'function') {
+          // C'est un Timestamp Firestore
+          expiryDate = userData.currentMembership.expiryDate.toDate();
+        } else if (typeof userData.currentMembership.expiryDate === 'object' && 
+                   '_seconds' in userData.currentMembership.expiryDate) {
+          // Format sérialisé avec _seconds et _nanoseconds
+          expiryDate = new Date((userData.currentMembership.expiryDate as any)._seconds * 1000);
+        } else if (userData.currentMembership.expiryDate instanceof Date) {
+          // C'est déjà un objet Date
+          expiryDate = userData.currentMembership.expiryDate;
+        } else if (typeof userData.currentMembership.expiryDate === 'string') {
+          // C'est une chaîne de caractères
+          expiryDate = new Date(userData.currentMembership.expiryDate);
+        } else if (typeof userData.currentMembership.expiryDate === 'number') {
+          // C'est un timestamp en millisecondes
+          expiryDate = new Date(userData.currentMembership.expiryDate);
+        } else {
+          // Format inconnu, on garde le texte par défaut
+          console.warn('⚠️ Unknown date format for expiryDate:', userData.currentMembership.expiryDate);
+          expiryDate = new Date();
+        }
+        
+        expiryText = `expire le ${expiryDate.toLocaleDateString('fr-FR')}`;
+      } catch (dateError) {
+        console.error('❌ Error parsing expiry date:', dateError);
+        expiryText = 'Membre honoraire';
+      }
     }
     
     ctx.font = '18px Arial';

@@ -21,7 +21,8 @@ export function getFirebaseAdmin(): admin.app.App {
 
   try {
     // Vérifier si Firebase Admin est déjà initialisé
-    if (admin.apps.length > 0) {
+    // Vérifier d'abord si admin.apps existe et est un tableau
+    if (admin.apps && Array.isArray(admin.apps) && admin.apps.length > 0) {
       firebaseApp = admin.apps[0] as admin.app.App;
       console.log('✅ Firebase Admin already initialized');
       return firebaseApp;

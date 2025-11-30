@@ -16,7 +16,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
-import { createCanvas, loadImage } from 'canvas';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { getFirebaseAdmin, getFirestore } from '../_lib/firebase-admin';
 
 // Types

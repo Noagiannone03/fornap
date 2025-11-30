@@ -6,15 +6,18 @@
  */
 
 import admin from 'firebase-admin';
+import type { App } from 'firebase-admin/app';
+import type { Firestore } from 'firebase-admin/firestore';
+import type { Auth } from 'firebase-admin/auth';
 
 // Variable pour stocker l'instance initialisée
-let firebaseApp: admin.app.App | null = null;
+let firebaseApp: App | null = null;
 
 /**
  * Initialise Firebase Admin SDK (une seule fois)
  * Utilise les variables d'environnement Vercel
  */
-export function getFirebaseAdmin(): admin.app.App {
+export function getFirebaseAdmin(): App {
   if (firebaseApp) {
     return firebaseApp;
   }
@@ -23,7 +26,7 @@ export function getFirebaseAdmin(): admin.app.App {
     // Vérifier si Firebase Admin est déjà initialisé
     // Vérifier d'abord si admin.apps existe et est un tableau
     if (admin.apps && Array.isArray(admin.apps) && admin.apps.length > 0) {
-      firebaseApp = admin.apps[0] as admin.app.App;
+      firebaseApp = admin.apps[0] as App;
       console.log('✅ Firebase Admin already initialized');
       return firebaseApp;
     }
@@ -66,7 +69,7 @@ export function getFirebaseAdmin(): admin.app.App {
  * Retourne une instance de Firestore
  * Initialise Firebase Admin si nécessaire
  */
-export function getFirestore(): admin.firestore.Firestore {
+export function getFirestore(): Firestore {
   const app = getFirebaseAdmin();
   return admin.firestore(app);
 }
@@ -75,7 +78,7 @@ export function getFirestore(): admin.firestore.Firestore {
  * Retourne une instance de Firebase Auth
  * Initialise Firebase Admin si nécessaire
  */
-export function getAuth(): admin.auth.Auth {
+export function getAuth(): Auth {
   const app = getFirebaseAdmin();
   return admin.auth(app);
 }

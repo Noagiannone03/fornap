@@ -147,6 +147,16 @@ export interface ExtendedProfile {
 }
 
 /**
+ * Statut d'envoi des emails
+ */
+export interface EmailStatus {
+  membershipCardSent: boolean;
+  membershipCardSentAt: Timestamp | null;
+  membershipCardSentCount: number;
+  lastEmailError?: string;
+}
+
+/**
  * Structure complète d'un utilisateur dans Firestore
  */
 export interface User {
@@ -177,6 +187,9 @@ export interface User {
 
   // Profil étendu (uniquement pour abonnements annuels)
   extendedProfile?: ExtendedProfile;
+
+  // Statut d'envoi des emails
+  emailStatus?: EmailStatus;
 
   // Timestamps
   createdAt: Timestamp;
@@ -450,6 +463,8 @@ export interface UserListItem {
   // Indicateur pour les anciens membres non migrés
   isLegacy?: boolean;
   legacyData?: LegacyMember;
+  // Statut d'envoi de l'email
+  emailStatus?: EmailStatus;
 }
 
 /**

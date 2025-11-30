@@ -1,0 +1,19 @@
+{
+  "name": "fornap-api",
+  "version": "1.0.0",
+  "description": "API serverless pour FORNAP",
+  "type": "module",
+  "dependencies": {
+    "@vercel/node": "^3.0.0",
+    "firebase-admin": "^13.6.0",
+    "nodemailer": "^7.0.10",
+    "qrcode": "^1.5.4",
+    "canvas": "^2.11.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/nodemailer": "^7.0.3",
+    "@types/qrcode": "^1.5.6"
+  }
+}
+

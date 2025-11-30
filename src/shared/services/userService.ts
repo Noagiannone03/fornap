@@ -1002,6 +1002,11 @@ export async function getAllUsersForListSeparated(): Promise<SeparatedUsersList>
         isCardBlocked: data.status?.isCardBlocked || false,
         registrationSource: data.registration?.source || 'platform',
         isLegacy: false,
+        emailStatus: data.emailStatus || {
+          membershipCardSent: false,
+          membershipCardSentAt: null,
+          membershipCardSentCount: 0,
+        },
       });
     });
 
@@ -1169,6 +1174,80 @@ export async function searchUsers(searchQuery: string): Promise<UserListItem[]> 
   } catch (error) {
     console.error('Error searching users:', error);
     return [];
+  }
+}
+
+/**
+ * Envoie la carte d'adhérent par email à un utilisateur
+ * @param userId - ID de l'utilisateur
+ * @param forceResend - Force le renvoi même si déjà envoyé
+ * @returns Résultat de l'envoi
+ */
+export async function sendMembershipCard(
+  userId: string,
+  forceResend: boolean = false
+): Promise<{ success: boolean; message: string; error?: string }> {
+  try {
+    // Appeler l'API Vercel serverless
+    const apiUrl = `${import.meta.env.VITE_API_URL || ''}/api/users/send-membership-card`;
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        forceResend,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to send membership card');
+    }
+
+    return {
+      success: data.success,
+      message: data.message || 'Email sent successfully',
+    };
+  } catch (error: any) {
+    console.error('Error sending membership card:', error);
+    return {
+      success: false,
+      message: 'Failed to send membership card',
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * Récupère le statut d'envoi de l'email pour un utilisateur
+ */
+export async function getEmailStatus(userId: string): Promise<{
+  sent: boolean;
+  sentAt: Timestamp | null;
+  sentCount: number;
+} | null> {
+  try {
+    const user = await getUserById(userId);
+    if (!user || !user.emailStatus) {
+      return {
+        sent: false,
+        sentAt: null,
+        sentCount: 0,
+      };
+    }
+
+    return {
+      sent: user.emailStatus.membershipCardSent,
+      sentAt: user.emailStatus.membershipCardSentAt,
+      sentCount: user.emailStatus.membershipCardSentCount,
+    };
+  } catch (error) {
+    console.error('Error getting email status:', error);
+    return null;
   }
 }
 

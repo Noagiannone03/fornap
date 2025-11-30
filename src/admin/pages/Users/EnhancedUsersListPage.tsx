@@ -35,6 +35,9 @@ import {
   IconArrowRight,
   IconUsers,
   IconAlertTriangle,
+  IconMailCheck,
+  IconMailX,
+  IconSend,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -46,6 +49,7 @@ import {
   toggleCardBlocked,
   deleteUser,
   migrateLegacyMember,
+  sendMembershipCard,
 } from '../../../shared/services/userService';
 import type {
   UserListItem,
@@ -83,6 +87,7 @@ function UserTableRow({
   onToggleAccountBlock,
   onToggleCardBlock,
   onMigrate,
+  onSendMembershipCard,
 }: {
   user: UserListItem;
   isLegacy: boolean;
@@ -93,8 +98,11 @@ function UserTableRow({
   onToggleAccountBlock?: (uid: string, current: boolean) => void;
   onToggleCardBlock?: (uid: string, current: boolean) => void;
   onMigrate?: (uid: string, name: string) => void;
+  onSendMembershipCard?: (uid: string, userName: string, isResend: boolean) => void;
 }) {
   const hasDataAnomaly = user.tags.includes('DATA_ANOMALY');
+  const emailSent = user.emailStatus?.membershipCardSent || false;
+  const emailSentCount = user.emailStatus?.membershipCardSentCount || 0;
 
   return (
     <Table.Tr style={isLegacy ? { backgroundColor: 'rgba(255, 165, 0, 0.08)' } : undefined}>
@@ -108,6 +116,23 @@ function UserTableRow({
             <Text size="sm" fw={500}>
               {user.firstName} {user.lastName}
             </Text>
+            {!isLegacy && (
+              <Group gap={4} mt={4}>
+                {emailSent ? (
+                  <Tooltip label={`Email envoyé ${emailSentCount} fois - Dernière fois: ${user.emailStatus?.membershipCardSentAt?.toDate().toLocaleDateString('fr-FR') || 'N/A'}`}>
+                    <Badge size="xs" variant="light" color="green" leftSection={<IconMailCheck size={12} />}>
+                      Email envoyé {emailSentCount > 1 ? `(x${emailSentCount})` : ''}
+                    </Badge>
+                  </Tooltip>
+                ) : (
+                  <Tooltip label="Email de carte d'adhérent non envoyé">
+                    <Badge size="xs" variant="light" color="red" leftSection={<IconMailX size={12} />}>
+                      Email non envoyé
+                    </Badge>
+                  </Tooltip>
+                )}
+              </Group>
+            )}
           </div>
         </Group>
       </Table.Td>
@@ -205,6 +230,14 @@ function UserTableRow({
                     onClick={() => onSendEmail?.(user.email)}
                   >
                     Envoyer un email
+                  </Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item
+                    leftSection={<IconSend size={14} />}
+                    color={emailSent ? 'blue' : 'green'}
+                    onClick={() => onSendMembershipCard?.(user.uid, `${user.firstName} ${user.lastName}`, emailSent)}
+                  >
+                    {emailSent ? 'Renvoyer' : 'Envoyer'} la carte d'adhérent
                   </Menu.Item>
                   <Menu.Divider />
                   <Menu.Item
@@ -446,6 +479,69 @@ export function EnhancedUsersListPage() {
   // Note: La régénération du QR code n'est plus nécessaire car le QR code
   // est maintenant basé directement sur l'UID de l'utilisateur, qui ne change jamais.
 
+  const handleSendMembershipCard = (uid: string, userName: string, isResend: boolean) => {
+    modals.openConfirmModal({
+      title: isResend ? 'Renvoyer la carte d\'adhérent' : 'Envoyer la carte d\'adhérent',
+      centered: true,
+      children: (
+        <Stack gap="xs">
+          {isResend ? (
+            <>
+              <Text size="sm">
+                Êtes-vous sûr de vouloir <strong>renvoyer</strong> la carte d'adhérent à <strong>{userName}</strong> ?
+              </Text>
+              <Text size="sm">
+                L'email a déjà été envoyé précédemment. Cette action enverra un nouvel email avec la carte.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text size="sm">
+                Êtes-vous sûr de vouloir envoyer la carte d'adhérent à <strong>{userName}</strong> ?
+              </Text>
+              <Text size="sm">
+                L'utilisateur recevra un email avec :
+              </Text>
+              <div style={{ paddingLeft: '20px' }}>
+                <Text size="sm">• Sa carte d'adhérent personnalisée</Text>
+                <Text size="sm">• Son QR code unique</Text>
+                <Text size="sm">• Les informations sur son abonnement</Text>
+              </div>
+            </>
+          )}
+        </Stack>
+      ),
+      labels: { confirm: isResend ? 'Renvoyer' : 'Envoyer', cancel: 'Annuler' },
+      confirmProps: { color: isResend ? 'blue' : 'green', loading: false },
+      onConfirm: async () => {
+        try {
+          const result = await sendMembershipCard(uid, isResend);
+          
+          if (result.success) {
+            notifications.show({
+              title: 'Succès',
+              message: result.message || 'Carte d\'adhérent envoyée avec succès',
+              color: 'green',
+            });
+            loadUsers(); // Recharger pour mettre à jour l'indicateur
+          } else {
+            notifications.show({
+              title: 'Erreur',
+              message: result.error || 'Impossible d\'envoyer la carte d\'adhérent',
+              color: 'red',
+            });
+          }
+        } catch (error: any) {
+          notifications.show({
+            title: 'Erreur',
+            message: error.message || 'Une erreur est survenue lors de l\'envoi',
+            color: 'red',
+          });
+        }
+      },
+    });
+  };
+
   const handleMigrateLegacyMember = (uid: string, userName: string) => {
     modals.openConfirmModal({
       title: 'Migrer vers le nouveau système',
@@ -683,6 +779,7 @@ export function EnhancedUsersListPage() {
                     onSendEmail={handleSendEmail}
                     onToggleAccountBlock={handleToggleAccountBlock}
                     onToggleCardBlock={handleToggleCardBlock}
+                    onSendMembershipCard={handleSendMembershipCard}
                   />
                 ))}
               </Table.Tbody>

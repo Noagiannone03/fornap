@@ -20,14 +20,25 @@ export function getFirebaseAdmin(): admin.app.App {
   }
 
   try {
-    // Récupérer les credentials depuis les variables d'environnement
-    const serviceAccount = JSON.parse(
-      process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}'
-    );
+    // Vérifier si Firebase Admin est déjà initialisé
+    if (admin.apps.length > 0) {
+      firebaseApp = admin.apps[0] as admin.app.App;
+      console.log('✅ Firebase Admin already initialized');
+      return firebaseApp;
+    }
 
-    // Initialiser Firebase Admin
+    // Récupérer les credentials depuis les variables d'environnement
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    
+    if (!serviceAccountKey) {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set');
+    }
+
+    const serviceAccount = JSON.parse(serviceAccountKey);
+
+    // Initialiser Firebase Admin avec la bonne syntaxe
     firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+      credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
       projectId: serviceAccount.project_id || process.env.VITE_FIREBASE_PROJECT_ID,
     });
 

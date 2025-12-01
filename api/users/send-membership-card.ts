@@ -107,6 +107,34 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     ctx.shadowColor = '#000000';
     ctx.shadowBlur = 2;
 
+    // UID avec les 5 premiers caractères en gras pour identification
+    const uidPrefix = userData.uid.substring(0, 5);
+    const uidSuffix = userData.uid.substring(5);
+    
+    // Calculer la largeur pour centrer correctement
+    ctx.font = 'bold 16px Arial';
+    const prefixWidth = ctx.measureText(uidPrefix).width;
+    ctx.font = '16px Arial';
+    const suffixWidth = ctx.measureText(uidSuffix).width;
+    const totalWidth = prefixWidth + suffixWidth;
+    
+    // Position de départ (centré horizontalement)
+    const startX = 225 - (totalWidth / 2);
+    let currentX = startX;
+    
+    // Dessiner la partie bold (5 premiers caractères)
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(uidPrefix, currentX, 600);
+    currentX += prefixWidth;
+    
+    // Dessiner la partie normale (reste de l'UID)
+    ctx.font = '16px Arial';
+    ctx.fillText(uidSuffix, currentX, 600);
+    
+    // Remettre textAlign à center pour les éléments suivants
+    ctx.textAlign = 'center';
+
     // Type d'abonnement
     const membershipTypeLabel = 
       userData.currentMembership.planType === 'monthly' ? 'membre mensuel' :

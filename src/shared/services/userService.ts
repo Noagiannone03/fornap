@@ -329,6 +329,7 @@ export async function updateUser(
 
 /**
  * Supprime définitivement un utilisateur (hard delete)
+ * Supprime le document principal ET toutes les sous-collections associées
  */
 export async function deleteUser(
   userId: string,
@@ -343,29 +344,34 @@ export async function deleteUser(
       throw new Error(`L'utilisateur avec l'ID ${userId} n'existe pas`);
     }
 
-    // Essayer d'ajouter l'historique avant la suppression (mais ne pas faire échouer si ça échoue)
+    console.log(`[DELETE USER] Suppression de l'utilisateur ${userId} par admin ${adminUserId}`);
+
+    // 1. Supprimer les sous-collections
     try {
-      await addActionHistory(userId, {
-        actionType: 'profile_update',
-        details: {
-          description: 'Compte supprimé définitivement',
-          updatedBy: adminUserId,
-        },
-        deviceType: 'web',
-      });
-    } catch (historyError) {
-      // Ne pas faire échouer la suppression si l'ajout de l'historique échoue
-      console.warn('Impossible d\'ajouter l\'historique avant suppression, continuation de la suppression:', historyError);
+      // Supprimer actionHistory
+      const actionHistoryRef = collection(db, USERS_COLLECTION, userId, ACTION_HISTORY_SUBCOLLECTION);
+      const actionHistorySnapshot = await getDocs(actionHistoryRef);
+      const actionHistoryDeletes = actionHistorySnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(actionHistoryDeletes);
+      console.log(`[DELETE USER] ${actionHistoryDeletes.length} documents actionHistory supprimés`);
+
+      // Supprimer membershipHistory
+      const membershipHistoryRef = collection(db, USERS_COLLECTION, userId, MEMBERSHIP_HISTORY_SUBCOLLECTION);
+      const membershipHistorySnapshot = await getDocs(membershipHistoryRef);
+      const membershipHistoryDeletes = membershipHistorySnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(membershipHistoryDeletes);
+      console.log(`[DELETE USER] ${membershipHistoryDeletes.length} documents membershipHistory supprimés`);
+    } catch (subcollectionError) {
+      // Continuer même si la suppression des sous-collections échoue
+      console.warn('[DELETE USER] Erreur lors de la suppression des sous-collections:', subcollectionError);
     }
 
-    // Hard delete: Suppression complète du document
+    // 2. Supprimer le document principal (HARD DELETE)
     await deleteDoc(userRef);
+    console.log(`[DELETE USER] Document principal supprimé avec succès`);
 
-    // Note: Les sous-collections (actionHistory, membershipHistory) ne sont pas automatiquement supprimées
-    // Elles seront toujours présentes mais orphelines. Pour une suppression complète, il faudrait
-    // supprimer manuellement ces sous-collections ou utiliser une Cloud Function.
   } catch (error) {
-    console.error('Error deleting user:', error);
+    console.error('[DELETE USER] Erreur lors de la suppression de l\'utilisateur:', error);
     throw error;
   }
 }

@@ -74,19 +74,26 @@ function createEmailTransporter() {
  */
 async function generateMembershipCardImage(userData: UserData): Promise<Buffer> {
   try {
-    // Configuration du canvas avec les proportions exactes de l'ancienne fonction
-    const canvas = createCanvas(450, 800);
+    // Configuration du canvas avec une résolution HD (×3 pour meilleure qualité)
+    const scale = 3;
+    const baseWidth = 450;
+    const baseHeight = 800;
+    const canvas = createCanvas(baseWidth * scale, baseHeight * scale);
     const ctx = canvas.getContext('2d');
+
+    // Activer le lissage de haute qualité
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // Charger l'image de fond depuis le fichier PNG
     const backgroundImagePath = join(__dirname, 'base-image.png');
     const backgroundImg = await loadImage(backgroundImagePath);
-    ctx.drawImage(backgroundImg, 0, 0, 450, 800);
+    ctx.drawImage(backgroundImg, 0, 0, baseWidth * scale, baseHeight * scale);
 
-    // Générer le QR code
+    // Générer le QR code en haute résolution
     const qrCodeData = `FORNAP-MEMBER:${userData.uid}`;
     const qrBuffer = await QRCode.toBuffer(qrCodeData, {
-      width: 190,
+      width: 190 * scale,
       margin: 1,
       color: {
         dark: '#000000',
@@ -96,54 +103,62 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
 
     // Charger et dessiner le QR code
     const qrImg = await loadImage(qrBuffer);
-    const qrSize = 190;
-    const qrX = (450 - qrSize) / 2; // Centré horizontalement
-    const qrY = 340; // Position verticale
+    const qrSize = 190 * scale;
+    const qrX = (baseWidth * scale - qrSize) / 2; // Centré horizontalement
+    const qrY = 340 * scale; // Position verticale
     ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
 
-    // Configuration du texte de base
-    ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 2;
+    // Configuration du texte de base avec meilleur contraste
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 6 * scale;
+    ctx.shadowOffsetX = 2 * scale;
+    ctx.shadowOffsetY = 2 * scale;
+    ctx.lineWidth = 2 * scale;
 
     // UID avec les 5 premiers caractères en gras pour identification
     const uidPrefix = userData.uid.substring(0, 5);
     const uidSuffix = userData.uid.substring(5);
     
     // Calculer la largeur pour centrer correctement
-    ctx.font = 'bold 16px Arial';
+    ctx.font = `bold ${16 * scale}px Arial`;
     const prefixWidth = ctx.measureText(uidPrefix).width;
-    ctx.font = '16px Arial';
+    ctx.font = `${16 * scale}px Arial`;
     const suffixWidth = ctx.measureText(uidSuffix).width;
     const totalWidth = prefixWidth + suffixWidth;
     
     // Position de départ (centré horizontalement)
-    const startX = 225 - (totalWidth / 2);
+    const centerX = (baseWidth * scale) / 2;
+    const startX = centerX - (totalWidth / 2);
     let currentX = startX;
     
-    // Dessiner la partie bold (5 premiers caractères)
-    ctx.font = 'bold 16px Arial';
+    // Dessiner la partie bold (5 premiers caractères) avec stroke pour meilleur contraste
+    ctx.font = `bold ${16 * scale}px Arial`;
+    ctx.strokeStyle = '#000000';
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'left';
-    ctx.fillText(uidPrefix, currentX, 600);
+    ctx.strokeText(uidPrefix, currentX, 600 * scale);
+    ctx.fillText(uidPrefix, currentX, 600 * scale);
     currentX += prefixWidth;
     
     // Dessiner la partie normale (reste de l'UID)
-    ctx.font = '16px Arial';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(uidSuffix, currentX, 600);
+    ctx.font = `${16 * scale}px Arial`;
+    ctx.strokeText(uidSuffix, currentX, 600 * scale);
+    ctx.fillText(uidSuffix, currentX, 600 * scale);
     
     // Remettre textAlign à center pour les éléments suivants
     ctx.textAlign = 'center';
 
-    // Type d'abonnement
+    // Type d'abonnement avec meilleur rendu
     const membershipTypeLabel = 
       userData.currentMembership.planType === 'monthly' ? 'membre mensuel' :
       userData.currentMembership.planType === 'annual' ? 'membre annuel' :
       'membre honoraire';
     
-    ctx.font = 'bold 20px Arial';
+    ctx.font = `bold ${20 * scale}px Arial`;
+    ctx.strokeStyle = '#000000';
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(membershipTypeLabel, 225, 630);
+    ctx.strokeText(membershipTypeLabel, centerX, 630 * scale);
+    ctx.fillText(membershipTypeLabel, centerX, 630 * scale);
 
     // Date d'expiration
     let expiryText = 'Membre honoraire';
@@ -184,17 +199,21 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       }
     }
     
-    ctx.font = '18px Arial';
+    ctx.font = `${18 * scale}px Arial`;
+    ctx.strokeStyle = '#000000';
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(expiryText, 225, 660);
+    ctx.strokeText(expiryText, centerX, 660 * scale);
+    ctx.fillText(expiryText, centerX, 660 * scale);
 
-    // Nom et Prénom
-    ctx.font = 'bold 22px Arial';
+    // Nom et Prénom avec meilleur rendu
+    ctx.font = `bold ${22 * scale}px Arial`;
+    ctx.strokeStyle = '#000000';
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(`${userData.firstName} ${userData.lastName}`, 225, 700);
+    ctx.strokeText(`${userData.firstName} ${userData.lastName}`, centerX, 700 * scale);
+    ctx.fillText(`${userData.firstName} ${userData.lastName}`, centerX, 700 * scale);
 
-    // Convertir en JPG
-    return canvas.toBuffer('image/jpeg', 0.9);
+    // Convertir en JPG haute qualité (0.95 pour meilleur rendu)
+    return canvas.toBuffer('image/jpeg', 0.95);
   } catch (error) {
     console.error('❌ Error generating membership card image:', error);
     throw new Error('Failed to generate membership card image');

@@ -163,7 +163,7 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     ctx.fillText(`${userData.firstName} ${userData.lastName}`, 225, 700);
 
     // Convertir en JPG
-    return canvas.toBuffer('image/jpeg', { quality: 0.9 });
+    return canvas.toBuffer('image/jpeg', 0.9);
   } catch (error) {
     console.error('❌ Error generating membership card image:', error);
     throw new Error('Failed to generate membership card image');
@@ -178,63 +178,152 @@ async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer):
     const transporter = createEmailTransporter();
 
     const mailOptions = {
-      from: '"FORNAP Festival" <no-reply@fornap.fr>',
+      from: '"team fornap" <no-reply@fornap.fr>',
       to: userData.email,
-      subject: 'Bienvenue au FOR+NAP social club - Fort Napoléon. La Seyne sur Mer',
+      subject: 'Votre carte d\'adhésion FOR+NAP - Social club du Fort Napoléon à la Seyne sur Mer',
       html: `
-        <div style="max-width: 600px; margin: 0 auto; 
-                    font-family: Arial, sans-serif; background: #000; 
-                    color: #fff; padding: 30px; border-radius: 15px;">
+        <!DOCTYPE html>
+        <html lang="fr">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Carte d'adhésion FOR+NAP</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
           
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #fff; font-size: 2.5rem; margin: 0;">
-              ◆ FOR+NAP ◆
-            </h1>
-            <p style="color: #ccc; font-size: 1.2rem; margin: 5px 0;">
-              social club
-            </p>
-          </div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+            <tr>
+              <td align="center">
+                
+                <!-- Container principal -->
+                <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); overflow: hidden; max-width: 600px;">
+                  
+                  <!-- Logo -->
+                  <tr>
+                    <td align="center" style="padding: 50px 40px 30px 40px;">
+                      <img src="https://www.fornap.fr/assets/logo-etendu-fornap-CnmtvHyt.png" alt="FOR+NAP" style="width: 280px; height: auto; display: block; margin: 0 auto;" />
+                    </td>
+                  </tr>
+                  
+                  <!-- Contenu principal -->
+                  <tr>
+                    <td style="padding: 20px 50px 40px 50px;">
+                      
+                      <!-- Salutation -->
+                      <p style="font-size: 18px; line-height: 1.6; color: #1a1a1a; margin: 0 0 24px 0;">
+                        Hello <strong style="color: #000;">${userData.firstName}</strong>,
+                      </p>
+                      
+                      <!-- Message principal -->
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 20px 0;">
+                        Merci d'avoir rejoint la communauté FOR+NAP !
+                      </p>
+                      
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 24px 0;">
+                        Voici ta carte d'adhésion à ce projet collectif.
+                      </p>
+                      
+                      <!-- Section principale avec bordure -->
+                      <div style="background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%); border-left: 4px solid #ff4757; padding: 24px; margin: 30px 0; border-radius: 8px;">
+                        <p style="font-size: 16px; line-height: 1.8; color: #1a1a1a; margin: 0 0 16px 0;">
+                          À partir de l'<strong>équinoxe de mars 2026</strong>, le Fort Napoléon s'éveillera et deviendra un <strong>tiers-lieu créatif et culturel</strong> vibrant :
+                        </p>
+                        
+                        <p style="font-size: 15px; line-height: 1.8; color: #333; margin: 0 0 16px 0; font-style: italic;">
+                          résidences d'artistes, concerts exaltants, fêtes mémorables, créations audacieuses, ateliers inspirants…
+                        </p>
+                        
+                        <p style="font-size: 16px; line-height: 1.8; color: #1a1a1a; margin: 0;">
+                          Un espace pour <strong>vibrer, apprendre, expérimenter et partager</strong> toute l'année.
+                        </p>
+                      </div>
+                      
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 20px 0;">
+                        Nous sommes ravis de t'accueillir dans cette aventure.
+                      </p>
+                      
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 24px 0;">
+                        Le projet FOR+NAP s'étend jusqu'en <strong style="color: #000;">2037</strong> : d'ici là, le compte à rebours est lancé.
+                      </p>
+                      
+                      <p style="font-size: 16px; line-height: 1.7; color: #1a1a1a; margin: 0 0 32px 0; font-weight: 500;">
+                        Merci d'écrire avec nous les premières pages de cette fabuleuse histoire.
+                      </p>
+                      
+                      <!-- Divider -->
+                      <div style="height: 1px; background: linear-gradient(to right, transparent, #ddd, transparent); margin: 32px 0;"></div>
+                      
+                      <!-- Appel à l'action -->
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 16px 0;">
+                        En attendant, on compte sur toi pour diffuser l'énergie du Fort et faire connaître notre initiative — en particulier :
+                      </p>
+                      
+                      <div style="background-color: #fafafa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <p style="font-size: 15px; line-height: 1.8; color: #1a1a1a; margin: 0 0 12px 0;">
+                          <strong style="color: #ff4757;">•</strong> <strong>POP HOP BAZAAR</strong>, les week-ends du 6/7, 13/14 et 20/21 décembre 2025
+                        </p>
+                        
+                        <p style="font-size: 15px; line-height: 1.8; color: #1a1a1a; margin: 0;">
+                          <strong style="color: #ff4757;">•</strong> Le <strong>CROWDFUNDING</strong>, ouvert jusqu'au 31 décembre, qui culminera lors d'<strong>INKIPIT</strong>, la grande soirée privée où nous célébrerons ensemble le passage à la nouvelle année.
+                        </p>
+                      </div>
+                      
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 24px 0 16px 0; text-align: center;">
+                        Toutes les infos sont ici : <a href="https://www.fornap.fr" style="color: #ff4757; text-decoration: none; font-weight: 600;">www.fornap.fr</a>
+                      </p>
+                      
+                      <!-- Citations inspirantes -->
+                      <div style="text-align: center; margin: 32px 0;">
+                        <p style="font-size: 15px; line-height: 1.6; color: #666; margin: 0 0 8px 0; font-style: italic;">
+                          Découvre sans modération.
+                        </p>
+                        <p style="font-size: 15px; line-height: 1.6; color: #666; margin: 0 0 8px 0; font-style: italic;">
+                          Reste curieux.
+                        </p>
+                        <p style="font-size: 15px; line-height: 1.6; color: #666; margin: 0 0 16px 0; font-style: italic;">
+                          Sois vivant.
+                        </p>
+                        <p style="font-size: 24px; margin: 0;">🩷</p>
+                      </div>
+                      
+                    </td>
+                  </tr>
+                  
+                  <!-- Avertissement important -->
+                  <tr>
+                    <td style="padding: 0 50px 50px 50px;">
+                      <div style="background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%); border-radius: 12px; padding: 28px; text-align: center; box-shadow: 0 4px 16px rgba(255, 71, 87, 0.3);">
+                        <p style="font-size: 13px; font-weight: 700; color: #ffffff; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 1.5px;">
+                          ⚠️ Important
+                        </p>
+                        <p style="font-size: 15px; font-weight: 600; color: #ffffff; line-height: 1.6; margin: 0;">
+                          Ta carte d'adhésion en pièce jointe est ta <strong>clé d'entrée au Fort</strong>.<br/>
+                          Sans elle, l'accès te sera refusé.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                  
+                  <!-- Footer -->
+                  <tr>
+                    <td style="background-color: #1a1a1a; padding: 30px; text-align: center;">
+                      <p style="font-size: 13px; color: #999; margin: 0 0 8px 0;">
+                        FOR+NAP Social Club
+                      </p>
+                      <p style="font-size: 12px; color: #666; margin: 0;">
+                        Fort Napoléon, La Seyne-sur-Mer
+                      </p>
+                    </td>
+                  </tr>
+                  
+                </table>
+                
+              </td>
+            </tr>
+          </table>
           
-          <p style="font-size: 1.1rem; line-height: 1.6;">
-            Hello <strong>${userData.firstName}</strong>,
-          </p>
-          
-          <p style="font-size: 1.1rem; line-height: 1.6;">
-            Merci d'avoir rejoint la communauté FOR+NAP !
-          </p>
-          
-          <p style="font-size: 1.1rem; line-height: 1.6;">
-            Voici ta carte d'adhésion ainsi que ta place pour le festival 4NAP.<br>
-            Ce festival est le premier projet de musiques électroniques qui s'insère dans une démarche d'une durée de 12 ans au Fort Napoléon à La Seyne-sur-Mer.
-          </p>
-          
-          <p style="font-size: 1.1rem; line-height: 1.6;">
-            Dès mi-septembre, le Fort Napoléon s'éveillera en un tiers lieu créatif et culturel foisonnant, proposant des résidences d'artistes, des concerts exaltants, des fêtes mémorables, des créations audacieuses et des ateliers inspirants. Ce sera un espace où l'on pourra vibrer, apprendre et partager tout au long de l'année.
-          </p>
-          
-          <p style="font-size: 1.1rem; line-height: 1.6;">
-            Nous sommes ravis de t'accueillir dans cette nouvelle aventure<br>
-            et avons hâte de faire revivre ce lieu unique avec toi.
-          </p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <p style="font-size: 1.1rem; line-height: 1.6; margin: 0;">
-              En attendant, on compte sur toi pour nous aider à faire connaître notre initiative, en particulier le 4 NAP festival qui se déroulera du 11 au 14 Juillet<br>
-              pour <strong>4 soirées, 4 thèmes,</strong><br>
-              <strong>1 expérience unique à découvrir sans modération</strong> ;)
-            </p>
-          </div>
-          
-          <div style="text-align: center; margin-top: 20px; color: #666;">
-            <p>◆</p>
-          </div>
-          
-          <div style="text-align: center; margin-top: 30px; padding: 15px; background: #1a1a1a; border-radius: 8px; border: 1px solid #ff0000;">
-            <p style="color: #ff0000; font-weight: bold; font-size: 0.9rem; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">
-              CE QR CODE EST VOTRE CLE D'ENTREE AU FORT. SANS LUI, L'ACCES VOUS SERA REFUSE.
-            </p>
-          </div>
-        </div>
+        </body>
+        </html>
       `,
       attachments: [
         {

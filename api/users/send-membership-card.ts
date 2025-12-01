@@ -101,9 +101,7 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     const qrY = 340; // Position verticale
     ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
 
-    // Configuration du texte
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
+    // Configuration du texte de base
     ctx.shadowColor = '#000000';
     ctx.shadowBlur = 2;
 
@@ -124,12 +122,14 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     
     // Dessiner la partie bold (5 premiers caractères)
     ctx.font = 'bold 16px Arial';
+    ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'left';
     ctx.fillText(uidPrefix, currentX, 600);
     currentX += prefixWidth;
     
     // Dessiner la partie normale (reste de l'UID)
     ctx.font = '16px Arial';
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillText(uidSuffix, currentX, 600);
     
     // Remettre textAlign à center pour les éléments suivants
@@ -142,6 +142,7 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       'membre honoraire';
     
     ctx.font = 'bold 20px Arial';
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillText(membershipTypeLabel, 225, 630);
 
     // Date d'expiration
@@ -184,10 +185,12 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     }
     
     ctx.font = '18px Arial';
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillText(expiryText, 225, 660);
 
     // Nom et Prénom
     ctx.font = 'bold 22px Arial';
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillText(`${userData.firstName} ${userData.lastName}`, 225, 700);
 
     // Convertir en JPG

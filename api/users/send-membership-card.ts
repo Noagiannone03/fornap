@@ -16,7 +16,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
-import sharp from 'sharp';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { readFile } from 'fs/promises';
 import { getFirestore, getFieldValue, getTimestamp } from '../_lib/firebase-admin.js';
 import { fileURLToPath } from 'url';
@@ -71,29 +71,28 @@ function createEmailTransporter() {
 }
 
 /**
- * Génère l'image de la carte d'adhérent avec QR code - VERSION SHARP avec polices locales
+ * Génère l'image de la carte d'adhérent avec QR code - VERSION @napi-rs/canvas
  */
 async function generateMembershipCardImage(userData: UserData): Promise<Buffer> {
   try {
-    console.log('🎨 Generating card with sharp + Local AcherusFeral Font...');
-    
+    console.log('🎨 Generating card with @napi-rs/canvas + Local AcherusFeral Font...');
+
+    // Enregistrer les polices locales avec GlobalFonts
+    const fontBoldPath = join(__dirname, 'AcherusFeral-Bold.otf');
+    const fontLightPath = join(__dirname, 'AcherusFeral-Light.otf');
+
+    GlobalFonts.registerFromPath(fontBoldPath, 'AcherusFeral-Bold');
+    GlobalFonts.registerFromPath(fontLightPath, 'AcherusFeral-Light');
+
+    console.log('✅ Fonts registered successfully');
+
     // Charger l'image de fond
     const backgroundImagePath = join(__dirname, 'base-image.png');
-    const backgroundBuffer = await readFile(backgroundImagePath);
-
-    // Charger la police locale AcherusFeral Bold en base64
-    const fontBoldPath = join(__dirname, 'AcherusFeral-Bold.otf');
-    const fontBoldBuffer = await readFile(fontBoldPath);
-    const fontBoldBase64 = fontBoldBuffer.toString('base64');
-
-    // Charger la police locale AcherusFeral Light en base64
-    const fontLightPath = join(__dirname, 'AcherusFeral-Light.otf');
-    const fontLightBuffer = await readFile(fontLightPath);
-    const fontLightBase64 = fontLightBuffer.toString('base64');
+    const backgroundImage = await loadImage(backgroundImagePath);
 
     // Générer le QR code
     const qrCodeData = `FORNAP-MEMBER:${userData.uid}`;
-    const qrBuffer = await QRCode.toBuffer(qrCodeData, {
+    const qrDataUrl = await QRCode.toDataURL(qrCodeData, {
       width: 190,
       margin: 1,
       color: {
@@ -101,23 +100,24 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
         light: '#FFFFFF',
       },
     });
+    const qrImage = await loadImage(qrDataUrl);
 
     // Type d'abonnement
-    const membershipTypeLabel = 
+    const membershipTypeLabel =
       userData.currentMembership?.planType === 'monthly' ? 'membre mensuel' :
       userData.currentMembership?.planType === 'annual' ? 'membre annuel' :
       'membre honoraire';
-    
+
     // Date d'expiration
     let expiryText = 'expire le 31/12/25';
     if (userData.currentMembership?.expiryDate) {
       try {
         let expiryDate: Date;
-        if (typeof userData.currentMembership.expiryDate === 'object' && 
-            'toDate' in userData.currentMembership.expiryDate && 
+        if (typeof userData.currentMembership.expiryDate === 'object' &&
+            'toDate' in userData.currentMembership.expiryDate &&
             typeof userData.currentMembership.expiryDate.toDate === 'function') {
           expiryDate = userData.currentMembership.expiryDate.toDate();
-        } else if (typeof userData.currentMembership.expiryDate === 'object' && 
+        } else if (typeof userData.currentMembership.expiryDate === 'object' &&
                    ('_seconds' in userData.currentMembership.expiryDate || 'seconds' in userData.currentMembership.expiryDate)) {
           const seconds = (userData.currentMembership.expiryDate as any)._seconds || (userData.currentMembership.expiryDate as any).seconds;
           expiryDate = new Date(seconds * 1000);
@@ -142,71 +142,43 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     console.log('  - expiryText:', expiryText);
     console.log('  - fullName:', fullName);
 
-    // Échapper les caractères XML
-    const escapeXml = (text: string) => text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
+    // Créer le canvas
+    const canvas = createCanvas(450, 800);
+    const ctx = canvas.getContext('2d');
 
-    // Créer un SVG overlay avec AcherusFeral embarquée en base64
-    const textSvg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="450" height="800" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <style type="text/css">
-      @font-face {
-        font-family: 'AcherusFeral';
-        font-weight: 700;
-        src: url(data:font/opentype;base64,${fontBoldBase64}) format('opentype');
-      }
-      @font-face {
-        font-family: 'AcherusFeral';
-        font-weight: 300;
-        src: url(data:font/opentype;base64,${fontLightBase64}) format('opentype');
-      }
-      
-      .text { 
-        fill: white; 
-        font-family: 'AcherusFeral', Arial, sans-serif;
-        text-anchor: middle;
-        filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.8));
-      }
-      .text-bold { 
-        font-weight: 700;
-      }
-      .text-light {
-        font-weight: 300;
-      }
-    </style>
-  </defs>
-  <text x="225" y="630" font-size="20" class="text text-bold">${escapeXml(membershipTypeLabel)}</text>
-  <text x="225" y="660" font-size="18" class="text text-light">${escapeXml(expiryText)}</text>
-  <text x="225" y="700" font-size="22" class="text text-bold">${escapeXml(fullName)}</text>
-</svg>`;
+    // Dessiner l'image de fond
+    ctx.drawImage(backgroundImage, 0, 0, 450, 800);
 
-    console.log('📝 SVG with embedded local AcherusFeral font generated');
+    // Dessiner le QR code
+    ctx.drawImage(qrImage, 130, 340, 190, 190);
 
-    // Composer l'image finale avec sharp
-    const finalImage = await sharp(backgroundBuffer)
-      .resize(450, 800, { fit: 'cover' })
-      .composite([
-        {
-          input: qrBuffer,
-          top: 340,
-          left: 130,
-        },
-        {
-          input: Buffer.from(textSvg, 'utf-8'),
-          top: 0,
-          left: 0,
-        },
-      ])
-      .jpeg({ quality: 90 })
-      .toBuffer();
+    // Ajouter une ombre pour le texte
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 2;
 
-    console.log('✅ Card generated successfully with local AcherusFeral font');
-    return finalImage;
+    // Configurer le texte
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+
+    // Ligne 1: Type d'abonnement (Bold, 20px)
+    ctx.font = '700 20px "AcherusFeral-Bold"';
+    ctx.fillText(membershipTypeLabel, 225, 630);
+
+    // Ligne 2: Date d'expiration (Light, 18px)
+    ctx.font = '300 18px "AcherusFeral-Light"';
+    ctx.fillText(expiryText, 225, 660);
+
+    // Ligne 3: Nom complet (Bold, 22px)
+    ctx.font = '700 22px "AcherusFeral-Bold"';
+    ctx.fillText(fullName, 225, 700);
+
+    // Convertir en buffer JPEG
+    const buffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });
+
+    console.log('✅ Card generated successfully with @napi-rs/canvas');
+    return buffer;
   } catch (error) {
     console.error('❌ Error generating membership card image:', error);
     throw new Error('Failed to generate membership card image');

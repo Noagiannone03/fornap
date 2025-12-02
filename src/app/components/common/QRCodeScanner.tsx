@@ -444,44 +444,106 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
   };
 
   return (
-    <Stack gap="md">
-      {/* Onglets Scanner / Recherche */}
+    <Stack gap="lg">
+      {/* Barre de recherche toujours visible en haut */}
+      <Box
+        p="lg"
+        style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: '20px',
+          boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)',
+        }}
+      >
+        <Stack gap="sm">
+          <Group gap="xs">
+            <IconSearch size={24} color="white" style={{ opacity: 0.9 }} />
+            <Text size="lg" fw={700} c="white">
+              Recherche rapide
+            </Text>
+          </Group>
+
+          <TextInput
+            placeholder="Code, nom, prénom, email..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.currentTarget.value);
+              if (e.currentTarget.value.length > 0) {
+                setActiveTab('search');
+              }
+            }}
+            size="xl"
+            leftSection={<IconSearch size={20} />}
+            rightSection={
+              searchQuery && (
+                <ActionIcon
+                  onClick={() => {
+                    setSearchQuery('');
+                    setActiveTab('scanner');
+                  }}
+                  variant="subtle"
+                  color="gray"
+                  size="lg"
+                >
+                  ✕
+                </ActionIcon>
+              )
+            }
+            styles={{
+              input: {
+                borderRadius: '16px',
+                fontSize: '16px',
+                fontWeight: 500,
+                border: 'none',
+                backgroundColor: 'white',
+                padding: '12px 16px',
+                height: '56px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                '&::placeholder': {
+                  color: '#adb5bd',
+                },
+              },
+            }}
+          />
+        </Stack>
+      </Box>
+
+      {/* Onglets Scanner / Résultats */}
       <Tabs
         value={activeTab}
         onChange={setActiveTab}
         styles={{
           root: {
-            backgroundColor: 'white',
-            borderRadius: '16px',
-            padding: '8px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            backgroundColor: 'transparent',
           },
           list: {
-            borderBottom: 'none',
+            borderBottom: '2px solid #e9ecef',
+            marginBottom: '16px',
           },
           tab: {
-            borderRadius: '12px',
             fontWeight: 600,
             fontSize: '15px',
-            padding: '16px 24px',
+            padding: '12px 20px',
             transition: 'all 0.2s ease',
+            color: '#868e96',
             '&:hover': {
-              backgroundColor: 'rgba(0,0,0,0.03)',
+              backgroundColor: 'rgba(34, 139, 230, 0.08)',
+              color: '#228be6',
             },
             '&[data-active]': {
-              backgroundColor: '#228be6',
-              color: 'white',
-              boxShadow: '0 4px 12px rgba(34, 139, 230, 0.3)',
+              color: '#228be6',
+              borderBottom: '3px solid #228be6',
             },
           },
         }}
       >
-        <Tabs.List grow>
-          <Tabs.Tab value="scanner" leftSection={<IconQrcode size={20} />}>
+        <Tabs.List>
+          <Tabs.Tab value="scanner" leftSection={<IconQrcode size={18} />}>
             Scanner QR Code
           </Tabs.Tab>
-          <Tabs.Tab value="search" leftSection={<IconSearch size={20} />}>
-            Recherche Manuelle
+          <Tabs.Tab value="search" leftSection={<IconUser size={18} />}>
+            {searchResults.length > 0
+              ? `Résultats (${searchResults.length})`
+              : 'Résultats de recherche'}
           </Tabs.Tab>
         </Tabs.List>
 
@@ -597,61 +659,8 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
           </Stack>
         </Tabs.Panel>
 
-        <Tabs.Panel value="search" pt="lg">
-          <Stack gap="lg">
-            {/* Header de recherche */}
-            <Box
-              p="xl"
-              style={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                borderRadius: '16px',
-                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)',
-              }}
-            >
-              <Stack gap="md">
-                <Group gap="sm">
-                  <IconSearch size={28} color="white" />
-                  <Title order={3} c="white">
-                    Recherche Manuelle
-                  </Title>
-                </Group>
-                <Text size="sm" c="rgba(255,255,255,0.9)">
-                  Recherchez un membre par son code, nom, prénom, email ou UID
-                </Text>
-
-                {/* Champ de recherche */}
-                <TextInput
-                  placeholder="Ex: ABC1234, Jean Dupont, jean@email.com..."
-                  leftSection={<IconSearch size={20} />}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.currentTarget.value)}
-                  size="xl"
-                  styles={{
-                    input: {
-                      borderRadius: '12px',
-                      fontSize: '17px',
-                      fontWeight: 500,
-                      border: '2px solid white',
-                      backgroundColor: 'white',
-                      '&:focus': {
-                        borderColor: '#228be6',
-                      },
-                    },
-                  }}
-                  rightSection={
-                    searchQuery && (
-                      <ActionIcon
-                        onClick={() => setSearchQuery('')}
-                        variant="subtle"
-                        color="gray"
-                      >
-                        <IconAlertCircle size={18} />
-                      </ActionIcon>
-                    )
-                  }
-                />
-              </Stack>
-            </Box>
+        <Tabs.Panel value="search" pt="md">
+          <Stack gap="md">
 
             {/* Résultats de recherche */}
             {searching && (
@@ -812,19 +821,30 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
             )}
 
             {!searching && searchQuery && searchResults.length === 0 && (
-              <Alert color="gray" variant="light">
-                <Text size="sm">
-                  Aucun résultat trouvé pour "{searchQuery}"
-                </Text>
-              </Alert>
+              <Center py="xl">
+                <Stack align="center" gap="xs">
+                  <Text size="lg" c="dimmed" fw={500}>
+                    Aucun résultat
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    Aucun membre trouvé pour "{searchQuery}"
+                  </Text>
+                </Stack>
+              </Center>
             )}
 
             {!searching && !searchQuery && (
-              <Alert color="blue" variant="light">
-                <Text size="sm">
-                  Entrez un code membre, un nom, un prénom, un email ou un UID pour rechercher un utilisateur.
-                </Text>
-              </Alert>
+              <Center py="xl">
+                <Stack align="center" gap="xs">
+                  <IconSearch size={48} color="#adb5bd" />
+                  <Text size="lg" c="dimmed" fw={500}>
+                    Commencez à rechercher
+                  </Text>
+                  <Text size="sm" c="dimmed" ta="center" maw={300}>
+                    Utilisez la barre de recherche ci-dessus pour trouver un membre
+                  </Text>
+                </Stack>
+              </Center>
             )}
           </Stack>
         </Tabs.Panel>

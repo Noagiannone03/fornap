@@ -166,25 +166,25 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     ctx.fillStyle = 'white';
     ctx.textAlign = 'center';
 
-    // Ligne 1: "CODE :" (Light, 16px)
-    ctx.font = '300 16px "AcherusFeral-Light"';
-    ctx.fillText('CODE :', 225, 625);
+    // Ligne 1: "CODE :" (Light, 15px)
+    ctx.font = '300 15px "AcherusFeral-Light"';
+    ctx.fillText('CODE :', 225, 595);
 
-    // Ligne 2: Code membre (Bold, 32px) - EN GROS
-    ctx.font = '700 32px "AcherusFeral-Bold"';
-    ctx.fillText(memberCode, 225, 660);
+    // Ligne 2: Code membre (Bold, 28px) - EN GROS mais un peu plus petit
+    ctx.font = '700 28px "AcherusFeral-Bold"';
+    ctx.fillText(memberCode, 225, 628);
 
     // Ligne 3: Type d'abonnement (Bold, 17px)
     ctx.font = '700 17px "AcherusFeral-Bold"';
-    ctx.fillText(membershipTypeLabel, 225, 690);
+    ctx.fillText(membershipTypeLabel, 225, 655);
 
     // Ligne 4: Date d'expiration (Light, 15px)
     ctx.font = '300 15px "AcherusFeral-Light"';
-    ctx.fillText(expiryText, 225, 715);
+    ctx.fillText(expiryText, 225, 680);
 
     // Ligne 5: Nom complet (Bold, 19px)
     ctx.font = '700 19px "AcherusFeral-Bold"';
-    ctx.fillText(fullName, 225, 745);
+    ctx.fillText(fullName, 225, 710);
 
     // Convertir en buffer JPEG
     const buffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });

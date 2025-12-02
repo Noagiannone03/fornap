@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { Affix, ActionIcon, rem, Text, Paper, Box, CloseButton } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconBrain, IconX } from '@tabler/icons-react';
 import { AIAssistantPanel } from './AIAssistantPanel';
 
@@ -15,6 +16,8 @@ interface AIAssistantDrawerProps {
 
 export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerProps) {
   const [showHelpBubble, setShowHelpBubble] = useState(false);
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isTablet = useMediaQuery('(max-width: 1024px)');
 
   // Afficher la bulle après 2 secondes si le drawer n'est pas ouvert
   useEffect(() => {
@@ -38,7 +41,13 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
   return (
     <>
       {/* Bouton flottant en bas à droite */}
-      <Affix position={{ bottom: rem(20), right: opened ? rem(470) : rem(20) }} zIndex={100}>
+      <Affix 
+        position={{ 
+          bottom: rem(isMobile ? 16 : 20), 
+          right: opened ? (isMobile ? rem(20) : isTablet ? rem(370) : rem(470)) : rem(isMobile ? 16 : 20) 
+        }} 
+        zIndex={100}
+      >
         <div
           style={{
             position: 'relative',
@@ -46,7 +55,7 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
           }}
         >
           {/* Bulle d'aide animée */}
-          {showHelpBubble && !opened && (
+          {showHelpBubble && !opened && !isMobile && (
             <Paper
               shadow="lg"
               p="md"
@@ -82,7 +91,7 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
           )}
 
           <ActionIcon
-            size={60}
+            size={isMobile ? 50 : 60}
             radius="xl"
             variant="gradient"
             gradient={{ from: 'indigo', to: 'violet', deg: 135 }}
@@ -93,12 +102,16 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
               position: 'relative',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.1) rotate(5deg)';
-              e.currentTarget.style.boxShadow = '0 12px 32px rgba(99, 102, 241, 0.5)';
+              if (!isMobile) {
+                e.currentTarget.style.transform = 'scale(1.1) rotate(5deg)';
+                e.currentTarget.style.boxShadow = '0 12px 32px rgba(99, 102, 241, 0.5)';
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-              e.currentTarget.style.boxShadow = '0 8px 24px rgba(99, 102, 241, 0.35)';
+              if (!isMobile) {
+                e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(99, 102, 241, 0.35)';
+              }
             }}
           >
             {/* Icône qui change selon l'état ouvert/fermé */}
@@ -110,7 +123,7 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
                 transform: opened ? 'rotate(-180deg) scale(0.5)' : 'rotate(0deg) scale(1)',
               }}
             >
-              <IconBrain size={32} stroke={2} />
+              <IconBrain size={isMobile ? 26 : 32} stroke={2} />
             </div>
             <div
               style={{
@@ -120,7 +133,7 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
                 transform: opened ? 'rotate(0deg) scale(1)' : 'rotate(180deg) scale(0.5)',
               }}
             >
-              <IconX size={32} stroke={2} />
+              <IconX size={isMobile ? 26 : 32} stroke={2} />
             </div>
             {/* Pulse animation */}
             {!opened && (
@@ -148,13 +161,13 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
           position: 'fixed',
           top: 0,
           right: 0,
-          width: '450px',
+          width: isMobile ? '100vw' : isTablet ? '350px' : '450px',
           height: '100vh',
           backgroundColor: 'white',
-          boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.12)',
+          boxShadow: isMobile ? 'none' : '-4px 0 24px rgba(0, 0, 0, 0.12)',
           transform: opened ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          zIndex: 99,
+          zIndex: isMobile ? 200 : 99,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -163,7 +176,7 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
         {/* Header avec animation */}
         <Box
           style={{
-            padding: '1rem 1.5rem',
+            padding: isMobile ? '0.75rem 1rem' : '1rem 1.5rem',
             borderBottom: '1px solid var(--mantine-color-gray-3)',
             display: 'flex',
             alignItems: 'center',
@@ -174,10 +187,10 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
             transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s',
           }}
         >
-          <Box style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.5rem' : '0.75rem' }}>
             <Box
               style={{
-                padding: '8px',
+                padding: isMobile ? '6px' : '8px',
                 borderRadius: '12px',
                 background: 'linear-gradient(135deg, var(--mantine-color-indigo-6), var(--mantine-color-violet-6))',
                 display: 'flex',
@@ -185,10 +198,10 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
                 justifyContent: 'center',
               }}
             >
-              <IconBrain size={24} color="white" />
+              <IconBrain size={isMobile ? 20 : 24} color="white" />
             </Box>
             <div>
-              <Text size="lg" fw={700} c="dark">
+              <Text size={isMobile ? "md" : "lg"} fw={700} c="dark">
                 Guillaume
               </Text>
               <Text size="xs" c="dimmed">
@@ -198,15 +211,19 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
           </Box>
           <CloseButton
             onClick={handleClose}
-            size="lg"
+            size={isMobile ? "md" : "lg"}
             style={{
               transition: 'transform 0.2s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'rotate(90deg)';
+              if (!isMobile) {
+                e.currentTarget.style.transform = 'rotate(90deg)';
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'rotate(0deg)';
+              if (!isMobile) {
+                e.currentTarget.style.transform = 'rotate(0deg)';
+              }
             }}
           />
         </Box>
@@ -217,7 +234,7 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            padding: '1rem',
+            padding: isMobile ? '0.75rem' : '1rem',
             overflow: 'hidden',
             minHeight: 0,
             opacity: opened ? 1 : 0,

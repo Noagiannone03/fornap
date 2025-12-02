@@ -1,5 +1,6 @@
-import { AppShell, Burger, Group, Text, Avatar, Menu, ActionIcon, Indicator, ScrollArea, UnstyledButton, rem, Collapse, Badge } from '@mantine/core';
+import { AppShell, Burger, Group, Text, Avatar, Menu, ActionIcon, Indicator, ScrollArea, UnstyledButton, rem, Collapse, Badge, Box } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { useMediaQuery } from '@mantine/hooks';
 import {
   IconSearch,
   IconBell,
@@ -27,6 +28,8 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { adminProfile, logout } = useAdminAuth();
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isTablet = useMediaQuery('(max-width: 1024px)');
 
   // Gérer l'ouverture de la sidebar gauche - ferme le panel IA
   const handleToggleDesktop = () => {
@@ -106,93 +109,116 @@ export function AdminLayout() {
     <>
       <GlobalSearch />
       <AppShell
-        header={{ height: 60 }}
+        header={{ height: isMobile ? 56 : 60 }}
         navbar={{
-          width: 280,
+          width: isMobile ? 260 : 280,
           breakpoint: 'sm',
           collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
         }}
-        padding="md"
+        padding={isMobile ? "xs" : "md"}
       >
         {/* Header */}
         <AppShell.Header>
-          <Group h="100%" px="md" justify="space-between">
-            <Group>
+          <Group h="100%" px={isMobile ? "xs" : "md"} justify="space-between" wrap="nowrap" gap={isMobile ? "xs" : "md"}>
+            <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap">
               <Burger opened={mobileOpened} onClick={handleToggleMobile} hiddenFrom="sm" size="sm" />
               <Burger opened={desktopOpened} onClick={handleToggleDesktop} visibleFrom="sm" size="sm" />
-              <Text size="xl" fw={700} c="indigo">
-                FORNAP Admin
+              <Text 
+                size={isMobile ? "md" : "xl"} 
+                fw={700} 
+                c="indigo"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {isMobile ? 'FORNAP' : 'FORNAP Admin'}
               </Text>
             </Group>
 
-            <Group>
-              {/* Search Bar */}
-              <UnstyledButton
-                onClick={() => spotlight.open()}
-                style={{
-                  backgroundColor: 'var(--mantine-color-gray-0)',
-                  border: '1px solid var(--mantine-color-gray-3)',
-                  borderRadius: '10px',
-                  padding: '6px 16px',
-                  height: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  width: '320px',
-                  transition: 'all 0.2s ease',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--mantine-color-indigo-3)';
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
-                  e.currentTarget.style.backgroundColor = 'var(--mantine-color-white)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--mantine-color-gray-3)';
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)';
-                }}
-              >
-                <IconSearch size={18} stroke={2} color="var(--mantine-color-indigo-5)" />
-                <Text size="sm" c="dimmed" fw={500} style={{ flex: 1, userSelect: 'none' }}>
-                  Rechercher partout...
-                </Text>
-                <Badge 
-                  variant="light" 
-                  color="gray" 
-                  size="sm" 
-                  radius="sm"
-                  styles={{ root: { textTransform: 'none', fontSize: '10px', fontWeight: 700 } }}
+            <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap">
+              {/* Search Bar - Cachée sur mobile très petit, icône seulement sur tablette */}
+              {!isMobile ? (
+                <UnstyledButton
+                  onClick={() => spotlight.open()}
+                  style={{
+                    backgroundColor: 'var(--mantine-color-gray-0)',
+                    border: '1px solid var(--mantine-color-gray-3)',
+                    borderRadius: '10px',
+                    padding: '6px 16px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    width: isTablet ? '200px' : '320px',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
+                    minWidth: isTablet ? '150px' : 'auto',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--mantine-color-indigo-3)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
+                    e.currentTarget.style.backgroundColor = 'var(--mantine-color-white)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--mantine-color-gray-3)';
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)';
+                  }}
                 >
-                  ⌘ K
-                </Badge>
-              </UnstyledButton>
+                  <IconSearch size={18} stroke={2} color="var(--mantine-color-indigo-5)" />
+                  {!isTablet && (
+                    <>
+                      <Text size="sm" c="dimmed" fw={500} style={{ flex: 1, userSelect: 'none', whiteSpace: 'nowrap' }}>
+                        Rechercher partout...
+                      </Text>
+                      <Badge 
+                        variant="light" 
+                        color="gray" 
+                        size="sm" 
+                        radius="sm"
+                        styles={{ root: { textTransform: 'none', fontSize: '10px', fontWeight: 700 } }}
+                      >
+                        ⌘ K
+                      </Badge>
+                    </>
+                  )}
+                </UnstyledButton>
+              ) : (
+                <ActionIcon 
+                  variant="subtle" 
+                  size="lg" 
+                  onClick={() => spotlight.open()}
+                  aria-label="Rechercher"
+                >
+                  <IconSearch size={20} />
+                </ActionIcon>
+              )}
 
               {/* Notifications */}
               <Indicator inline processing color="red" size={8}>
-                <ActionIcon variant="subtle" size="lg" aria-label="Notifications">
-                  <IconBell style={{ width: rem(20) }} />
+                <ActionIcon variant="subtle" size={isMobile ? "md" : "lg"} aria-label="Notifications">
+                  <IconBell style={{ width: rem(isMobile ? 18 : 20) }} />
                 </ActionIcon>
               </Indicator>
 
               {/* User Menu */}
-              <Menu shadow="md" width={260}>
+              <Menu shadow="md" width={260} position={isMobile ? "bottom-end" : "bottom"}>
                 <Menu.Target>
-                  <UnstyledButton>
-                    <Group gap="xs">
-                      <Avatar color={roleInfo?.color || 'indigo'} radius="xl" size="sm">
+                  <UnstyledButton style={{ cursor: 'pointer' }}>
+                    <Group gap="xs" wrap="nowrap">
+                      <Avatar color={roleInfo?.color || 'indigo'} radius="xl" size={isMobile ? "xs" : "sm"}>
                         {getInitials()}
                       </Avatar>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <Text size="sm" fw={500}>
-                          {getFullName()}
-                        </Text>
-                        {roleInfo && (
-                          <Badge size="xs" color={roleInfo.color} variant="light">
-                            {roleInfo.label}
-                          </Badge>
-                        )}
-                      </div>
+                      {!isMobile && (
+                        <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+                          <Text size="sm" fw={500} style={{ lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                            {getFullName()}
+                          </Text>
+                          {roleInfo && (
+                            <Badge size="xs" color={roleInfo.color} variant="light">
+                              {roleInfo.label}
+                            </Badge>
+                          )}
+                        </Box>
+                      )}
                     </Group>
                   </UnstyledButton>
                 </Menu.Target>
@@ -233,9 +259,9 @@ export function AdminLayout() {
         </AppShell.Header>
 
         {/* Navbar */}
-        <AppShell.Navbar p="md">
+        <AppShell.Navbar p={isMobile ? "xs" : "md"}>
           <AppShell.Section grow component={ScrollArea}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '2px' : '4px' }}>
               {navigationItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -252,7 +278,7 @@ export function AdminLayout() {
                           display: 'flex',
                           alignItems: 'center',
                           width: '100%',
-                          padding: '10px 12px',
+                          padding: isMobile ? '12px 10px' : '10px 12px',
                           borderRadius: '8px',
                           backgroundColor: isInSubmenuPath ? 'var(--mantine-color-indigo-light)' : 'transparent',
                           color: isInSubmenuPath ? 'var(--mantine-color-indigo-filled)' : 'var(--mantine-color-text)',
@@ -270,21 +296,29 @@ export function AdminLayout() {
                           }
                         }}
                       >
-                        <Group justify="space-between" style={{ width: '100%' }}>
-                          <Group gap="sm">
-                            <Icon size={20} stroke={1.5} />
-                            <Text size="sm">{item.label}</Text>
+                        <Group justify="space-between" style={{ width: '100%' }} wrap="nowrap">
+                          <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                            <Icon size={isMobile ? 18 : 20} stroke={1.5} style={{ flexShrink: 0 }} />
+                            <Text size={isMobile ? "xs" : "sm"} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.label}
+                            </Text>
                           </Group>
                           {isSubmenuOpen ? (
-                            <IconChevronDown size={16} />
+                            <IconChevronDown size={isMobile ? 14 : 16} style={{ flexShrink: 0 }} />
                           ) : (
-                            <IconChevronRight size={16} />
+                            <IconChevronRight size={isMobile ? 14 : 16} style={{ flexShrink: 0 }} />
                           )}
                         </Group>
                       </UnstyledButton>
 
                       <Collapse in={isSubmenuOpen}>
-                        <div style={{ paddingLeft: '20px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <div style={{ 
+                          paddingLeft: isMobile ? '16px' : '20px', 
+                          marginTop: '4px', 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: '2px' 
+                        }}>
                           {item.submenu.map((subItem) => {
                             const SubIcon = subItem.icon;
                             const isSubActive = location.pathname === subItem.path;
@@ -297,7 +331,7 @@ export function AdminLayout() {
                                   display: 'flex',
                                   alignItems: 'center',
                                   width: '100%',
-                                  padding: '8px 12px',
+                                  padding: isMobile ? '10px 10px' : '8px 12px',
                                   borderRadius: '6px',
                                   backgroundColor: isSubActive ? 'var(--mantine-color-indigo-light)' : 'transparent',
                                   color: isSubActive ? 'var(--mantine-color-indigo-filled)' : 'var(--mantine-color-text)',
@@ -315,9 +349,11 @@ export function AdminLayout() {
                                   }
                                 }}
                               >
-                                <Group gap="sm">
-                                  <SubIcon size={18} stroke={1.5} />
-                                  <Text size="sm">{subItem.label}</Text>
+                                <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap" style={{ minWidth: 0 }}>
+                                  <SubIcon size={isMobile ? 16 : 18} stroke={1.5} style={{ flexShrink: 0 }} />
+                                  <Text size={isMobile ? "xs" : "sm"} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {subItem.label}
+                                  </Text>
                                 </Group>
                               </UnstyledButton>
                             );
@@ -337,7 +373,7 @@ export function AdminLayout() {
                       display: 'flex',
                       alignItems: 'center',
                       width: '100%',
-                      padding: '10px 12px',
+                      padding: isMobile ? '12px 10px' : '10px 12px',
                       borderRadius: '8px',
                       backgroundColor: isActive ? 'var(--mantine-color-indigo-light)' : 'transparent',
                       color: isActive ? 'var(--mantine-color-indigo-filled)' : 'var(--mantine-color-text)',
@@ -355,10 +391,12 @@ export function AdminLayout() {
                       }
                     }}
                   >
-                    <Group justify="space-between" style={{ width: '100%' }}>
-                      <Group gap="sm">
-                        <Icon size={20} stroke={1.5} />
-                        <Text size="sm">{item.label}</Text>
+                    <Group justify="space-between" style={{ width: '100%' }} wrap="nowrap">
+                      <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                        <Icon size={isMobile ? 18 : 20} stroke={1.5} style={{ flexShrink: 0 }} />
+                        <Text size={isMobile ? "xs" : "sm"} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.label}
+                        </Text>
                       </Group>
                       {item.badge && (
                         <div
@@ -367,8 +405,9 @@ export function AdminLayout() {
                             color: 'white',
                             borderRadius: '12px',
                             padding: '2px 8px',
-                            fontSize: '12px',
+                            fontSize: isMobile ? '10px' : '12px',
                             fontWeight: 600,
+                            flexShrink: 0,
                           }}
                         >
                           {item.badge}
@@ -384,9 +423,9 @@ export function AdminLayout() {
           <AppShell.Section>
             <div
               style={{
-                padding: '12px',
+                padding: isMobile ? '8px' : '12px',
                 borderTop: '1px solid var(--mantine-color-gray-3)',
-                marginTop: '12px',
+                marginTop: isMobile ? '8px' : '12px',
               }}
             >
               <Text size="xs" c="dimmed" ta="center">
@@ -400,7 +439,7 @@ export function AdminLayout() {
         <AppShell.Main
           style={{
             transition: 'margin-right 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            marginRight: aiSidebarOpened ? '450px' : '0',
+            marginRight: aiSidebarOpened ? (isMobile ? '0' : isTablet ? '350px' : '450px') : '0',
           }}
         >
           <Outlet />

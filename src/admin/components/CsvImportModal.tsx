@@ -20,7 +20,8 @@ import {
   IconAlertCircle,
   IconX,
 } from '@tabler/icons-react';
-import { importUsersFromCsv, ImportResult } from '../services/csvImportService';
+import { importUsersFromCsv } from '../services/csvImportService';
+import type { ImportResult } from '../services/csvImportService';
 
 interface CsvImportModalProps {
   opened: boolean;
@@ -74,8 +75,6 @@ export function CsvImportModal({
     setResult(null);
     onClose();
   };
-
-  const totalProcessed = result ? result.success + result.errors.length + result.skipped : 0;
 
   return (
     <Modal

@@ -108,66 +108,31 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     const qrY = 340 * scale; // Position verticale
     ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
 
-    // Configuration du texte de base - SANS shadows excessives
-    ctx.lineWidth = 2 * scale;
-
-    // UID avec les 5 premiers caractères en gras pour identification
-    const uidPrefix = userData.uid.substring(0, 5);
-    const uidSuffix = userData.uid.substring(5);
-    
-    // Calculer la largeur pour centrer correctement
-    ctx.font = `bold ${16 * scale}px Arial`;
-    const prefixWidth = ctx.measureText(uidPrefix).width;
-    ctx.font = `${16 * scale}px Arial`;
-    const suffixWidth = ctx.measureText(uidSuffix).width;
-    const totalWidth = prefixWidth + suffixWidth;
-    
-    // Position de départ (centré horizontalement)
+    // Configuration du texte - EXACTEMENT comme l'ancienne fonction
     const centerX = (baseWidth * scale) / 2;
-    const startX = centerX - (totalWidth / 2);
-    let currentX = startX;
-    
-    // Dessiner la partie bold (5 premiers caractères) avec stroke pour meilleur contraste
-    ctx.font = `bold ${16 * scale}px Arial`;
-    ctx.strokeStyle = '#000000';
     ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'left';
-    // Shadow légère pour le texte
+    ctx.textAlign = 'center';
     ctx.shadowColor = '#000000';
     ctx.shadowBlur = 2 * scale;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.strokeText(uidPrefix, currentX, 600 * scale);
-    ctx.fillText(uidPrefix, currentX, 600 * scale);
-    currentX += prefixWidth;
-    
-    // Dessiner la partie normale (reste de l'UID)
-    ctx.font = `${16 * scale}px Arial`;
-    ctx.strokeText(uidSuffix, currentX, 600 * scale);
-    ctx.fillText(uidSuffix, currentX, 600 * scale);
-    
-    // Remettre textAlign à center pour les éléments suivants
-    ctx.textAlign = 'center';
 
-    // Type d'abonnement avec meilleur rendu
+    // Type d'abonnement (membre annuel, mensuel, etc.)
     const membershipTypeLabel = 
-      userData.currentMembership.planType === 'monthly' ? 'membre mensuel' :
-      userData.currentMembership.planType === 'annual' ? 'membre annuel' :
+      userData.currentMembership?.planType === 'monthly' ? 'membre mensuel' :
+      userData.currentMembership?.planType === 'annual' ? 'membre annuel' :
       'membre honoraire';
     
+    console.log('🎨 Drawing text on card:');
+    console.log('  - membershipType:', membershipTypeLabel);
+    console.log('  - firstName:', userData.firstName);
+    console.log('  - lastName:', userData.lastName);
+    console.log('  - Position Y: 630*scale =', 630 * scale, ', 660*scale =', 660 * scale, ', 700*scale =', 700 * scale);
+    console.log('  - Canvas size:', baseWidth * scale, 'x', baseHeight * scale);
+    
     ctx.font = `bold ${20 * scale}px Arial`;
-    ctx.strokeStyle = '#000000';
-    ctx.fillStyle = '#FFFFFF';
-    // Shadow légère pour meilleure lisibilité
-    ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 2 * scale;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.strokeText(membershipTypeLabel, centerX, 630 * scale);
     ctx.fillText(membershipTypeLabel, centerX, 630 * scale);
 
     // Date d'expiration
-    let expiryText = 'Membre honoraire';
+    let expiryText = 'expire le 31/12/25';
     if (userData.currentMembership.expiryDate) {
       try {
         let expiryDate: Date;
@@ -201,31 +166,15 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
         expiryText = `expire le ${expiryDate.toLocaleDateString('fr-FR')}`;
       } catch (dateError) {
         console.error('❌ Error parsing expiry date:', dateError);
-        expiryText = 'Membre honoraire';
+        expiryText = 'expire le 31/12/25';
       }
     }
     
     ctx.font = `${18 * scale}px Arial`;
-    ctx.strokeStyle = '#000000';
-    ctx.fillStyle = '#FFFFFF';
-    // Shadow légère pour meilleure lisibilité
-    ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 2 * scale;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.strokeText(expiryText, centerX, 660 * scale);
     ctx.fillText(expiryText, centerX, 660 * scale);
 
-    // Nom et Prénom avec meilleur rendu
+    // Nom et Prénom
     ctx.font = `bold ${22 * scale}px Arial`;
-    ctx.strokeStyle = '#000000';
-    ctx.fillStyle = '#FFFFFF';
-    // Shadow légère pour meilleure lisibilité
-    ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 2 * scale;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.strokeText(`${userData.firstName} ${userData.lastName}`, centerX, 700 * scale);
     ctx.fillText(`${userData.firstName} ${userData.lastName}`, centerX, 700 * scale);
 
     // Convertir en JPG haute qualité (0.95 pour meilleur rendu)

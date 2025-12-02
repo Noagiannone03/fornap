@@ -71,15 +71,25 @@ function createEmailTransporter() {
 }
 
 /**
- * Génère l'image de la carte d'adhérent avec QR code - VERSION SHARP avec Google Fonts
+ * Génère l'image de la carte d'adhérent avec QR code - VERSION SHARP avec polices locales
  */
 async function generateMembershipCardImage(userData: UserData): Promise<Buffer> {
   try {
-    console.log('🎨 Generating card with sharp + Google Fonts Montserrat...');
+    console.log('🎨 Generating card with sharp + Local AcherusFeral Font...');
     
     // Charger l'image de fond
     const backgroundImagePath = join(__dirname, 'base-image.png');
     const backgroundBuffer = await readFile(backgroundImagePath);
+
+    // Charger la police locale AcherusFeral Bold en base64
+    const fontBoldPath = join(__dirname, 'AcherusFeral-Bold.otf');
+    const fontBoldBuffer = await readFile(fontBoldPath);
+    const fontBoldBase64 = fontBoldBuffer.toString('base64');
+
+    // Charger la police locale AcherusFeral Light en base64
+    const fontLightPath = join(__dirname, 'AcherusFeral-Light.otf');
+    const fontLightBuffer = await readFile(fontLightPath);
+    const fontLightBase64 = fontLightBuffer.toString('base64');
 
     // Générer le QR code
     const qrCodeData = `FORNAP-MEMBER:${userData.uid}`;
@@ -140,33 +150,42 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
 
-    // Créer un SVG overlay avec Montserrat de Google Fonts
+    // Créer un SVG overlay avec AcherusFeral embarquée en base64
     const textSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="450" height="800" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <style type="text/css">
-      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&amp;display=swap');
+      @font-face {
+        font-family: 'AcherusFeral';
+        font-weight: 700;
+        src: url(data:font/opentype;base64,${fontBoldBase64}) format('opentype');
+      }
+      @font-face {
+        font-family: 'AcherusFeral';
+        font-weight: 300;
+        src: url(data:font/opentype;base64,${fontLightBase64}) format('opentype');
+      }
       
       .text { 
         fill: white; 
-        font-family: 'Montserrat', sans-serif;
+        font-family: 'AcherusFeral', Arial, sans-serif;
         text-anchor: middle;
         filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.8));
       }
       .text-bold { 
         font-weight: 700;
       }
-      .text-regular {
-        font-weight: 400;
+      .text-light {
+        font-weight: 300;
       }
     </style>
   </defs>
   <text x="225" y="630" font-size="20" class="text text-bold">${escapeXml(membershipTypeLabel)}</text>
-  <text x="225" y="660" font-size="18" class="text text-regular">${escapeXml(expiryText)}</text>
+  <text x="225" y="660" font-size="18" class="text text-light">${escapeXml(expiryText)}</text>
   <text x="225" y="700" font-size="22" class="text text-bold">${escapeXml(fullName)}</text>
 </svg>`;
 
-    console.log('📝 SVG with Montserrat Bold from Google Fonts generated');
+    console.log('📝 SVG with embedded local AcherusFeral font generated');
 
     // Composer l'image finale avec sharp
     const finalImage = await sharp(backgroundBuffer)
@@ -186,7 +205,7 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       .jpeg({ quality: 90 })
       .toBuffer();
 
-    console.log('✅ Card generated successfully with sharp + Montserrat');
+    console.log('✅ Card generated successfully with local AcherusFeral font');
     return finalImage;
   } catch (error) {
     console.error('❌ Error generating membership card image:', error);

@@ -22,10 +22,21 @@ export interface ImportResult {
   success: number;
   errors: Array<{ row: number; email: string; error: string }>;
   skipped: number;
+  debugInfo?: {
+    separator: string;
+    headers: string[];
+    firstRowSample?: {
+      nom?: string;
+      prenom?: string;
+      email?: string;
+      telephone?: string;
+    };
+  };
 }
 
 /**
  * Parse une ligne CSV et mappe les colonnes aux champs attendus
+ * IMPORTANT: Ne pas écraser une valeur déjà trouvée (priorité à la première occurrence)
  */
 function parseCsvRow(headers: string[], values: string[], isFirstRow: boolean = false): CsvRow | null {
   const row: any = {};
@@ -34,35 +45,36 @@ function parseCsvRow(headers: string[], values: string[], isFirstRow: boolean = 
     const value = values[index]?.trim();
     const lowerHeader = header.toLowerCase();
 
-    // Mapping des colonnes
-    if (lowerHeader.includes('nom') && !lowerHeader.includes('prénom')) {
+    // Mapping des colonnes - NE PAS ÉCRASER si déjà trouvé
+    if (!row.nom && lowerHeader.includes('nom') && !lowerHeader.includes('prénom') && lowerHeader.includes('?')) {
       row.nom = value;
       if (isFirstRow) console.log(`✓ Nom trouvé dans colonne "${header}"`);
-    } else if (lowerHeader.includes('prénom')) {
+    } else if (!row.prenom && lowerHeader.includes('prénom') && lowerHeader.includes('?')) {
       row.prenom = value;
       if (isFirstRow) console.log(`✓ Prénom trouvé dans colonne "${header}"`);
-    } else if (lowerHeader.includes('email') || lowerHeader.includes('e-mail') || lowerHeader.includes('mail')) {
+    } else if (!row.email && (lowerHeader.includes('adresse') || lowerHeader.includes('e-mail')) && lowerHeader.includes('?')) {
+      // Priorité aux colonnes avec "Adresse email ?" (avec ?)
       row.email = value;
       if (isFirstRow) console.log(`✓ Email trouvé dans colonne "${header}"`);
-    } else if (lowerHeader.includes('téléphone') || lowerHeader.includes('telephone') || lowerHeader.includes('phone') || lowerHeader.includes('numéro')) {
+    } else if (!row.telephone && (lowerHeader.includes('téléphone') || lowerHeader.includes('telephone') || lowerHeader.includes('phone') || lowerHeader.includes('numéro')) && lowerHeader.includes('?')) {
       row.telephone = value;
       if (isFirstRow) console.log(`✓ Téléphone trouvé dans colonne "${header}"`);
-    } else if (lowerHeader.includes('naissance') || lowerHeader.includes('date de naissance')) {
+    } else if (!row.dateNaissance && lowerHeader.includes('naissance') && lowerHeader.includes('?')) {
       row.dateNaissance = value;
       if (isFirstRow) console.log(`✓ Date de naissance trouvée dans colonne "${header}"`);
-    } else if (lowerHeader.includes('code postal') || lowerHeader.includes('postal') || lowerHeader.includes('zip')) {
+    } else if (!row.codePostal && (lowerHeader.includes('code postal') || lowerHeader.includes('postal')) && lowerHeader.includes('?')) {
       row.codePostal = value;
       if (isFirstRow) console.log(`✓ Code postal trouvé dans colonne "${header}"`);
-    } else if (lowerHeader.includes('horodateur') || lowerHeader.includes('timestamp')) {
+    } else if (!row.horodateur && (lowerHeader.includes('horodateur') || lowerHeader === 'horodateur')) {
       row.horodateur = value;
       if (isFirstRow) console.log(`✓ Horodateur trouvé dans colonne "${header}"`);
-    } else if (lowerHeader.includes('initié')) {
+    } else if (!row.initiateur && lowerHeader.includes('initié')) {
       row.initiateur = value;
       if (isFirstRow) console.log(`✓ Initiateur trouvé dans colonne "${header}"`);
-    } else if (lowerHeader === 'homme') {
+    } else if (!row.homme && lowerHeader === 'homme') {
       row.homme = value;
       if (isFirstRow) console.log(`✓ Homme trouvé dans colonne "${header}"`);
-    } else if (lowerHeader === 'femme') {
+    } else if (!row.femme && lowerHeader === 'femme') {
       row.femme = value;
       if (isFirstRow) console.log(`✓ Femme trouvé dans colonne "${header}"`);
     }
@@ -283,6 +295,41 @@ function detectSeparator(line: string): string {
 }
 
 /**
+ * Parse une ligne CSV en tenant compte des guillemets
+ */
+function parseCSVLine(line: string, separator: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"') {
+      // Gestion des guillemets doublés ("") qui représentent un guillemet littéral
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        i++; // Skip le prochain guillemet
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === separator && !inQuotes) {
+      // On a trouvé un séparateur hors des guillemets
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  // Ajouter la dernière valeur
+  result.push(current.trim());
+
+  return result;
+}
+
+/**
  * Parse le contenu CSV complet et retourne les lignes valides
  */
 function parseCSV(csvContent: string): { headers: string[]; rows: string[][] } {
@@ -295,12 +342,12 @@ function parseCSV(csvContent: string): { headers: string[]; rows: string[][] } {
   // Détecter automatiquement le séparateur
   const separator = detectSeparator(lines[0]);
 
-  // Parser la première ligne comme headers
-  const headers = lines[0].split(separator).map(h => h.trim());
+  // Parser la première ligne comme headers en tenant compte des guillemets
+  const headers = parseCSVLine(lines[0], separator);
   console.log('Headers détectés:', headers);
 
-  // Parser les autres lignes
-  const rows = lines.slice(1).map(line => line.split(separator).map(v => v.trim()));
+  // Parser les autres lignes en tenant compte des guillemets
+  const rows = lines.slice(1).map(line => parseCSVLine(line, separator));
 
   return { headers, rows };
 }
@@ -321,7 +368,17 @@ export async function importUsersFromCsv(
   try {
     const { headers, rows } = parseCSV(csvContent);
 
+    // Déterminer le séparateur utilisé
+    const separator = detectSeparator(csvContent.split('\n')[0]);
+    const separatorName = separator === '\t' ? 'TABULATION' : separator === ',' ? 'VIRGULE' : separator === ';' ? 'POINT-VIRGULE' : separator;
+
     console.log(`Début de l'import: ${rows.length} lignes à traiter`);
+
+    // Initialiser debugInfo
+    result.debugInfo = {
+      separator: separatorName,
+      headers: headers,
+    };
 
     for (let i = 0; i < rows.length; i++) {
       const rowNumber = i + 2; // +2 car ligne 1 = headers, et index commence à 0
@@ -335,8 +392,16 @@ export async function importUsersFromCsv(
           continue;
         }
 
-        if (isFirstRow) {
+        // Capturer un échantillon de la première ligne pour le debug
+        if (isFirstRow && result.debugInfo) {
+          result.debugInfo.firstRowSample = {
+            nom: parsedRow.nom,
+            prenom: parsedRow.prenom,
+            email: parsedRow.email,
+            telephone: parsedRow.telephone,
+          };
           console.log('✓ Première ligne validée, import des utilisateurs...');
+          console.log('Échantillon première ligne:', result.debugInfo.firstRowSample);
         }
 
         await createUserFromCsv(parsedRow, adminUserId);

@@ -173,6 +173,39 @@ export function CsvImportModal({
                   Résultat de l'import
                 </Text>
 
+                {result.debugInfo && (
+                  <Alert icon={<IconAlertCircle size={16} />} color="blue" variant="light">
+                    <Text size="xs" fw={600} mb="xs">
+                      Informations de débogage:
+                    </Text>
+                    <Text size="xs">
+                      • Séparateur détecté: <strong>{result.debugInfo.separator}</strong>
+                    </Text>
+                    <Text size="xs">
+                      • Nombre de colonnes: <strong>{result.debugInfo.headers.length}</strong>
+                    </Text>
+                    {result.debugInfo.firstRowSample && (
+                      <>
+                        <Text size="xs" mt="xs" fw={600}>
+                          Échantillon première ligne:
+                        </Text>
+                        <Text size="xs">
+                          • Nom: <strong>{result.debugInfo.firstRowSample.nom || '(vide)'}</strong>
+                        </Text>
+                        <Text size="xs">
+                          • Prénom: <strong>{result.debugInfo.firstRowSample.prenom || '(vide)'}</strong>
+                        </Text>
+                        <Text size="xs">
+                          • Email: <strong>{result.debugInfo.firstRowSample.email || '(vide)'}</strong>
+                        </Text>
+                        <Text size="xs">
+                          • Téléphone: <strong>{result.debugInfo.firstRowSample.telephone || '(vide)'}</strong>
+                        </Text>
+                      </>
+                    )}
+                  </Alert>
+                )}
+
                 <Group grow>
                   <Paper withBorder p="sm" radius="md" bg="green.0">
                     <Group>

@@ -108,12 +108,18 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     const qrY = 340 * scale; // Position verticale
     ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
 
-    // Configuration du texte - EXACTEMENT comme l'ancienne fonction
+    // Configuration du texte - Réinitialisation complète du contexte
     const centerX = (baseWidth * scale) / 2;
-    ctx.fillStyle = '#FFFFFF';
+    
+    // Réinitialiser TOUS les paramètres de dessin
+    ctx.shadowColor = 'transparent';  // Pas de shadow
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = '#FFFFFF';  // Texte BLANC
     ctx.textAlign = 'center';
-    ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 2 * scale;
+    ctx.textBaseline = 'alphabetic';
 
     // Type d'abonnement (membre annuel, mensuel, etc.)
     const membershipTypeLabel = 
@@ -127,9 +133,19 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     console.log('  - lastName:', userData.lastName);
     console.log('  - Position Y: 630*scale =', 630 * scale, ', 660*scale =', 660 * scale, ', 700*scale =', 700 * scale);
     console.log('  - Canvas size:', baseWidth * scale, 'x', baseHeight * scale);
+    console.log('  - centerX:', centerX);
+    console.log('  - fillStyle:', ctx.fillStyle);
     
+    // TEST: Dessiner un rectangle blanc pour vérifier que le dessin fonctionne
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(100 * scale, 600 * scale, 250 * scale, 150 * scale);
+    console.log('  🧪 Test rectangle drawn at Y=600');
+    
+    // Remettre le fillStyle pour le texte
+    ctx.fillStyle = '#FFFFFF';
     ctx.font = `bold ${20 * scale}px Arial`;
     ctx.fillText(membershipTypeLabel, centerX, 630 * scale);
+    console.log('  ✅ Text 1 drawn:', membershipTypeLabel);
 
     // Date d'expiration
     let expiryText = 'expire le 31/12/25';
@@ -172,10 +188,13 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     
     ctx.font = `${18 * scale}px Arial`;
     ctx.fillText(expiryText, centerX, 660 * scale);
+    console.log('  ✅ Text 2 drawn:', expiryText);
 
     // Nom et Prénom
+    const fullName = `${userData.firstName} ${userData.lastName}`;
     ctx.font = `bold ${22 * scale}px Arial`;
-    ctx.fillText(`${userData.firstName} ${userData.lastName}`, centerX, 700 * scale);
+    ctx.fillText(fullName, centerX, 700 * scale);
+    console.log('  ✅ Text 3 drawn:', fullName);
 
     // Convertir en JPG haute qualité (0.95 pour meilleur rendu)
     return canvas.toBuffer('image/jpeg', 0.95);

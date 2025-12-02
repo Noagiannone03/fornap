@@ -16,7 +16,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import sharp from 'sharp';
+import { readFile } from 'fs/promises';
 import { getFirestore, getFieldValue, getTimestamp } from '../_lib/firebase-admin.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -70,18 +71,15 @@ function createEmailTransporter() {
 }
 
 /**
- * Génère l'image de la carte d'adhérent avec QR code
+ * Génère l'image de la carte d'adhérent avec QR code - VERSION SHARP
  */
 async function generateMembershipCardImage(userData: UserData): Promise<Buffer> {
   try {
-    // Configuration du canvas - DIMENSIONS EXACTES de l'ancienne fonction qui marchait
-    const canvas = createCanvas(450, 800);  // PAS de scale
-    const ctx = canvas.getContext('2d');
-
-    // Charger l'image de fond depuis le fichier PNG
+    console.log('🎨 Generating card with sharp...');
+    
+    // Charger l'image de fond
     const backgroundImagePath = join(__dirname, 'base-image.png');
-    const backgroundImg = await loadImage(backgroundImagePath);
-    ctx.drawImage(backgroundImg, 0, 0, 450, 800);
+    const backgroundBuffer = await readFile(backgroundImagePath);
 
     // Générer le QR code
     const qrCodeData = `FORNAP-MEMBER:${userData.uid}`;
@@ -94,43 +92,17 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       },
     });
 
-    // Charger et dessiner le QR code
-    const qrImg = await loadImage(qrBuffer);
-    const qrSize = 190;
-    const qrX = (450 - qrSize) / 2; // Centré horizontalement
-    const qrY = 340; // Position verticale
-    ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
-
-    // Configuration du texte - EXACTEMENT comme l'ancienne fonction
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 2;
-
-    // Type d'abonnement (membre annuel, mensuel, etc.)
+    // Type d'abonnement
     const membershipTypeLabel = 
       userData.currentMembership?.planType === 'monthly' ? 'membre mensuel' :
       userData.currentMembership?.planType === 'annual' ? 'membre annuel' :
       'membre honoraire';
     
-    console.log('🎨 Drawing text on card (NO SCALE):');
-    console.log('  - membershipType:', membershipTypeLabel);
-    console.log('  - firstName:', userData.firstName);
-    console.log('  - lastName:', userData.lastName);
-    console.log('  - Canvas size: 450 x 800');
-    
-    // "membre annuel" - POSITION EXACTE de l'ancienne fonction
-    ctx.font = 'bold 20px Arial';
-    ctx.fillText(membershipTypeLabel, 225, 630);
-    console.log('  ✅ Text 1 drawn at Y=630:', membershipTypeLabel);
-
-    // Date d'expiration - POSITION EXACTE de l'ancienne fonction
+    // Date d'expiration
     let expiryText = 'expire le 31/12/25';
     if (userData.currentMembership?.expiryDate) {
       try {
         let expiryDate: Date;
-        
-        // Gérer différents formats de date possibles
         if (typeof userData.currentMembership.expiryDate === 'object' && 
             'toDate' in userData.currentMembership.expiryDate && 
             typeof userData.currentMembership.expiryDate.toDate === 'function') {
@@ -148,26 +120,56 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
         } else {
           expiryDate = new Date();
         }
-        
         expiryText = `expire le ${expiryDate.toLocaleDateString('fr-FR')}`;
       } catch (dateError) {
         console.error('❌ Error parsing expiry date:', dateError);
-        expiryText = 'expire le 31/12/25';
       }
     }
-    
-    ctx.font = '18px Arial';
-    ctx.fillText(expiryText, 225, 660);
-    console.log('  ✅ Text 2 drawn at Y=660:', expiryText);
 
-    // Nom et Prénom - POSITION EXACTE de l'ancienne fonction
     const fullName = `${userData.firstName} ${userData.lastName}`;
-    ctx.font = 'bold 22px Arial';
-    ctx.fillText(fullName, 225, 700);
-    console.log('  ✅ Text 3 drawn at Y=700:', fullName);
 
-    // Convertir en JPG - EXACTEMENT comme l'ancienne fonction
-    return canvas.toBuffer('image/jpeg');
+    console.log('  - membershipType:', membershipTypeLabel);
+    console.log('  - expiryText:', expiryText);
+    console.log('  - fullName:', fullName);
+
+    // Créer un SVG overlay pour le texte
+    const textSvg = `
+      <svg width="450" height="800">
+        <style>
+          .text { 
+            fill: white; 
+            font-family: Arial, sans-serif;
+            text-anchor: middle;
+            filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.8));
+          }
+          .text-bold { font-weight: bold; }
+        </style>
+        <text x="225" y="630" font-size="20" class="text text-bold">${membershipTypeLabel}</text>
+        <text x="225" y="660" font-size="18" class="text">${expiryText}</text>
+        <text x="225" y="700" font-size="22" class="text text-bold">${fullName}</text>
+      </svg>
+    `;
+
+    // Composer l'image finale avec sharp
+    const finalImage = await sharp(backgroundBuffer)
+      .resize(450, 800, { fit: 'cover' })
+      .composite([
+        {
+          input: qrBuffer,
+          top: 340,
+          left: 130, // (450 - 190) / 2
+        },
+        {
+          input: Buffer.from(textSvg),
+          top: 0,
+          left: 0,
+        },
+      ])
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    console.log('✅ Card generated successfully with sharp');
+    return finalImage;
   } catch (error) {
     console.error('❌ Error generating membership card image:', error);
     throw new Error('Failed to generate membership card image');

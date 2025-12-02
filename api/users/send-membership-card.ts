@@ -16,7 +16,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
-import Jimp from 'jimp';
+import sharp from 'sharp';
+import { readFile } from 'fs/promises';
 import { getFirestore, getFieldValue, getTimestamp } from '../_lib/firebase-admin.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -70,18 +71,15 @@ function createEmailTransporter() {
 }
 
 /**
- * Génère l'image de la carte d'adhérent avec QR code - VERSION JIMP (polices intégrées)
+ * Génère l'image de la carte d'adhérent avec QR code - VERSION SHARP avec Google Fonts
  */
 async function generateMembershipCardImage(userData: UserData): Promise<Buffer> {
   try {
-    console.log('🎨 Generating card with Jimp (polices bitmap intégrées)...');
+    console.log('🎨 Generating card with sharp + Google Fonts Montserrat...');
     
-    // Charger l'image de fond avec Jimp
+    // Charger l'image de fond
     const backgroundImagePath = join(__dirname, 'base-image.png');
-    const image = await Jimp.read(backgroundImagePath);
-    
-    // S'assurer que l'image fait 450x800
-    image.resize(450, 800);
+    const backgroundBuffer = await readFile(backgroundImagePath);
 
     // Générer le QR code
     const qrCodeData = `FORNAP-MEMBER:${userData.uid}`;
@@ -93,12 +91,6 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
         light: '#FFFFFF',
       },
     });
-
-    // Charger le QR code avec Jimp et le superposer
-    const qrImage = await Jimp.read(qrBuffer);
-    const qrX = Math.floor((450 - 190) / 2); // Centré
-    const qrY = 340;
-    image.composite(qrImage, qrX, qrY);
 
     // Type d'abonnement
     const membershipTypeLabel = 
@@ -140,51 +132,62 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     console.log('  - expiryText:', expiryText);
     console.log('  - fullName:', fullName);
 
-    // Charger les polices Jimp intégrées (BITMAP, pas besoin de polices système)
-    const font32 = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
-    const font16 = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
+    // Échapper les caractères XML
+    const escapeXml = (text: string) => text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
 
-    // Dessiner les textes (centrés)
-    // Texte 1: Type d'abonnement (Y=630, ajusté pour la police bitmap)
-    image.print(
-      font32,
-      0,
-      600,
-      {
-        text: membershipTypeLabel,
-        alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
-      },
-      450
-    );
+    // Créer un SVG overlay avec Montserrat de Google Fonts
+    const textSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="450" height="800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style type="text/css">
+      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&amp;display=swap');
+      
+      .text { 
+        fill: white; 
+        font-family: 'Montserrat', sans-serif;
+        text-anchor: middle;
+        filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.8));
+      }
+      .text-bold { 
+        font-weight: 700;
+      }
+      .text-regular {
+        font-weight: 400;
+      }
+    </style>
+  </defs>
+  <text x="225" y="630" font-size="20" class="text text-bold">${escapeXml(membershipTypeLabel)}</text>
+  <text x="225" y="660" font-size="18" class="text text-regular">${escapeXml(expiryText)}</text>
+  <text x="225" y="700" font-size="22" class="text text-bold">${escapeXml(fullName)}</text>
+</svg>`;
 
-    // Texte 2: Date d'expiration (Y=660, ajusté)
-    image.print(
-      font16,
-      0,
-      640,
-      {
-        text: expiryText,
-        alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
-      },
-      450
-    );
+    console.log('📝 SVG with Montserrat Bold from Google Fonts generated');
 
-    // Texte 3: Nom complet (Y=700, ajusté)
-    image.print(
-      font32,
-      0,
-      680,
-      {
-        text: fullName,
-        alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
-      },
-      450
-    );
+    // Composer l'image finale avec sharp
+    const finalImage = await sharp(backgroundBuffer)
+      .resize(450, 800, { fit: 'cover' })
+      .composite([
+        {
+          input: qrBuffer,
+          top: 340,
+          left: 130,
+        },
+        {
+          input: Buffer.from(textSvg, 'utf-8'),
+          top: 0,
+          left: 0,
+        },
+      ])
+      .jpeg({ quality: 90 })
+      .toBuffer();
 
-    console.log('✅ Card generated successfully with Jimp');
-    
-    // Convertir en buffer JPEG
-    return await image.quality(90).getBufferAsync(Jimp.MIME_JPEG);
+    console.log('✅ Card generated successfully with sharp + Montserrat');
+    return finalImage;
   } catch (error) {
     console.error('❌ Error generating membership card image:', error);
     throw new Error('Failed to generate membership card image');

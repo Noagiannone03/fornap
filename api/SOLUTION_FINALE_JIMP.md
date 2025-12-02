@@ -78,3 +78,4 @@ L'image générée contient :
 
 **Tous les textes s'affichent correctement avec les accents français !**
 
+

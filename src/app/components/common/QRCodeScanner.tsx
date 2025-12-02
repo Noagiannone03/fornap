@@ -11,6 +11,12 @@ import {
   Modal,
   Title,
   Badge,
+  TextInput,
+  Card,
+  Avatar,
+  ActionIcon,
+  Tooltip,
+  Tabs,
 } from '@mantine/core';
 import {
   IconAlertCircle,
@@ -18,15 +24,37 @@ import {
   IconRefresh,
   IconCreditCard,
   IconClock,
+  IconSearch,
+  IconQrcode,
+  IconMail,
+  IconEdit,
+  IconUser,
 } from '@tabler/icons-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../../shared/config/firebase';
 
 interface QRCodeScannerProps {
   onScan: (uid: string) => void;
   onError?: (error: string) => void;
+  onEditUser?: (uid: string) => void;
 }
 
-export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
+interface UserSearchResult {
+  uid: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  currentMembership?: {
+    planType: 'monthly' | 'annual' | 'lifetime';
+    planName: string;
+  };
+  emailStatus?: {
+    membershipCardSent: boolean;
+  };
+}
+
+export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProps) => {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -38,6 +66,13 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
   const scannerDivRef = useRef<HTMLDivElement>(null);
   const lastScanTimeRef = useRef<number>(0);
   const scanCooldownMs = 2000; // Cooldown de 2 secondes entre scans
+
+  // États pour la recherche manuelle
+  const [activeTab, setActiveTab] = useState<string | null>('scanner');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [resendingCard, setResendingCard] = useState<string | null>(null);
 
   // Effet pour démarrer le scanner une fois que le DOM est prêt
   useEffect(() => {
@@ -261,13 +296,422 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
     setTimeout(() => setSuccess(false), 1500);
   };
 
-  // Auto-start scanner on mount
+  // Auto-start scanner on mount only if on scanner tab
   useEffect(() => {
-    handleStartScan();
-  }, []);
+    if (activeTab === 'scanner') {
+      handleStartScan();
+    }
+  }, [activeTab]);
+
+  // Fonction de recherche utilisateur
+  const searchUsers = async (searchTerm: string) => {
+    if (!searchTerm || searchTerm.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const usersRef = collection(db, 'users');
+      const results: UserSearchResult[] = [];
+
+      // Recherche par UID complet
+      if (searchTerm.length >= 5) {
+        const docRef = doc(db, 'users', searchTerm);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          results.push({
+            uid: docSnap.id,
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            email: data.email || '',
+            currentMembership: data.currentMembership,
+            emailStatus: data.emailStatus,
+          });
+        }
+      }
+
+      // Recherche par code membre (5 premiers caractères de l'UID)
+      if (searchTerm.length === 5) {
+        const allUsersQuery = query(usersRef);
+        const querySnapshot = await getDocs(allUsersQuery);
+
+        querySnapshot.forEach((doc) => {
+          const memberCode = doc.id.substring(0, 5).toUpperCase();
+          if (memberCode === searchTerm.toUpperCase() && !results.find(r => r.uid === doc.id)) {
+            const data = doc.data();
+            results.push({
+              uid: doc.id,
+              firstName: data.firstName || '',
+              lastName: data.lastName || '',
+              email: data.email || '',
+              currentMembership: data.currentMembership,
+              emailStatus: data.emailStatus,
+            });
+          }
+        });
+      }
+
+      // Recherche par nom/prénom
+      const searchTermLower = searchTerm.toLowerCase();
+      const firstNameQuery = query(usersRef);
+      const lastNameQuery = query(usersRef);
+
+      const [firstNameSnapshot, lastNameSnapshot] = await Promise.all([
+        getDocs(firstNameQuery),
+        getDocs(lastNameQuery),
+      ]);
+
+      const addResultIfMatches = (doc: any) => {
+        const data = doc.data();
+        const firstName = (data.firstName || '').toLowerCase();
+        const lastName = (data.lastName || '').toLowerCase();
+        const email = (data.email || '').toLowerCase();
+
+        if (
+          firstName.includes(searchTermLower) ||
+          lastName.includes(searchTermLower) ||
+          email.includes(searchTermLower)
+        ) {
+          if (!results.find(r => r.uid === doc.id)) {
+            results.push({
+              uid: doc.id,
+              firstName: data.firstName || '',
+              lastName: data.lastName || '',
+              email: data.email || '',
+              currentMembership: data.currentMembership,
+              emailStatus: data.emailStatus,
+            });
+          }
+        }
+      };
+
+      firstNameSnapshot.forEach(addResultIfMatches);
+      lastNameSnapshot.forEach(addResultIfMatches);
+
+      setSearchResults(results.slice(0, 10)); // Limiter à 10 résultats
+    } catch (error) {
+      console.error('Erreur de recherche:', error);
+      setError('Erreur lors de la recherche');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Effet pour recherche en temps réel
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery) {
+        searchUsers(searchQuery);
+      } else {
+        setSearchResults([]);
+      }
+    }, 300); // Debounce de 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Renvoyer la carte par email
+  const handleResendCard = async (userId: string) => {
+    setResendingCard(userId);
+    try {
+      const response = await fetch('/api/users/send-membership-card', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          forceResend: true,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 2000);
+      } else {
+        setError('Erreur lors de l\'envoi: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Erreur:', error);
+      setError('Erreur réseau lors de l\'envoi');
+    } finally {
+      setResendingCard(null);
+    }
+  };
 
   return (
     <Stack gap="md">
+      {/* Onglets Scanner / Recherche */}
+      <Tabs value={activeTab} onChange={setActiveTab}>
+        <Tabs.List grow>
+          <Tabs.Tab value="scanner" leftSection={<IconQrcode size={18} />}>
+            Scanner QR Code
+          </Tabs.Tab>
+          <Tabs.Tab value="search" leftSection={<IconSearch size={18} />}>
+            Recherche Manuelle
+          </Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="scanner" pt="md">
+          <Stack gap="md">
+            {/* Zone de scan caméra */}
+            {(scanning || startRequested) ? (
+              <Box
+                style={{
+                  position: 'relative',
+                  width: '100%',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  background: '#000',
+                }}
+              >
+                <div
+                  id="qr-reader"
+                  ref={scannerDivRef}
+                  style={{
+                    width: '100%',
+                  }}
+                />
+
+                {/* Cadre de scan simple */}
+                <Box
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: '70%',
+                    maxWidth: '280px',
+                    height: '280px',
+                    border: '3px solid rgba(255, 255, 255, 0.6)',
+                    borderRadius: '16px',
+                    pointerEvents: 'none',
+                    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
+                  }}
+                />
+
+                {/* Instructions */}
+                <Text
+                  style={{
+                    position: 'absolute',
+                    bottom: '80px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    textAlign: 'center',
+                    textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                    width: '90%',
+                  }}
+                >
+                  Placez le QR code dans le cadre
+                </Text>
+
+                {/* Bouton arrêter */}
+                {scanning && (
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      bottom: '20px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      zIndex: 10,
+                    }}
+                  >
+                    <Button
+                      variant="filled"
+                      color="red"
+                      size="md"
+                      onClick={handleStopScan}
+                      styles={{
+                        root: {
+                          borderRadius: '20px',
+                          fontWeight: 600,
+                        },
+                      }}
+                    >
+                      Arrêter le scan
+                    </Button>
+                  </Box>
+                )}
+
+                {/* Message de chargement */}
+                {startRequested && !scanning && (
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <Stack gap="md" align="center">
+                      <Loader size="lg" color="white" />
+                      <Text c="white" size="md" fw={500}>
+                        Démarrage de la caméra...
+                      </Text>
+                    </Stack>
+                  </Box>
+                )}
+              </Box>
+            ) : (
+              <Center py="xl">
+                <Loader size="lg" />
+              </Center>
+            )}
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="search" pt="md">
+          <Stack gap="md">
+            {/* Champ de recherche */}
+            <TextInput
+              placeholder="Rechercher par code, UID, nom, prénom ou email..."
+              leftSection={<IconSearch size={18} />}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.currentTarget.value)}
+              size="lg"
+              styles={{
+                input: {
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                },
+              }}
+            />
+
+            {/* Résultats de recherche */}
+            {searching && (
+              <Center py="xl">
+                <Loader size="lg" />
+              </Center>
+            )}
+
+            {!searching && searchResults.length > 0 && (
+              <Stack gap="md">
+                {searchResults.map((user) => {
+                  const memberCode = user.uid.substring(0, 5).toUpperCase();
+                  return (
+                    <Card
+                      key={user.uid}
+                      shadow="sm"
+                      padding="lg"
+                      radius="md"
+                      withBorder
+                      style={{
+                        borderWidth: '2px',
+                      }}
+                    >
+                      <Group justify="space-between" wrap="nowrap">
+                        <Group gap="md" style={{ flex: 1 }}>
+                          <Avatar size="lg" color="blue" radius="xl">
+                            <IconUser size={28} />
+                          </Avatar>
+
+                          <Stack gap={4} style={{ flex: 1 }}>
+                            <Group gap="xs">
+                              <Text size="lg" fw={600}>
+                                {user.firstName} {user.lastName}
+                              </Text>
+                              <Badge size="sm" variant="light" color="blue">
+                                {memberCode}
+                              </Badge>
+                            </Group>
+
+                            <Text size="sm" c="dimmed">
+                              {user.email}
+                            </Text>
+
+                            {user.currentMembership && (
+                              <Badge
+                                size="sm"
+                                variant="light"
+                                color={
+                                  user.currentMembership.planType === 'lifetime'
+                                    ? 'yellow'
+                                    : user.currentMembership.planType === 'annual'
+                                    ? 'green'
+                                    : 'blue'
+                                }
+                              >
+                                {user.currentMembership.planName}
+                              </Badge>
+                            )}
+                          </Stack>
+                        </Group>
+
+                        <Group gap="xs">
+                          <Tooltip label="Renvoyer la carte">
+                            <ActionIcon
+                              variant="light"
+                              color="blue"
+                              size="lg"
+                              onClick={() => handleResendCard(user.uid)}
+                              loading={resendingCard === user.uid}
+                              disabled={!!resendingCard}
+                            >
+                              <IconMail size={20} />
+                            </ActionIcon>
+                          </Tooltip>
+
+                          {onEditUser && (
+                            <Tooltip label="Modifier l'utilisateur">
+                              <ActionIcon
+                                variant="light"
+                                color="orange"
+                                size="lg"
+                                onClick={() => onEditUser(user.uid)}
+                              >
+                                <IconEdit size={20} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+
+                          <Button
+                            variant="filled"
+                            color="green"
+                            size="sm"
+                            onClick={() => onScan(user.uid)}
+                            styles={{
+                              root: {
+                                borderRadius: '8px',
+                              },
+                            }}
+                          >
+                            Scanner
+                          </Button>
+                        </Group>
+                      </Group>
+                    </Card>
+                  );
+                })}
+              </Stack>
+            )}
+
+            {!searching && searchQuery && searchResults.length === 0 && (
+              <Alert color="gray" variant="light">
+                <Text size="sm">
+                  Aucun résultat trouvé pour "{searchQuery}"
+                </Text>
+              </Alert>
+            )}
+
+            {!searching && !searchQuery && (
+              <Alert color="blue" variant="light">
+                <Text size="sm">
+                  Entrez un code membre, un nom, un prénom, un email ou un UID pour rechercher un utilisateur.
+                </Text>
+              </Alert>
+            )}
+          </Stack>
+        </Tabs.Panel>
+      </Tabs>
+
       {/* Modal de validation de paiement en attente */}
       <Modal
         opened={pendingModalOpen}
@@ -390,115 +834,7 @@ export const QRCodeScanner = ({ onScan, onError }: QRCodeScannerProps) => {
         </Stack>
       </Modal>
 
-      {/* Zone de scan caméra */}
-      {(scanning || startRequested) ? (
-        <Box
-          style={{
-            position: 'relative',
-            width: '100%',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            background: '#000',
-          }}
-        >
-          <div
-            id="qr-reader"
-            ref={scannerDivRef}
-            style={{
-              width: '100%',
-            }}
-          />
-
-          {/* Cadre de scan simple */}
-          <Box
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '70%',
-              maxWidth: '280px',
-              height: '280px',
-              border: '3px solid rgba(255, 255, 255, 0.6)',
-              borderRadius: '16px',
-              pointerEvents: 'none',
-              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
-            }}
-          />
-
-          {/* Instructions */}
-          <Text
-            style={{
-              position: 'absolute',
-              bottom: '80px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              color: 'white',
-              fontSize: '14px',
-              fontWeight: 500,
-              textAlign: 'center',
-              textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-              width: '90%',
-            }}
-          >
-            Placez le QR code dans le cadre
-          </Text>
-
-          {/* Bouton arrêter */}
-          {scanning && (
-            <Box
-              style={{
-                position: 'absolute',
-                bottom: '20px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                zIndex: 10,
-              }}
-            >
-              <Button
-                variant="filled"
-                color="red"
-                size="md"
-                onClick={handleStopScan}
-                styles={{
-                  root: {
-                    borderRadius: '20px',
-                    fontWeight: 600,
-                  },
-                }}
-              >
-                Arrêter le scan
-              </Button>
-            </Box>
-          )}
-
-          {/* Message de chargement */}
-          {startRequested && !scanning && (
-            <Box
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                textAlign: 'center',
-              }}
-            >
-              <Stack gap="md" align="center">
-                <Loader size="lg" color="white" />
-                <Text c="white" size="md" fw={500}>
-                  Démarrage de la caméra...
-                </Text>
-              </Stack>
-            </Box>
-          )}
-        </Box>
-      ) : (
-        <Center py="xl">
-          <Loader size="lg" />
-        </Center>
-      )}
-
-      {/* Messages d'état */}
+      {/* Messages d'état globaux */}
       {error && (
         <Alert
           icon={<IconAlertCircle size={20} />}

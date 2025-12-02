@@ -138,6 +138,10 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
 
     const fullName = `${userData.firstName} ${userData.lastName}`;
 
+    // Code membre (5 premiers caractères de l'UID en majuscules)
+    const memberCode = userData.uid.substring(0, 5).toUpperCase();
+
+    console.log('  - memberCode:', memberCode);
     console.log('  - membershipType:', membershipTypeLabel);
     console.log('  - expiryText:', expiryText);
     console.log('  - fullName:', fullName);
@@ -162,17 +166,21 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     ctx.fillStyle = 'white';
     ctx.textAlign = 'center';
 
-    // Ligne 1: Type d'abonnement (Bold, 20px)
+    // Ligne 1: Code membre (Bold, 32px) - EN GROS
+    ctx.font = '700 32px "AcherusFeral-Bold"';
+    ctx.fillText(memberCode, 225, 610);
+
+    // Ligne 2: Type d'abonnement (Bold, 18px)
+    ctx.font = '700 18px "AcherusFeral-Bold"';
+    ctx.fillText(membershipTypeLabel, 225, 645);
+
+    // Ligne 3: Date d'expiration (Light, 16px)
+    ctx.font = '300 16px "AcherusFeral-Light"';
+    ctx.fillText(expiryText, 225, 675);
+
+    // Ligne 4: Nom complet (Bold, 20px)
     ctx.font = '700 20px "AcherusFeral-Bold"';
-    ctx.fillText(membershipTypeLabel, 225, 630);
-
-    // Ligne 2: Date d'expiration (Light, 18px)
-    ctx.font = '300 18px "AcherusFeral-Light"';
-    ctx.fillText(expiryText, 225, 660);
-
-    // Ligne 3: Nom complet (Bold, 22px)
-    ctx.font = '700 22px "AcherusFeral-Bold"';
-    ctx.fillText(fullName, 225, 700);
+    ctx.fillText(fullName, 225, 710);
 
     // Convertir en buffer JPEG
     const buffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });

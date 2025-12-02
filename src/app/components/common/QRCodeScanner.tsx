@@ -15,7 +15,6 @@ import {
   Card,
   Avatar,
   ActionIcon,
-  Tooltip,
   Tabs,
 } from '@mantine/core';
 import {
@@ -332,14 +331,15 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
         }
       }
 
-      // Recherche par code membre (5 premiers caractères de l'UID)
-      if (searchTerm.length === 5) {
+      // Recherche par code membre (7 premiers caractères de l'UID)
+      if (searchTerm.length >= 5 && searchTerm.length <= 7) {
         const allUsersQuery = query(usersRef);
         const querySnapshot = await getDocs(allUsersQuery);
 
         querySnapshot.forEach((doc) => {
-          const memberCode = doc.id.substring(0, 5).toUpperCase();
-          if (memberCode === searchTerm.toUpperCase() && !results.find(r => r.uid === doc.id)) {
+          const memberCode = doc.id.substring(0, 7).toUpperCase();
+          const searchUpper = searchTerm.toUpperCase();
+          if (memberCode.startsWith(searchUpper) && !results.find(r => r.uid === doc.id)) {
             const data = doc.data();
             results.push({
               uid: doc.id,
@@ -446,17 +446,46 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
   return (
     <Stack gap="md">
       {/* Onglets Scanner / Recherche */}
-      <Tabs value={activeTab} onChange={setActiveTab}>
+      <Tabs
+        value={activeTab}
+        onChange={setActiveTab}
+        styles={{
+          root: {
+            backgroundColor: 'white',
+            borderRadius: '16px',
+            padding: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          },
+          list: {
+            borderBottom: 'none',
+          },
+          tab: {
+            borderRadius: '12px',
+            fontWeight: 600,
+            fontSize: '15px',
+            padding: '16px 24px',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              backgroundColor: 'rgba(0,0,0,0.03)',
+            },
+            '&[data-active]': {
+              backgroundColor: '#228be6',
+              color: 'white',
+              boxShadow: '0 4px 12px rgba(34, 139, 230, 0.3)',
+            },
+          },
+        }}
+      >
         <Tabs.List grow>
-          <Tabs.Tab value="scanner" leftSection={<IconQrcode size={18} />}>
+          <Tabs.Tab value="scanner" leftSection={<IconQrcode size={20} />}>
             Scanner QR Code
           </Tabs.Tab>
-          <Tabs.Tab value="search" leftSection={<IconSearch size={18} />}>
+          <Tabs.Tab value="search" leftSection={<IconSearch size={20} />}>
             Recherche Manuelle
           </Tabs.Tab>
         </Tabs.List>
 
-        <Tabs.Panel value="scanner" pt="md">
+        <Tabs.Panel value="scanner" pt="lg">
           <Stack gap="md">
             {/* Zone de scan caméra */}
             {(scanning || startRequested) ? (
@@ -568,22 +597,61 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
           </Stack>
         </Tabs.Panel>
 
-        <Tabs.Panel value="search" pt="md">
-          <Stack gap="md">
-            {/* Champ de recherche */}
-            <TextInput
-              placeholder="Rechercher par code, UID, nom, prénom ou email..."
-              leftSection={<IconSearch size={18} />}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.currentTarget.value)}
-              size="lg"
-              styles={{
-                input: {
-                  borderRadius: '12px',
-                  fontSize: '16px',
-                },
+        <Tabs.Panel value="search" pt="lg">
+          <Stack gap="lg">
+            {/* Header de recherche */}
+            <Box
+              p="xl"
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '16px',
+                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.3)',
               }}
-            />
+            >
+              <Stack gap="md">
+                <Group gap="sm">
+                  <IconSearch size={28} color="white" />
+                  <Title order={3} c="white">
+                    Recherche Manuelle
+                  </Title>
+                </Group>
+                <Text size="sm" c="rgba(255,255,255,0.9)">
+                  Recherchez un membre par son code, nom, prénom, email ou UID
+                </Text>
+
+                {/* Champ de recherche */}
+                <TextInput
+                  placeholder="Ex: ABC1234, Jean Dupont, jean@email.com..."
+                  leftSection={<IconSearch size={20} />}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.currentTarget.value)}
+                  size="xl"
+                  styles={{
+                    input: {
+                      borderRadius: '12px',
+                      fontSize: '17px',
+                      fontWeight: 500,
+                      border: '2px solid white',
+                      backgroundColor: 'white',
+                      '&:focus': {
+                        borderColor: '#228be6',
+                      },
+                    },
+                  }}
+                  rightSection={
+                    searchQuery && (
+                      <ActionIcon
+                        onClick={() => setSearchQuery('')}
+                        variant="subtle"
+                        color="gray"
+                      >
+                        <IconAlertCircle size={18} />
+                      </ActionIcon>
+                    )
+                  }
+                />
+              </Stack>
+            </Box>
 
             {/* Résultats de recherche */}
             {searching && (
@@ -594,99 +662,149 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
 
             {!searching && searchResults.length > 0 && (
               <Stack gap="md">
+                <Text size="sm" c="dimmed" fw={500}>
+                  {searchResults.length} résultat{searchResults.length > 1 ? 's' : ''} trouvé{searchResults.length > 1 ? 's' : ''}
+                </Text>
                 {searchResults.map((user) => {
-                  const memberCode = user.uid.substring(0, 5).toUpperCase();
+                  const memberCode = user.uid.substring(0, 7).toUpperCase();
                   return (
                     <Card
                       key={user.uid}
-                      shadow="sm"
-                      padding="lg"
-                      radius="md"
+                      shadow="md"
+                      padding="xl"
+                      radius="lg"
                       withBorder
                       style={{
                         borderWidth: '2px',
+                        borderColor: '#e9ecef',
+                        transition: 'all 0.2s ease',
+                        cursor: 'default',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = '#228be6';
+                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(34, 139, 230, 0.15)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = '#e9ecef';
+                        e.currentTarget.style.boxShadow = '';
                       }}
                     >
-                      <Group justify="space-between" wrap="nowrap">
-                        <Group gap="md" style={{ flex: 1 }}>
-                          <Avatar size="lg" color="blue" radius="xl">
-                            <IconUser size={28} />
-                          </Avatar>
+                      <Stack gap="md">
+                        {/* Header avec avatar et infos */}
+                        <Group justify="space-between" wrap="nowrap">
+                          <Group gap="md" style={{ flex: 1 }}>
+                            <Avatar size="xl" color="blue" radius="xl">
+                              <IconUser size={32} />
+                            </Avatar>
 
-                          <Stack gap={4} style={{ flex: 1 }}>
-                            <Group gap="xs">
-                              <Text size="lg" fw={600}>
-                                {user.firstName} {user.lastName}
+                            <Stack gap={6} style={{ flex: 1 }}>
+                              <Group gap="sm">
+                                <Text size="xl" fw={700}>
+                                  {user.firstName} {user.lastName}
+                                </Text>
+                                <Badge
+                                  size="lg"
+                                  variant="gradient"
+                                  gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+                                  styles={{
+                                    root: {
+                                      fontSize: '13px',
+                                      fontWeight: 700,
+                                      padding: '6px 12px',
+                                    },
+                                  }}
+                                >
+                                  CODE: {memberCode}
+                                </Badge>
+                              </Group>
+
+                              <Text size="md" c="dimmed">
+                                {user.email}
                               </Text>
-                              <Badge size="sm" variant="light" color="blue">
-                                {memberCode}
-                              </Badge>
-                            </Group>
 
-                            <Text size="sm" c="dimmed">
-                              {user.email}
-                            </Text>
-
-                            {user.currentMembership && (
-                              <Badge
-                                size="sm"
-                                variant="light"
-                                color={
-                                  user.currentMembership.planType === 'lifetime'
-                                    ? 'yellow'
-                                    : user.currentMembership.planType === 'annual'
-                                    ? 'green'
-                                    : 'blue'
-                                }
-                              >
-                                {user.currentMembership.planName}
-                              </Badge>
-                            )}
-                          </Stack>
+                              {user.currentMembership && (
+                                <Badge
+                                  size="md"
+                                  variant="light"
+                                  color={
+                                    user.currentMembership.planType === 'lifetime'
+                                      ? 'yellow'
+                                      : user.currentMembership.planType === 'annual'
+                                      ? 'green'
+                                      : 'blue'
+                                  }
+                                  styles={{
+                                    root: {
+                                      fontWeight: 600,
+                                    },
+                                  }}
+                                >
+                                  {user.currentMembership.planName}
+                                </Badge>
+                              )}
+                            </Stack>
+                          </Group>
                         </Group>
 
-                        <Group gap="xs">
-                          <Tooltip label="Renvoyer la carte">
-                            <ActionIcon
-                              variant="light"
-                              color="blue"
-                              size="lg"
-                              onClick={() => handleResendCard(user.uid)}
-                              loading={resendingCard === user.uid}
-                              disabled={!!resendingCard}
-                            >
-                              <IconMail size={20} />
-                            </ActionIcon>
-                          </Tooltip>
+                        {/* Actions */}
+                        <Group gap="sm" grow>
+                          <Button
+                            variant="light"
+                            color="blue"
+                            size="md"
+                            leftSection={<IconMail size={18} />}
+                            onClick={() => handleResendCard(user.uid)}
+                            loading={resendingCard === user.uid}
+                            disabled={!!resendingCard}
+                            styles={{
+                              root: {
+                                borderRadius: '10px',
+                                height: '46px',
+                                fontWeight: 600,
+                              },
+                            }}
+                          >
+                            Renvoyer carte
+                          </Button>
 
                           {onEditUser && (
-                            <Tooltip label="Modifier l'utilisateur">
-                              <ActionIcon
-                                variant="light"
-                                color="orange"
-                                size="lg"
-                                onClick={() => onEditUser(user.uid)}
-                              >
-                                <IconEdit size={20} />
-                              </ActionIcon>
-                            </Tooltip>
+                            <Button
+                              variant="light"
+                              color="orange"
+                              size="md"
+                              leftSection={<IconEdit size={18} />}
+                              onClick={() => onEditUser(user.uid)}
+                              styles={{
+                                root: {
+                                  borderRadius: '10px',
+                                  height: '46px',
+                                  fontWeight: 600,
+                                },
+                              }}
+                            >
+                              Modifier
+                            </Button>
                           )}
 
                           <Button
                             variant="filled"
                             color="green"
-                            size="sm"
+                            size="md"
+                            leftSection={<IconCheck size={18} />}
                             onClick={() => onScan(user.uid)}
                             styles={{
                               root: {
-                                borderRadius: '8px',
+                                borderRadius: '10px',
+                                height: '46px',
+                                fontWeight: 600,
+                                boxShadow: '0 4px 12px rgba(40, 167, 69, 0.3)',
                               },
                             }}
                           >
                             Scanner
                           </Button>
                         </Group>
-                      </Group>
+                      </Stack>
                     </Card>
                   );
                 })}

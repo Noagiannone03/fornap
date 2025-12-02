@@ -22,6 +22,7 @@ import {
 import {
   IconSearch,
   IconDownload,
+  IconUpload,
   IconPlus,
   IconDots,
   IconEye,
@@ -62,6 +63,7 @@ import {
   REGISTRATION_SOURCE_LABELS,
   AVAILABLE_TAGS,
 } from '../../../shared/types/user';
+import { CsvImportModal } from '../../components/CsvImportModal';
 
 const membershipTypeColors: Record<MembershipType, string> = {
   monthly: 'blue',
@@ -284,7 +286,8 @@ export function EnhancedUsersListPage() {
   const [filteredLegacyMembers, setFilteredLegacyMembers] = useState<UserListItem[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [csvImportModalOpened, setCsvImportModalOpened] = useState(false);
+
   const adminUserId = currentUser?.uid || 'system';
 
   // Filtres
@@ -601,6 +604,14 @@ export function EnhancedUsersListPage() {
           <Button leftSection={<IconDownload size={16} />} variant="light" onClick={handleExport}>
             Exporter
           </Button>
+          <Button
+            leftSection={<IconUpload size={16} />}
+            variant="light"
+            color="blue"
+            onClick={() => setCsvImportModalOpened(true)}
+          >
+            Importer CSV
+          </Button>
           <Button leftSection={<IconPlus size={16} />} onClick={() => navigate('/admin/users/new')}>
             Nouvel Utilisateur
           </Button>
@@ -880,6 +891,14 @@ export function EnhancedUsersListPage() {
           </Paper>
         </Stack>
       )}
+
+      {/* Modal d'import CSV */}
+      <CsvImportModal
+        opened={csvImportModalOpened}
+        onClose={() => setCsvImportModalOpened(false)}
+        adminUserId={adminUserId}
+        onImportComplete={loadUsers}
+      />
     </Container>
   );
 }

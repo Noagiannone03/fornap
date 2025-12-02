@@ -74,26 +74,19 @@ function createEmailTransporter() {
  */
 async function generateMembershipCardImage(userData: UserData): Promise<Buffer> {
   try {
-    // Configuration du canvas avec une résolution HD (×3 pour meilleure qualité)
-    const scale = 3;
-    const baseWidth = 450;
-    const baseHeight = 800;
-    const canvas = createCanvas(baseWidth * scale, baseHeight * scale);
+    // Configuration du canvas - DIMENSIONS EXACTES de l'ancienne fonction qui marchait
+    const canvas = createCanvas(450, 800);  // PAS de scale
     const ctx = canvas.getContext('2d');
-
-    // Activer le lissage de haute qualité
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
 
     // Charger l'image de fond depuis le fichier PNG
     const backgroundImagePath = join(__dirname, 'base-image.png');
     const backgroundImg = await loadImage(backgroundImagePath);
-    ctx.drawImage(backgroundImg, 0, 0, baseWidth * scale, baseHeight * scale);
+    ctx.drawImage(backgroundImg, 0, 0, 450, 800);
 
-    // Générer le QR code en haute résolution
+    // Générer le QR code
     const qrCodeData = `FORNAP-MEMBER:${userData.uid}`;
     const qrBuffer = await QRCode.toBuffer(qrCodeData, {
-      width: 190 * scale,
+      width: 190,
       margin: 1,
       color: {
         dark: '#000000',
@@ -103,23 +96,16 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
 
     // Charger et dessiner le QR code
     const qrImg = await loadImage(qrBuffer);
-    const qrSize = 190 * scale;
-    const qrX = (baseWidth * scale - qrSize) / 2; // Centré horizontalement
-    const qrY = 340 * scale; // Position verticale
+    const qrSize = 190;
+    const qrX = (450 - qrSize) / 2; // Centré horizontalement
+    const qrY = 340; // Position verticale
     ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
 
-    // Configuration du texte - Réinitialisation complète du contexte
-    const centerX = (baseWidth * scale) / 2;
-    
-    // Réinitialiser TOUS les paramètres de dessin
-    ctx.shadowColor = 'transparent';  // Pas de shadow
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.globalAlpha = 1.0;
-    ctx.fillStyle = '#FFFFFF';  // Texte BLANC
+    // Configuration du texte - EXACTEMENT comme l'ancienne fonction
+    ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 2;
 
     // Type d'abonnement (membre annuel, mensuel, etc.)
     const membershipTypeLabel = 
@@ -127,34 +113,20 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       userData.currentMembership?.planType === 'annual' ? 'membre annuel' :
       'membre honoraire';
     
-    console.log('🎨 Drawing text on card:');
+    console.log('🎨 Drawing text on card (NO SCALE):');
     console.log('  - membershipType:', membershipTypeLabel);
     console.log('  - firstName:', userData.firstName);
     console.log('  - lastName:', userData.lastName);
-    console.log('  - Position Y: 630*scale =', 630 * scale, ', 660*scale =', 660 * scale, ', 700*scale =', 700 * scale);
-    console.log('  - Canvas size:', baseWidth * scale, 'x', baseHeight * scale);
-    console.log('  - centerX:', centerX);
-    console.log('  - fillStyle:', ctx.fillStyle);
+    console.log('  - Canvas size: 450 x 800');
     
-    // Dessiner le texte "membre annuel/mensuel" avec strokeText + fillText pour garantir visibilité
-    ctx.font = `bold ${20 * scale}px sans-serif`;
-    console.log('  🔤 Font set to:', ctx.font);
-    const textWidth = ctx.measureText(membershipTypeLabel).width;
-    console.log('  📏 Text width:', textWidth, 'px');
-    
-    // Contour noir pour contraste
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 3 * scale;
-    ctx.strokeText(membershipTypeLabel, centerX, 630 * scale);
-    
-    // Remplissage blanc
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(membershipTypeLabel, centerX, 630 * scale);
-    console.log('  ✅ Text 1 drawn at Y=' + (630 * scale) + ':', membershipTypeLabel);
+    // "membre annuel" - POSITION EXACTE de l'ancienne fonction
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText(membershipTypeLabel, 225, 630);
+    console.log('  ✅ Text 1 drawn at Y=630:', membershipTypeLabel);
 
-    // Date d'expiration
+    // Date d'expiration - POSITION EXACTE de l'ancienne fonction
     let expiryText = 'expire le 31/12/25';
-    if (userData.currentMembership.expiryDate) {
+    if (userData.currentMembership?.expiryDate) {
       try {
         let expiryDate: Date;
         
@@ -162,25 +134,18 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
         if (typeof userData.currentMembership.expiryDate === 'object' && 
             'toDate' in userData.currentMembership.expiryDate && 
             typeof userData.currentMembership.expiryDate.toDate === 'function') {
-          // C'est un Timestamp Firestore
           expiryDate = userData.currentMembership.expiryDate.toDate();
         } else if (typeof userData.currentMembership.expiryDate === 'object' && 
                    ('_seconds' in userData.currentMembership.expiryDate || 'seconds' in userData.currentMembership.expiryDate)) {
-          // Format sérialisé avec _seconds/_nanoseconds ou seconds/nanoseconds
           const seconds = (userData.currentMembership.expiryDate as any)._seconds || (userData.currentMembership.expiryDate as any).seconds;
           expiryDate = new Date(seconds * 1000);
         } else if (userData.currentMembership.expiryDate instanceof Date) {
-          // C'est déjà un objet Date
           expiryDate = userData.currentMembership.expiryDate;
         } else if (typeof userData.currentMembership.expiryDate === 'string') {
-          // C'est une chaîne de caractères
           expiryDate = new Date(userData.currentMembership.expiryDate);
         } else if (typeof userData.currentMembership.expiryDate === 'number') {
-          // C'est un timestamp en millisecondes
           expiryDate = new Date(userData.currentMembership.expiryDate);
         } else {
-          // Format inconnu, on garde le texte par défaut
-          console.warn('⚠️ Unknown date format for expiryDate:', userData.currentMembership.expiryDate);
           expiryDate = new Date();
         }
         
@@ -191,29 +156,18 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       }
     }
     
-    // Date d'expiration avec stroke + fill
-    ctx.font = `${18 * scale}px sans-serif`;
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 3 * scale;
-    ctx.strokeText(expiryText, centerX, 660 * scale);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(expiryText, centerX, 660 * scale);
-    console.log('  ✅ Text 2 drawn at Y=' + (660 * scale) + ':', expiryText);
+    ctx.font = '18px Arial';
+    ctx.fillText(expiryText, 225, 660);
+    console.log('  ✅ Text 2 drawn at Y=660:', expiryText);
 
-    // Nom et Prénom avec stroke + fill
+    // Nom et Prénom - POSITION EXACTE de l'ancienne fonction
     const fullName = `${userData.firstName} ${userData.lastName}`;
-    ctx.font = `bold ${22 * scale}px sans-serif`;
-    const nameWidth = ctx.measureText(fullName).width;
-    console.log('  📏 Name width:', nameWidth, 'px');
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 3 * scale;
-    ctx.strokeText(fullName, centerX, 700 * scale);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(fullName, centerX, 700 * scale);
-    console.log('  ✅ Text 3 drawn at Y=' + (700 * scale) + ':', fullName);
+    ctx.font = 'bold 22px Arial';
+    ctx.fillText(fullName, 225, 700);
+    console.log('  ✅ Text 3 drawn at Y=700:', fullName);
 
-    // Convertir en JPG haute qualité (0.95 pour meilleur rendu)
-    return canvas.toBuffer('image/jpeg', 0.95);
+    // Convertir en JPG - EXACTEMENT comme l'ancienne fonction
+    return canvas.toBuffer('image/jpeg');
   } catch (error) {
     console.error('❌ Error generating membership card image:', error);
     throw new Error('Failed to generate membership card image');

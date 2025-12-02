@@ -27,7 +27,7 @@ export interface ImportResult {
 /**
  * Parse une ligne CSV et mappe les colonnes aux champs attendus
  */
-function parseCsvRow(headers: string[], values: string[]): CsvRow | null {
+function parseCsvRow(headers: string[], values: string[], isFirstRow: boolean = false): CsvRow | null {
   const row: any = {};
 
   headers.forEach((header, index) => {
@@ -35,31 +35,48 @@ function parseCsvRow(headers: string[], values: string[]): CsvRow | null {
     const lowerHeader = header.toLowerCase();
 
     // Mapping des colonnes
-    if (lowerHeader.includes('nom') && lowerHeader.includes('?') && !lowerHeader.includes('prénom')) {
+    if (lowerHeader.includes('nom') && !lowerHeader.includes('prénom')) {
       row.nom = value;
+      if (isFirstRow) console.log(`✓ Nom trouvé dans colonne "${header}"`);
     } else if (lowerHeader.includes('prénom')) {
       row.prenom = value;
-    } else if (lowerHeader.includes('email')) {
+      if (isFirstRow) console.log(`✓ Prénom trouvé dans colonne "${header}"`);
+    } else if (lowerHeader.includes('email') || lowerHeader.includes('e-mail') || lowerHeader.includes('mail')) {
       row.email = value;
-    } else if (lowerHeader.includes('téléphone')) {
+      if (isFirstRow) console.log(`✓ Email trouvé dans colonne "${header}"`);
+    } else if (lowerHeader.includes('téléphone') || lowerHeader.includes('telephone') || lowerHeader.includes('phone') || lowerHeader.includes('numéro')) {
       row.telephone = value;
-    } else if (lowerHeader.includes('naissance')) {
+      if (isFirstRow) console.log(`✓ Téléphone trouvé dans colonne "${header}"`);
+    } else if (lowerHeader.includes('naissance') || lowerHeader.includes('date de naissance')) {
       row.dateNaissance = value;
-    } else if (lowerHeader.includes('code postal')) {
+      if (isFirstRow) console.log(`✓ Date de naissance trouvée dans colonne "${header}"`);
+    } else if (lowerHeader.includes('code postal') || lowerHeader.includes('postal') || lowerHeader.includes('zip')) {
       row.codePostal = value;
-    } else if (lowerHeader.includes('horodateur')) {
+      if (isFirstRow) console.log(`✓ Code postal trouvé dans colonne "${header}"`);
+    } else if (lowerHeader.includes('horodateur') || lowerHeader.includes('timestamp')) {
       row.horodateur = value;
+      if (isFirstRow) console.log(`✓ Horodateur trouvé dans colonne "${header}"`);
     } else if (lowerHeader.includes('initié')) {
       row.initiateur = value;
-    } else if (lowerHeader.includes('homme')) {
+      if (isFirstRow) console.log(`✓ Initiateur trouvé dans colonne "${header}"`);
+    } else if (lowerHeader === 'homme') {
       row.homme = value;
-    } else if (lowerHeader.includes('femme')) {
+      if (isFirstRow) console.log(`✓ Homme trouvé dans colonne "${header}"`);
+    } else if (lowerHeader === 'femme') {
       row.femme = value;
+      if (isFirstRow) console.log(`✓ Femme trouvé dans colonne "${header}"`);
     }
   });
 
   // Validation minimale: nom, prénom et email sont requis
   if (!row.nom || !row.prenom || !row.email) {
+    if (isFirstRow) {
+      console.log('❌ Ligne rejetée - Champs manquants:', {
+        nom: row.nom ? '✓' : '✗',
+        prenom: row.prenom ? '✓' : '✗',
+        email: row.email ? '✓' : '✗',
+      });
+    }
     return null;
   }
 
@@ -243,6 +260,29 @@ async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void
 }
 
 /**
+ * Détecte le séparateur utilisé dans le CSV
+ */
+function detectSeparator(line: string): string {
+  const separators = ['\t', ';', ',', '|'];
+
+  // Compter le nombre d'occurrences de chaque séparateur
+  const counts = separators.map(sep => ({
+    separator: sep,
+    count: line.split(sep).length - 1,
+  }));
+
+  // Retourner le séparateur le plus fréquent (s'il y en a au moins 1)
+  const best = counts.reduce((a, b) => (b.count > a.count ? b : a));
+
+  if (best.count === 0) {
+    throw new Error('Impossible de détecter le séparateur du CSV. Assurez-vous que le fichier utilise des tabulations, virgules, points-virgules ou pipes.');
+  }
+
+  console.log('Séparateur détecté:', best.separator === '\t' ? 'TABULATION' : best.separator);
+  return best.separator;
+}
+
+/**
  * Parse le contenu CSV complet et retourne les lignes valides
  */
 function parseCSV(csvContent: string): { headers: string[]; rows: string[][] } {
@@ -252,11 +292,15 @@ function parseCSV(csvContent: string): { headers: string[]; rows: string[][] } {
     throw new Error('Le fichier CSV doit contenir au moins une ligne d\'en-tête et une ligne de données');
   }
 
+  // Détecter automatiquement le séparateur
+  const separator = detectSeparator(lines[0]);
+
   // Parser la première ligne comme headers
-  const headers = lines[0].split('\t').map(h => h.trim());
+  const headers = lines[0].split(separator).map(h => h.trim());
+  console.log('Headers détectés:', headers);
 
   // Parser les autres lignes
-  const rows = lines.slice(1).map(line => line.split('\t'));
+  const rows = lines.slice(1).map(line => line.split(separator).map(v => v.trim()));
 
   return { headers, rows };
 }
@@ -277,19 +321,31 @@ export async function importUsersFromCsv(
   try {
     const { headers, rows } = parseCSV(csvContent);
 
+    console.log(`Début de l'import: ${rows.length} lignes à traiter`);
+
     for (let i = 0; i < rows.length; i++) {
       const rowNumber = i + 2; // +2 car ligne 1 = headers, et index commence à 0
+      const isFirstRow = i === 0;
 
       try {
-        const parsedRow = parseCsvRow(headers, rows[i]);
+        const parsedRow = parseCsvRow(headers, rows[i], isFirstRow);
 
         if (!parsedRow) {
           result.skipped++;
           continue;
         }
 
+        if (isFirstRow) {
+          console.log('✓ Première ligne validée, import des utilisateurs...');
+        }
+
         await createUserFromCsv(parsedRow, adminUserId);
         result.success++;
+
+        // Log de progression tous les 50 utilisateurs
+        if (result.success % 50 === 0) {
+          console.log(`Progression: ${result.success} utilisateurs importés...`);
+        }
 
       } catch (error: any) {
         console.error(`Error importing row ${rowNumber}:`, error);
@@ -301,7 +357,10 @@ export async function importUsersFromCsv(
       }
     }
 
+    console.log(`Import terminé: ${result.success} succès, ${result.errors.length} erreurs, ${result.skipped} ignorés`);
+
   } catch (error: any) {
+    console.error('Erreur lors du parsing du CSV:', error);
     throw new Error(`Erreur lors du parsing du CSV: ${error.message}`);
   }
 

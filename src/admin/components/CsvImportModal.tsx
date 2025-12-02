@@ -87,10 +87,13 @@ export function CsvImportModal({
       <Stack gap="md">
         <Alert icon={<IconAlertCircle size={16} />} color="blue" variant="light">
           <Text size="sm">
-            <strong>Format attendu:</strong> Fichier CSV avec colonnes séparées par des tabulations (TSV)
+            <strong>Format attendu:</strong> Fichier CSV (le séparateur est détecté automatiquement)
           </Text>
           <Text size="xs" mt="xs">
-            Colonnes utilisées: Nom, Prénom, Email, Téléphone, Date de naissance, Code postal
+            Colonnes requises: Nom, Prénom, Email
+          </Text>
+          <Text size="xs">
+            Colonnes optionnelles: Téléphone, Date de naissance, Code postal, Horodateur
           </Text>
         </Alert>
 

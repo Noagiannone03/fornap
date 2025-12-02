@@ -16,8 +16,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
-import sharp from 'sharp';
-import { readFile } from 'fs/promises';
+import Jimp from 'jimp';
 import { getFirestore, getFieldValue, getTimestamp } from '../_lib/firebase-admin.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -71,15 +70,18 @@ function createEmailTransporter() {
 }
 
 /**
- * Génère l'image de la carte d'adhérent avec QR code - VERSION SHARP
+ * Génère l'image de la carte d'adhérent avec QR code - VERSION JIMP
  */
 async function generateMembershipCardImage(userData: UserData): Promise<Buffer> {
   try {
-    console.log('🎨 Generating card with sharp...');
+    console.log('🎨 Generating card with Jimp (polices intégrées)...');
     
     // Charger l'image de fond
     const backgroundImagePath = join(__dirname, 'base-image.png');
-    const backgroundBuffer = await readFile(backgroundImagePath);
+    const image = await Jimp.read(backgroundImagePath);
+    
+    // Redimensionner si nécessaire
+    image.resize(450, 800);
 
     // Générer le QR code
     const qrCodeData = `FORNAP-MEMBER:${userData.uid}`;
@@ -91,6 +93,14 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
         light: '#FFFFFF',
       },
     });
+
+    // Charger le QR code avec Jimp
+    const qrImage = await Jimp.read(qrBuffer);
+    
+    // Positionner le QR code
+    const qrX = Math.floor((450 - 190) / 2); // Centré
+    const qrY = 340;
+    image.composite(qrImage, qrX, qrY);
 
     // Type d'abonnement
     const membershipTypeLabel = 
@@ -132,56 +142,51 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     console.log('  - expiryText:', expiryText);
     console.log('  - fullName:', fullName);
 
-    // Échapper les caractères XML pour éviter les problèmes d'encodage
-    const escapeXml = (text: string) => {
-      return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-    };
+    // Charger une police Jimp (polices intégrées, pas de dépendance système)
+    const font32 = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+    const font16 = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
 
-    // Créer un SVG overlay pour le texte avec encodage UTF-8 explicite
-    const textSvg = `<?xml version="1.0" encoding="UTF-8"?>
-      <svg width="450" height="800" xmlns="http://www.w3.org/2000/svg">
-        <style>
-          .text { 
-            fill: white; 
-            font-family: Arial, sans-serif;
-            text-anchor: middle;
-            filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.8));
-          }
-          .text-bold { font-weight: bold; }
-        </style>
-        <text x="225" y="630" font-size="20" class="text text-bold">${escapeXml(membershipTypeLabel)}</text>
-        <text x="225" y="660" font-size="18" class="text">${escapeXml(expiryText)}</text>
-        <text x="225" y="700" font-size="22" class="text text-bold">${escapeXml(fullName)}</text>
-      </svg>
-    `;
+    // Dessiner les textes (centrés)
+    // Texte 1: Type d'abonnement (Y=630)
+    image.print(
+      font32,
+      0,
+      600,
+      {
+        text: membershipTypeLabel,
+        alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+      },
+      450
+    );
 
-    console.log('📝 Generated SVG (first 200 chars):', textSvg.substring(0, 200));
+    // Texte 2: Date d'expiration (Y=660)
+    image.print(
+      font16,
+      0,
+      640,
+      {
+        text: expiryText,
+        alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+      },
+      450
+    );
 
-    // Composer l'image finale avec sharp
-    const finalImage = await sharp(backgroundBuffer)
-      .resize(450, 800, { fit: 'cover' })
-      .composite([
-        {
-          input: qrBuffer,
-          top: 340,
-          left: 130, // (450 - 190) / 2
-        },
-        {
-          input: Buffer.from(textSvg, 'utf-8'),  // Encodage UTF-8 explicite
-          top: 0,
-          left: 0,
-        },
-      ])
-      .jpeg({ quality: 90 })
-      .toBuffer();
+    // Texte 3: Nom complet (Y=700)
+    image.print(
+      font32,
+      0,
+      680,
+      {
+        text: fullName,
+        alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+      },
+      450
+    );
 
-    console.log('✅ Card generated successfully with sharp');
-    return finalImage;
+    console.log('✅ Card generated successfully with Jimp');
+    
+    // Convertir en buffer JPEG
+    return await image.quality(90).getBufferAsync(Jimp.MIME_JPEG);
   } catch (error) {
     console.error('❌ Error generating membership card image:', error);
     throw new Error('Failed to generate membership card image');

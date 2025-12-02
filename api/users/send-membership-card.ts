@@ -136,16 +136,21 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     console.log('  - centerX:', centerX);
     console.log('  - fillStyle:', ctx.fillStyle);
     
-    // TEST: Dessiner un rectangle blanc pour vérifier que le dessin fonctionne
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(100 * scale, 600 * scale, 250 * scale, 150 * scale);
-    console.log('  🧪 Test rectangle drawn at Y=600');
+    // Dessiner le texte "membre annuel/mensuel" avec strokeText + fillText pour garantir visibilité
+    ctx.font = `bold ${20 * scale}px sans-serif`;
+    console.log('  🔤 Font set to:', ctx.font);
+    const textWidth = ctx.measureText(membershipTypeLabel).width;
+    console.log('  📏 Text width:', textWidth, 'px');
     
-    // Remettre le fillStyle pour le texte
+    // Contour noir pour contraste
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3 * scale;
+    ctx.strokeText(membershipTypeLabel, centerX, 630 * scale);
+    
+    // Remplissage blanc
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${20 * scale}px Arial`;
     ctx.fillText(membershipTypeLabel, centerX, 630 * scale);
-    console.log('  ✅ Text 1 drawn:', membershipTypeLabel);
+    console.log('  ✅ Text 1 drawn at Y=' + (630 * scale) + ':', membershipTypeLabel);
 
     // Date d'expiration
     let expiryText = 'expire le 31/12/25';
@@ -186,15 +191,26 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       }
     }
     
-    ctx.font = `${18 * scale}px Arial`;
+    // Date d'expiration avec stroke + fill
+    ctx.font = `${18 * scale}px sans-serif`;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3 * scale;
+    ctx.strokeText(expiryText, centerX, 660 * scale);
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillText(expiryText, centerX, 660 * scale);
-    console.log('  ✅ Text 2 drawn:', expiryText);
+    console.log('  ✅ Text 2 drawn at Y=' + (660 * scale) + ':', expiryText);
 
-    // Nom et Prénom
+    // Nom et Prénom avec stroke + fill
     const fullName = `${userData.firstName} ${userData.lastName}`;
-    ctx.font = `bold ${22 * scale}px Arial`;
+    ctx.font = `bold ${22 * scale}px sans-serif`;
+    const nameWidth = ctx.measureText(fullName).width;
+    console.log('  📏 Name width:', nameWidth, 'px');
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3 * scale;
+    ctx.strokeText(fullName, centerX, 700 * scale);
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillText(fullName, centerX, 700 * scale);
-    console.log('  ✅ Text 3 drawn:', fullName);
+    console.log('  ✅ Text 3 drawn at Y=' + (700 * scale) + ':', fullName);
 
     // Convertir en JPG haute qualité (0.95 pour meilleur rendu)
     return canvas.toBuffer('image/jpeg', 0.95);

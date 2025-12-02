@@ -132,9 +132,19 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     console.log('  - expiryText:', expiryText);
     console.log('  - fullName:', fullName);
 
-    // Créer un SVG overlay pour le texte
-    const textSvg = `
-      <svg width="450" height="800">
+    // Échapper les caractères XML pour éviter les problèmes d'encodage
+    const escapeXml = (text: string) => {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
+
+    // Créer un SVG overlay pour le texte avec encodage UTF-8 explicite
+    const textSvg = `<?xml version="1.0" encoding="UTF-8"?>
+      <svg width="450" height="800" xmlns="http://www.w3.org/2000/svg">
         <style>
           .text { 
             fill: white; 
@@ -144,11 +154,13 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
           }
           .text-bold { font-weight: bold; }
         </style>
-        <text x="225" y="630" font-size="20" class="text text-bold">${membershipTypeLabel}</text>
-        <text x="225" y="660" font-size="18" class="text">${expiryText}</text>
-        <text x="225" y="700" font-size="22" class="text text-bold">${fullName}</text>
+        <text x="225" y="630" font-size="20" class="text text-bold">${escapeXml(membershipTypeLabel)}</text>
+        <text x="225" y="660" font-size="18" class="text">${escapeXml(expiryText)}</text>
+        <text x="225" y="700" font-size="22" class="text text-bold">${escapeXml(fullName)}</text>
       </svg>
     `;
+
+    console.log('📝 Generated SVG (first 200 chars):', textSvg.substring(0, 200));
 
     // Composer l'image finale avec sharp
     const finalImage = await sharp(backgroundBuffer)
@@ -160,7 +172,7 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
           left: 130, // (450 - 190) / 2
         },
         {
-          input: Buffer.from(textSvg),
+          input: Buffer.from(textSvg, 'utf-8'),  // Encodage UTF-8 explicite
           top: 0,
           left: 0,
         },

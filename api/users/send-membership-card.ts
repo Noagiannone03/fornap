@@ -70,17 +70,17 @@ function createEmailTransporter() {
 }
 
 /**
- * Génère l'image de la carte d'adhérent avec QR code - VERSION JIMP
+ * Génère l'image de la carte d'adhérent avec QR code - VERSION JIMP (polices intégrées)
  */
 async function generateMembershipCardImage(userData: UserData): Promise<Buffer> {
   try {
-    console.log('🎨 Generating card with Jimp (polices intégrées)...');
+    console.log('🎨 Generating card with Jimp (polices bitmap intégrées)...');
     
-    // Charger l'image de fond
+    // Charger l'image de fond avec Jimp
     const backgroundImagePath = join(__dirname, 'base-image.png');
     const image = await Jimp.read(backgroundImagePath);
     
-    // Redimensionner si nécessaire
+    // S'assurer que l'image fait 450x800
     image.resize(450, 800);
 
     // Générer le QR code
@@ -94,10 +94,8 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       },
     });
 
-    // Charger le QR code avec Jimp
+    // Charger le QR code avec Jimp et le superposer
     const qrImage = await Jimp.read(qrBuffer);
-    
-    // Positionner le QR code
     const qrX = Math.floor((450 - 190) / 2); // Centré
     const qrY = 340;
     image.composite(qrImage, qrX, qrY);
@@ -142,12 +140,12 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     console.log('  - expiryText:', expiryText);
     console.log('  - fullName:', fullName);
 
-    // Charger une police Jimp (polices intégrées, pas de dépendance système)
+    // Charger les polices Jimp intégrées (BITMAP, pas besoin de polices système)
     const font32 = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
     const font16 = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE);
 
     // Dessiner les textes (centrés)
-    // Texte 1: Type d'abonnement (Y=630)
+    // Texte 1: Type d'abonnement (Y=630, ajusté pour la police bitmap)
     image.print(
       font32,
       0,
@@ -159,7 +157,7 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       450
     );
 
-    // Texte 2: Date d'expiration (Y=660)
+    // Texte 2: Date d'expiration (Y=660, ajusté)
     image.print(
       font16,
       0,
@@ -171,7 +169,7 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
       450
     );
 
-    // Texte 3: Nom complet (Y=700)
+    // Texte 3: Nom complet (Y=700, ajusté)
     image.print(
       font32,
       0,

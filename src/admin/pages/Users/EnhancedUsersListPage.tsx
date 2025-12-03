@@ -39,6 +39,7 @@ import {
   IconMailCheck,
   IconMailX,
   IconSend,
+  IconTrashX,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -65,6 +66,7 @@ import {
 } from '../../../shared/types/user';
 import { CsvImportModal } from '../../components/CsvImportModal';
 import { SendMassiveCardsModal } from '../../components/SendMassiveCardsModal';
+import { BulkDeleteModal } from '../../components/users/BulkDeleteModal';
 
 const membershipTypeColors: Record<MembershipType, string> = {
   monthly: 'blue',
@@ -291,6 +293,7 @@ export function EnhancedUsersListPage() {
   const [sendMassiveCardsModalOpened, setSendMassiveCardsModalOpened] = useState(false);
   const [forceResend, setForceResend] = useState(false);
   const [onlyUnsent, setOnlyUnsent] = useState(false);
+  const [bulkDeleteModalOpened, setBulkDeleteModalOpened] = useState(false);
 
   const adminUserId = currentUser?.uid || 'system';
 
@@ -663,6 +666,14 @@ export function EnhancedUsersListPage() {
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
+          <Button
+            leftSection={<IconTrashX size={16} />}
+            variant="light"
+            color="red"
+            onClick={() => setBulkDeleteModalOpened(true)}
+          >
+            Suppression en masse
+          </Button>
           <Button leftSection={<IconPlus size={16} />} onClick={() => navigate('/admin/users/new')}>
             Nouvel Utilisateur
           </Button>
@@ -959,6 +970,14 @@ export function EnhancedUsersListPage() {
         totalUsers={onlyUnsent ? unsentUsersCount : users.length}
         forceResend={forceResend}
         onlyUnsent={onlyUnsent}
+      />
+
+      {/* Modal de suppression en masse */}
+      <BulkDeleteModal
+        opened={bulkDeleteModalOpened}
+        onClose={() => setBulkDeleteModalOpened(false)}
+        adminUserId={adminUserId}
+        onDeleteComplete={loadUsers}
       />
     </Container>
   );

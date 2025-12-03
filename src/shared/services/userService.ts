@@ -1574,6 +1574,136 @@ export async function renewMembership(
 }
 
 // ============================================================================
+// SUPPRESSION EN MASSE
+// ============================================================================
+
+/**
+ * Supprime tous les documents d'une collection par email
+ * Gère les doublons automatiquement
+ * @param collectionName - Nom de la collection ('users' ou 'members')
+ * @param email - Email à rechercher
+ * @returns Nombre de documents supprimés
+ */
+async function deleteAllDocumentsByEmail(
+  collectionName: string,
+  email: string
+): Promise<number> {
+  try {
+    const collectionRef = collection(db, collectionName);
+    const q = query(collectionRef, where('email', '==', email));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      return 0;
+    }
+
+    // Supprimer tous les documents trouvés (y compris les doublons)
+    const deletePromises = querySnapshot.docs.map(async (docSnapshot) => {
+      const docId = docSnapshot.id;
+
+      // Si c'est dans la collection users, supprimer aussi les sous-collections
+      if (collectionName === USERS_COLLECTION) {
+        try {
+          // Supprimer actionHistory
+          const actionHistoryRef = collection(db, USERS_COLLECTION, docId, ACTION_HISTORY_SUBCOLLECTION);
+          const actionHistorySnapshot = await getDocs(actionHistoryRef);
+          await Promise.all(actionHistorySnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+          // Supprimer membershipHistory
+          const membershipHistoryRef = collection(db, USERS_COLLECTION, docId, MEMBERSHIP_HISTORY_SUBCOLLECTION);
+          const membershipHistorySnapshot = await getDocs(membershipHistoryRef);
+          await Promise.all(membershipHistorySnapshot.docs.map(doc => deleteDoc(doc.ref)));
+        } catch (subcollectionError) {
+          console.warn(`Erreur lors de la suppression des sous-collections pour ${docId}:`, subcollectionError);
+        }
+      }
+
+      // Supprimer le document principal
+      await deleteDoc(docSnapshot.ref);
+    });
+
+    await Promise.all(deletePromises);
+    return querySnapshot.size;
+  } catch (error) {
+    console.error(`Erreur lors de la suppression par email dans ${collectionName}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Supprime en masse des utilisateurs par liste d'emails
+ * Gère automatiquement les doublons dans toutes les collections
+ * @param emails - Liste d'emails (peut contenir des doublons)
+ * @param adminUserId - ID de l'admin qui effectue l'opération
+ * @returns Résumé détaillé des suppressions
+ */
+export async function bulkDeleteUsersByEmails(
+  emails: string[],
+  adminUserId: string
+): Promise<{
+  success: boolean;
+  totalProcessed: number;
+  usersDeleted: number;
+  legacyMembersDeleted: number;
+  errors: Array<{ email: string; error: string }>;
+  details: Array<{ email: string; usersDeleted: number; legacyDeleted: number }>;
+}> {
+  const errors: Array<{ email: string; error: string }> = [];
+  const details: Array<{ email: string; usersDeleted: number; legacyDeleted: number }> = [];
+  let totalUsersDeleted = 0;
+  let totalLegacyDeleted = 0;
+
+  // Nettoyer et dédupliquer la liste d'emails
+  const uniqueEmails = Array.from(
+    new Set(
+      emails
+        .map(email => email.trim().toLowerCase())
+        .filter(email => email.length > 0)
+    )
+  );
+
+  console.log(`[BULK DELETE] Début de la suppression en masse par admin ${adminUserId}. ${uniqueEmails.length} emails uniques à traiter.`);
+
+  for (const email of uniqueEmails) {
+    try {
+      // Supprimer dans la collection users
+      const usersDeleted = await deleteAllDocumentsByEmail(USERS_COLLECTION, email);
+
+      // Supprimer dans la collection members (legacy)
+      const legacyDeleted = await deleteAllDocumentsByEmail(LEGACY_MEMBERS_COLLECTION, email);
+
+      totalUsersDeleted += usersDeleted;
+      totalLegacyDeleted += legacyDeleted;
+
+      details.push({
+        email,
+        usersDeleted,
+        legacyDeleted,
+      });
+
+      console.log(`[BULK DELETE] ${email}: ${usersDeleted} users, ${legacyDeleted} legacy supprimés`);
+    } catch (error: any) {
+      console.error(`[BULK DELETE] Erreur pour ${email}:`, error);
+      errors.push({
+        email,
+        error: error.message || 'Erreur inconnue',
+      });
+    }
+  }
+
+  console.log(`[BULK DELETE] Terminé. Total: ${totalUsersDeleted} users, ${totalLegacyDeleted} legacy supprimés. ${errors.length} erreurs.`);
+
+  return {
+    success: errors.length === 0,
+    totalProcessed: uniqueEmails.length,
+    usersDeleted: totalUsersDeleted,
+    legacyMembersDeleted: totalLegacyDeleted,
+    errors,
+    details,
+  };
+}
+
+// ============================================================================
 // GESTION DES ANCIENS MEMBRES (Legacy Members)
 // ============================================================================
 
@@ -1881,6 +2011,36 @@ export async function migrateLegacyMember(
       deviceType: 'web',
       notes: `Migration depuis collection 'members'. ${migrationDetails}`,
     });
+
+    // ✅ NOUVEAU: Supprimer automatiquement tous les doublons dans l'ancienne collection
+    // Rechercher et supprimer tous les documents legacy avec le même email
+    if (legacyData.email) {
+      try {
+        console.log(`[MIGRATION] Recherche de doublons pour l'email: ${legacyData.email}`);
+        const legacyMembersRef = collection(db, LEGACY_MEMBERS_COLLECTION);
+        const duplicatesQuery = query(
+          legacyMembersRef,
+          where('email', '==', legacyData.email)
+        );
+        const duplicatesSnapshot = await getDocs(duplicatesQuery);
+
+        if (duplicatesSnapshot.size > 0) {
+          console.log(`[MIGRATION] ${duplicatesSnapshot.size} doublons trouvés dans 'members' pour ${legacyData.email}`);
+
+          // Supprimer tous les documents trouvés (y compris l'original)
+          const deletePromises = duplicatesSnapshot.docs.map(doc => deleteDoc(doc.ref));
+          await Promise.all(deletePromises);
+
+          console.log(`[MIGRATION] ${duplicatesSnapshot.size} documents legacy supprimés pour ${legacyData.email}`);
+        } else {
+          console.log(`[MIGRATION] Aucun doublon trouvé pour ${legacyData.email}`);
+        }
+      } catch (cleanupError) {
+        // Ne pas bloquer la migration si le nettoyage échoue
+        console.error('[MIGRATION] Erreur lors du nettoyage des doublons:', cleanupError);
+        console.warn('[MIGRATION] La migration a réussi mais le nettoyage des doublons a échoué');
+      }
+    }
 
     return newUserId;
   } catch (error) {

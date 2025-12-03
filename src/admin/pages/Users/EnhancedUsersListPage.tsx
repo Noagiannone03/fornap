@@ -290,8 +290,14 @@ export function EnhancedUsersListPage() {
   const [csvImportModalOpened, setCsvImportModalOpened] = useState(false);
   const [sendMassiveCardsModalOpened, setSendMassiveCardsModalOpened] = useState(false);
   const [forceResend, setForceResend] = useState(false);
+  const [onlyUnsent, setOnlyUnsent] = useState(false);
 
   const adminUserId = currentUser?.uid || 'system';
+
+  // Calculer le nombre d'utilisateurs qui n'ont pas reçu leur email
+  const unsentUsersCount = users.filter(
+    (u) => !u.emailStatus || !u.emailStatus.membershipCardSent
+  ).length;
 
   // Filtres
   const [search, setSearch] = useState('');
@@ -597,8 +603,9 @@ export function EnhancedUsersListPage() {
     });
   };
 
-  const handleOpenMassiveSendModal = (resend: boolean) => {
-    setForceResend(resend);
+  const handleOpenMassiveSendModal = (mode: 'all' | 'force' | 'unsent') => {
+    setForceResend(mode === 'force');
+    setOnlyUnsent(mode === 'unsent');
     setSendMassiveCardsModalOpened(true);
   };
 
@@ -620,7 +627,7 @@ export function EnhancedUsersListPage() {
           >
             Importer CSV
           </Button>
-          <Menu shadow="md" width={260}>
+          <Menu shadow="md" width={300}>
             <Menu.Target>
               <Button
                 leftSection={<IconSend size={16} />}
@@ -634,17 +641,25 @@ export function EnhancedUsersListPage() {
               <Menu.Label>Envoi massif de cartes d'adhérent</Menu.Label>
               <Menu.Item
                 leftSection={<IconSend size={14} />}
-                color="green"
-                onClick={() => handleOpenMassiveSendModal(false)}
+                color="orange"
+                onClick={() => handleOpenMassiveSendModal('unsent')}
               >
-                Envoyer à tous les utilisateurs
+                Envoyer aux non-destinataires ({unsentUsersCount})
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item
+                leftSection={<IconSend size={14} />}
+                color="green"
+                onClick={() => handleOpenMassiveSendModal('all')}
+              >
+                Envoyer à tous ({users.length})
               </Menu.Item>
               <Menu.Item
                 leftSection={<IconSend size={14} />}
                 color="blue"
-                onClick={() => handleOpenMassiveSendModal(true)}
+                onClick={() => handleOpenMassiveSendModal('force')}
               >
-                Renvoyer à tous (force)
+                Renvoyer à tous (force) ({users.length})
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
@@ -941,8 +956,9 @@ export function EnhancedUsersListPage() {
         opened={sendMassiveCardsModalOpened}
         onClose={() => setSendMassiveCardsModalOpened(false)}
         onComplete={loadUsers}
-        totalUsers={users.length}
+        totalUsers={onlyUnsent ? unsentUsersCount : users.length}
         forceResend={forceResend}
+        onlyUnsent={onlyUnsent}
       />
     </Container>
   );

@@ -64,6 +64,7 @@ import {
   AVAILABLE_TAGS,
 } from '../../../shared/types/user';
 import { CsvImportModal } from '../../components/CsvImportModal';
+import { SendMassiveCardsModal } from '../../components/SendMassiveCardsModal';
 
 const membershipTypeColors: Record<MembershipType, string> = {
   monthly: 'blue',
@@ -287,6 +288,8 @@ export function EnhancedUsersListPage() {
   const [filteredUsers, setFilteredUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [csvImportModalOpened, setCsvImportModalOpened] = useState(false);
+  const [sendMassiveCardsModalOpened, setSendMassiveCardsModalOpened] = useState(false);
+  const [forceResend, setForceResend] = useState(false);
 
   const adminUserId = currentUser?.uid || 'system';
 
@@ -594,6 +597,11 @@ export function EnhancedUsersListPage() {
     });
   };
 
+  const handleOpenMassiveSendModal = (resend: boolean) => {
+    setForceResend(resend);
+    setSendMassiveCardsModalOpened(true);
+  };
+
   return (
     <Container size="xl" pos="relative">
       <LoadingOverlay visible={loading} />
@@ -612,6 +620,34 @@ export function EnhancedUsersListPage() {
           >
             Importer CSV
           </Button>
+          <Menu shadow="md" width={260}>
+            <Menu.Target>
+              <Button
+                leftSection={<IconSend size={16} />}
+                variant="light"
+                color="green"
+              >
+                Envoyer cartes
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>Envoi massif de cartes d'adhérent</Menu.Label>
+              <Menu.Item
+                leftSection={<IconSend size={14} />}
+                color="green"
+                onClick={() => handleOpenMassiveSendModal(false)}
+              >
+                Envoyer à tous les utilisateurs
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconSend size={14} />}
+                color="blue"
+                onClick={() => handleOpenMassiveSendModal(true)}
+              >
+                Renvoyer à tous (force)
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
           <Button leftSection={<IconPlus size={16} />} onClick={() => navigate('/admin/users/new')}>
             Nouvel Utilisateur
           </Button>
@@ -898,6 +934,15 @@ export function EnhancedUsersListPage() {
         onClose={() => setCsvImportModalOpened(false)}
         adminUserId={adminUserId}
         onImportComplete={loadUsers}
+      />
+
+      {/* Modal d'envoi massif des cartes */}
+      <SendMassiveCardsModal
+        opened={sendMassiveCardsModalOpened}
+        onClose={() => setSendMassiveCardsModalOpened(false)}
+        onComplete={loadUsers}
+        totalUsers={users.length}
+        forceResend={forceResend}
       />
     </Container>
   );

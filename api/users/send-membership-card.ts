@@ -166,25 +166,25 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     ctx.fillStyle = 'white';
     ctx.textAlign = 'center';
 
-    // Ligne 1: "CODE :" (Light, 15px)
-    ctx.font = '300 15px "AcherusFeral-Light"';
+    // Ligne 1: "CODE :" (Light, 17px)
+    ctx.font = '300 17px "AcherusFeral-Light"';
     ctx.fillText('CODE :', 225, 595);
 
-    // Ligne 2: Code membre (Bold, 28px) - EN GROS mais un peu plus petit
-    ctx.font = '700 28px "AcherusFeral-Bold"';
-    ctx.fillText(memberCode, 225, 628);
+    // Ligne 2: Code membre (Bold, 17px) - Même taille que le type d'abonnement
+    ctx.font = '700 17px "AcherusFeral-Bold"';
+    ctx.fillText(memberCode, 225, 620);
 
     // Ligne 3: Type d'abonnement (Bold, 17px)
     ctx.font = '700 17px "AcherusFeral-Bold"';
-    ctx.fillText(membershipTypeLabel, 225, 655);
+    ctx.fillText(membershipTypeLabel, 225, 645);
 
     // Ligne 4: Date d'expiration (Light, 15px)
     ctx.font = '300 15px "AcherusFeral-Light"';
-    ctx.fillText(expiryText, 225, 680);
+    ctx.fillText(expiryText, 225, 670);
 
     // Ligne 5: Nom complet (Bold, 19px)
     ctx.font = '700 19px "AcherusFeral-Bold"';
-    ctx.fillText(fullName, 225, 710);
+    ctx.fillText(fullName, 225, 700);
 
     // Convertir en buffer JPEG
     const buffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });
@@ -237,43 +237,43 @@ async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer):
                     <td style="padding: 20px 50px 40px 50px;">
                       
                       <!-- Salutation -->
-                      <p style="font-size: 18px; line-height: 1.6; color: #1a1a1a; margin: 0 0 24px 0;">
+                      <p style="font-size: 18px; line-height: 1.6; color: #1a1a1a; margin: 0 0 24px 0; text-align: center;">
                         Hello <strong style="color: #000;">${userData.firstName}</strong>,
                       </p>
-                      
+
                       <!-- Message principal -->
-                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 20px 0;">
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 20px 0; text-align: center;">
                         Merci d'avoir rejoint la communauté FOR+NAP !
                       </p>
-                      
-                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 24px 0;">
+
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 24px 0; text-align: center;">
                         Voici ta carte d'adhésion à ce projet collectif.
                       </p>
                       
                       <!-- Section principale avec bordure -->
                       <div style="background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%); border-left: 4px solid #ff4757; padding: 24px; margin: 30px 0; border-radius: 8px;">
-                        <p style="font-size: 16px; line-height: 1.8; color: #1a1a1a; margin: 0 0 16px 0;">
+                        <p style="font-size: 16px; line-height: 1.8; color: #1a1a1a; margin: 0 0 16px 0; text-align: center;">
                           À partir de l'<strong>équinoxe de mars 2026</strong>, le Fort Napoléon s'éveillera et deviendra un <strong>tiers-lieu créatif et culturel</strong> vibrant :
                         </p>
-                        
-                        <p style="font-size: 15px; line-height: 1.8; color: #333; margin: 0 0 16px 0; font-style: italic;">
+
+                        <p style="font-size: 15px; line-height: 1.8; color: #333; margin: 0 0 16px 0; font-style: italic; text-align: center;">
                           résidences d'artistes, concerts exaltants, fêtes mémorables, créations audacieuses, ateliers inspirants…
                         </p>
-                        
-                        <p style="font-size: 16px; line-height: 1.8; color: #1a1a1a; margin: 0;">
+
+                        <p style="font-size: 16px; line-height: 1.8; color: #1a1a1a; margin: 0; text-align: center;">
                           Un espace pour <strong>vibrer, apprendre, expérimenter et partager</strong> toute l'année.
                         </p>
                       </div>
                       
-                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 20px 0;">
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 20px 0; text-align: center;">
                         Nous sommes ravis de t'accueillir dans cette aventure.
                       </p>
-                      
-                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 24px 0;">
+
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 24px 0; text-align: center;">
                         Le projet FOR+NAP s'étend jusqu'en <strong style="color: #000;">2037</strong> : d'ici là, le compte à rebours est lancé.
                       </p>
-                      
-                      <p style="font-size: 16px; line-height: 1.7; color: #1a1a1a; margin: 0 0 32px 0; font-weight: 500;">
+
+                      <p style="font-size: 16px; line-height: 1.7; color: #1a1a1a; margin: 0 0 32px 0; font-weight: 500; text-align: center;">
                         Merci d'écrire avec nous les premières pages de cette fabuleuse histoire.
                       </p>
                       
@@ -281,16 +281,16 @@ async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer):
                       <div style="height: 1px; background: linear-gradient(to right, transparent, #ddd, transparent); margin: 32px 0;"></div>
                       
                       <!-- Appel à l'action -->
-                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 16px 0;">
+                      <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 16px 0; text-align: center;">
                         En attendant, on compte sur toi pour diffuser l'énergie du Fort et faire connaître notre initiative — en particulier :
                       </p>
-                      
+
                       <div style="background-color: #fafafa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                        <p style="font-size: 15px; line-height: 1.8; color: #1a1a1a; margin: 0 0 12px 0;">
+                        <p style="font-size: 15px; line-height: 1.8; color: #1a1a1a; margin: 0 0 12px 0; text-align: center;">
                           <strong style="color: #ff4757;">•</strong> <strong>POP HOP BAZAAR</strong>, les week-ends du 6/7, 13/14 et 20/21 décembre 2025
                         </p>
-                        
-                        <p style="font-size: 15px; line-height: 1.8; color: #1a1a1a; margin: 0;">
+
+                        <p style="font-size: 15px; line-height: 1.8; color: #1a1a1a; margin: 0; text-align: center;">
                           <strong style="color: #ff4757;">•</strong> Le <strong>CROWDFUNDING</strong>, ouvert jusqu'au 31 décembre, qui culminera lors d'<strong>INKIPIT</strong>, la grande soirée privée où nous célébrerons ensemble le passage à la nouvelle année.
                         </p>
                       </div>

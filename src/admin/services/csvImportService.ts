@@ -1,6 +1,5 @@
-import { db, auth } from '../../shared/config/firebase';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { db } from '../../shared/config/firebase';
+import { doc, setDoc, Timestamp, collection } from 'firebase/firestore';
 
 export interface CsvRow {
   horodateur?: string;
@@ -156,22 +155,14 @@ function parseHorodateur(horodateurStr: string): Timestamp | null {
 }
 
 /**
- * Génère un mot de passe aléatoire pour l'utilisateur
- */
-function generateRandomPassword(): string {
-  return Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12).toUpperCase() + '!@#';
-}
-
-/**
- * Crée un utilisateur dans Firebase Auth et Firestore depuis les données CSV
+ * Crée un document utilisateur dans Firestore depuis les données CSV
+ * L'utilisateur devra créer son compte Authentication lui-même
  */
 async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void> {
   const email = row.email.toLowerCase().trim();
-  const password = generateRandomPassword();
 
-  // Créer l'utilisateur dans Firebase Auth
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  const uid = userCredential.user.uid;
+  // Générer un UID unique avec Firestore (au lieu d'utiliser Firebase Auth)
+  const uid = doc(collection(db, 'users')).id;
 
   // Préparer les données utilisateur
   // Utiliser l'horodateur du CSV s'il existe, sinon utiliser la date actuelle

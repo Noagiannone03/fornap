@@ -279,8 +279,7 @@ export function CsvImportModal({
                       {result.success > 1 ? 's' : ''} avec succès !
                     </Text>
                     <Text size="xs" mt="xs">
-                      Les utilisateurs peuvent maintenant se connecter. Pensez à leur envoyer leurs
-                      cartes d'adhérent.
+                      Les documents utilisateurs ont été créés dans la base de données. Les utilisateurs devront créer leur compte pour se connecter.
                     </Text>
                   </Alert>
                 )}

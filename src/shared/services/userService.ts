@@ -1229,6 +1229,98 @@ export async function sendMembershipCard(
 }
 
 /**
+ * Type pour le callback de progression de l'envoi massif
+ */
+export type SendMassiveCardsProgressCallback = (progress: {
+  current: number;
+  total: number;
+  currentUser: string;
+  success: number;
+  errors: number;
+}) => void;
+
+/**
+ * Envoie les cartes d'adhérent à tous les utilisateurs
+ * @param forceResend - Si true, renvoie même si déjà envoyé
+ * @param onProgress - Callback appelé après chaque envoi
+ * @returns Résultat de l'envoi massif
+ */
+export async function sendMembershipCardsToAll(
+  forceResend: boolean = false,
+  onProgress?: SendMassiveCardsProgressCallback
+): Promise<{
+  success: number;
+  errors: number;
+  total: number;
+  errorDetails: Array<{ userId: string; userName: string; error: string }>;
+}> {
+  try {
+    // Récupérer tous les utilisateurs (pas les legacy members)
+    const usersRef = collection(db, USERS_COLLECTION);
+    const querySnapshot = await getDocs(usersRef);
+
+    const results = {
+      success: 0,
+      errors: 0,
+      total: querySnapshot.size,
+      errorDetails: [] as Array<{ userId: string; userName: string; error: string }>,
+    };
+
+    let current = 0;
+
+    // Parcourir tous les utilisateurs
+    for (const userDoc of querySnapshot.docs) {
+      current++;
+      const userData = userDoc.data();
+      const userId = userDoc.id;
+      const userName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email;
+
+      // Appeler le callback de progression
+      if (onProgress) {
+        onProgress({
+          current,
+          total: results.total,
+          currentUser: userName,
+          success: results.success,
+          errors: results.errors,
+        });
+      }
+
+      try {
+        // Envoyer la carte d'adhérent
+        const result = await sendMembershipCard(userId, forceResend);
+
+        if (result.success) {
+          results.success++;
+        } else {
+          results.errors++;
+          results.errorDetails.push({
+            userId,
+            userName,
+            error: result.error || 'Unknown error',
+          });
+        }
+      } catch (error: any) {
+        results.errors++;
+        results.errorDetails.push({
+          userId,
+          userName,
+          error: error.message || 'Unknown error',
+        });
+      }
+
+      // Petite pause pour ne pas surcharger l'API
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    return results;
+  } catch (error: any) {
+    console.error('Error sending membership cards to all users:', error);
+    throw error;
+  }
+}
+
+/**
  * Récupère le statut d'envoi de l'email pour un utilisateur
  */
 export async function getEmailStatus(userId: string): Promise<{

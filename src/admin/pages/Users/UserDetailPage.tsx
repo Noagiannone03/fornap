@@ -54,6 +54,7 @@ import type {
 import {
   MEMBERSHIP_TYPE_LABELS,
   MEMBERSHIP_STATUS_LABELS,
+  REGISTRATION_SOURCE_LABELS,
 } from '../../../shared/types/user';
 
 // Fonction utilitaire pour convertir les timestamps de manière sécurisée
@@ -450,6 +451,54 @@ export function UserDetailPage() {
                 </Stack>
               </Paper>
             )}
+
+            {/* Source d'inscription */}
+            <Paper withBorder p="md" radius="md">
+              <Title order={3} mb="md">Source d'inscription</Title>
+              <Stack gap="md">
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">Source</Text>
+                  <Badge
+                    color={
+                      user.registration.source === 'platform'
+                        ? 'blue'
+                        : user.registration.source === 'admin'
+                        ? 'violet'
+                        : user.registration.source === 'crowdfunding'
+                        ? 'pink'
+                        : 'orange'
+                    }
+                    variant="light"
+                  >
+                    {REGISTRATION_SOURCE_LABELS[user.registration.source]}
+                  </Badge>
+                </Group>
+                {user.registration.createdBy && (
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Créé par</Text>
+                    <Text size="sm" fw={500}>{user.registration.createdBy}</Text>
+                  </Group>
+                )}
+                {user.registration.transferredFrom && (
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Transféré depuis</Text>
+                    <Text size="sm" fw={500}>{user.registration.transferredFrom}</Text>
+                  </Group>
+                )}
+                {user.registration.legacyMemberType && (
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Type legacy</Text>
+                    <Text size="sm" fw={500}>{user.registration.legacyMemberType}</Text>
+                  </Group>
+                )}
+                {user.registration.legacyTicketType && (
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Type de ticket legacy</Text>
+                    <Text size="sm" fw={500}>{user.registration.legacyTicketType}</Text>
+                  </Group>
+                )}
+              </Stack>
+            </Paper>
 
             {/* Tags */}
             <Paper withBorder p="md" radius="md">

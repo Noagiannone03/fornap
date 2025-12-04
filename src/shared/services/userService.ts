@@ -1843,7 +1843,8 @@ function determineLegacyMembershipType(legacy: LegacyMember): 'monthly' | 'annua
 export async function migrateLegacyMember(
   legacyUid: string,
   adminUserId: string,
-  defaultPlanId?: string
+  defaultPlanId?: string,
+  additionalTags?: string[]
 ): Promise<string> {
   try {
     // Récupérer l'ancien membre
@@ -1941,6 +1942,10 @@ export async function migrateLegacyMember(
     const tags: string[] = ['MIGRATED_FROM_LEGACY'];
     if (legacyData['member-type']) {
       tags.push(`LEGACY_TYPE:${legacyData['member-type']}`);
+    }
+    // Ajouter les tags personnalisés fournis
+    if (additionalTags && additionalTags.length > 0) {
+      tags.push(...additionalTags);
     }
 
     // Créer le nouvel utilisateur

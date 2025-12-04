@@ -365,6 +365,7 @@ export interface UpdateUserData {
   currentMembership?: Partial<CurrentMembership>;
   loyaltyPoints?: number;
   extendedProfile?: Partial<ExtendedProfile>;
+  registration?: Partial<RegistrationInfo>;
 }
 
 /**

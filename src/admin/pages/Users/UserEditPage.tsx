@@ -13,6 +13,7 @@ import {
   Switch,
   NumberInput,
   Select,
+  TagsInput,
   MultiSelect,
   Textarea,
 } from '@mantine/core';
@@ -20,7 +21,7 @@ import { IconArrowLeft, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { getUserById, updateUser } from '../../../shared/services/userService';
 import { Timestamp } from 'firebase/firestore';
-import type { User, MembershipStatus, PaymentStatus, ProfessionalStatus, PreferredContact, PublicProfileLevel } from '../../../shared/types/user';
+import type { User, MembershipStatus, PaymentStatus, ProfessionalStatus, PreferredContact, PublicProfileLevel, RegistrationSource } from '../../../shared/types/user';
 import {
   AVAILABLE_TAGS,
   AVAILABLE_SKILLS,
@@ -30,6 +31,7 @@ import {
   MEMBERSHIP_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
   PROFESSIONAL_STATUS_LABELS,
+  REGISTRATION_SOURCE_LABELS,
 } from '../../../shared/types/user';
 
 export function UserEditPage() {
@@ -52,6 +54,9 @@ export function UserEditPage() {
   const [isAccountBlocked, setIsAccountBlocked] = useState(false);
   const [isCardBlocked, setIsCardBlocked] = useState(false);
   const [blockedReason, setBlockedReason] = useState('');
+
+  // Source d'inscription
+  const [registrationSource, setRegistrationSource] = useState<RegistrationSource>('platform');
 
   // Abonnement
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>('active');
@@ -193,6 +198,9 @@ export function UserEditPage() {
       setIsCardBlocked(userData.status.isCardBlocked);
       setBlockedReason(userData.status.blockedReason || '');
 
+      // Source d'inscription
+      setRegistrationSource(userData.registration.source);
+
       // Abonnement
       setMembershipStatus(userData.currentMembership.status);
       setPaymentStatus(userData.currentMembership.paymentStatus);
@@ -287,6 +295,10 @@ export function UserEditPage() {
           autoRenew,
           startDate: membershipStartDate ? Timestamp.fromDate(membershipStartDate) : user.currentMembership.startDate,
           expiryDate: membershipExpiryDate ? Timestamp.fromDate(membershipExpiryDate) : null,
+        },
+        registration: {
+          ...user.registration,
+          source: registrationSource,
         },
         loyaltyPoints,
       };
@@ -447,13 +459,24 @@ export function UserEditPage() {
           <Accordion.Panel>
             <Paper withBorder p="md" radius="md">
               <Stack gap="md">
-                <MultiSelect
+                <Select
+                  label="Source d'inscription"
+                  description="Origine du compte utilisateur"
+                  data={Object.entries(REGISTRATION_SOURCE_LABELS).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                  value={registrationSource}
+                  onChange={(value) => setRegistrationSource(value as RegistrationSource)}
+                />
+
+                <TagsInput
                   label="Tags"
-                  placeholder="Sélectionnez des tags"
+                  placeholder="Sélectionnez ou créez des tags"
                   data={AVAILABLE_TAGS}
                   value={tags}
                   onChange={setTags}
-                  searchable
+                  clearable
                 />
 
                 <Switch

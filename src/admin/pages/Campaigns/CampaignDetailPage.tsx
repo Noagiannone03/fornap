@@ -206,7 +206,6 @@ export function CampaignDetailPage() {
                   leftSection={<IconSend size={18} />}
                   color="green"
                   onClick={handleSendNow}
-                  loading={sending}
                   disabled={campaign.stats.totalRecipients === 0}
                 >
                   Envoyer maintenant

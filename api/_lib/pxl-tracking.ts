@@ -65,6 +65,12 @@ export const pxl = new PxlForEmails({
   // Path pour le tracking des clics
   clickPath: '/api/campaigns/pxl/click',
 
+  // Fonction pour générer le lien complet de tracking
+  getFullShortenedLink: (linkId: string) => {
+    const baseUrl = getBaseUrl();
+    return `${baseUrl}/api/campaigns/pxl/click?l=${linkId}`;
+  },
+
   // Callback appelé quand un email est ouvert
   onOpen: async (recipient: string, campaign: string) => {
     try {

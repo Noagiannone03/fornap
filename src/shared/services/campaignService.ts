@@ -1003,3 +1003,52 @@ async function sendCampaignEmail(
   }
 }
 
+/**
+ * Réessaye l'envoi aux destinataires en échec
+ *
+ * @param campaignId - ID de la campagne
+ * @returns Résultat du retry avec statistiques
+ */
+export async function retryFailedEmails(
+  campaignId: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  retryCount?: number;
+  results?: {
+    success: number;
+    failed: number;
+    total: number;
+  };
+  errors?: Array<{ email: string; error: string }>;
+  error?: string;
+}> {
+  try {
+    const apiUrl = `${import.meta.env.VITE_API_URL || ''}/api/campaigns/retry-failed`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        campaignId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to retry failed emails');
+    }
+
+    return data;
+  } catch (error: any) {
+    console.error('Error retrying failed emails:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+

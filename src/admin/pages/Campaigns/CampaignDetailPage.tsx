@@ -28,6 +28,7 @@ import {
   IconCheck,
   IconSend,
   IconTrash,
+  IconRefresh,
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -49,6 +50,7 @@ export function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [recipients, setRecipients] = useState<CampaignRecipient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [sendModalOpened, setSendModalOpened] = useState(false);
   const [estimatedRecipients, setEstimatedRecipients] = useState(0);
 
@@ -58,6 +60,18 @@ export function CampaignDetailPage() {
       loadRecipients();
     }
   }, [campaignId]);
+
+  // Auto-refresh des stats toutes les 10 secondes pour les campagnes envoyées
+  useEffect(() => {
+    if (!campaign || campaign.status !== 'sent') return;
+
+    const interval = setInterval(() => {
+      loadCampaign();
+      loadRecipients();
+    }, 10000); // 10 secondes
+
+    return () => clearInterval(interval);
+  }, [campaign?.status, campaignId]);
 
   const loadCampaign = async () => {
     if (!campaignId) return;
@@ -103,6 +117,23 @@ export function CampaignDetailPage() {
       setRecipients(data);
     } catch (error: any) {
       console.error('Error loading recipients:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadCampaign(), loadRecipients()]);
+      notifications.show({
+        title: 'Rafraîchi',
+        message: 'Les statistiques ont été mises à jour',
+        color: 'green',
+        autoClose: 2000,
+      });
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -238,6 +269,18 @@ export function CampaignDetailPage() {
             )}
           </div>
           <Group>
+            {/* Bouton refresh pour les campagnes envoyées */}
+            {campaign.status === 'sent' && (
+              <Button
+                variant="light"
+                leftSection={<IconRefresh size={18} />}
+                onClick={handleRefresh}
+                loading={refreshing}
+              >
+                Rafraîchir les stats
+              </Button>
+            )}
+
             {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
               <>
                 <Button

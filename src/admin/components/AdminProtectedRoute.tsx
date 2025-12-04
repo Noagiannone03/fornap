@@ -1,7 +1,7 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Center, Loader, Stack, Text } from '@mantine/core';
 import { useAdminAuth } from '../../shared/contexts/AdminAuthContext';
-import { AdminPermission } from '../../shared/types/admin';
+import { AdminPermission, AdminRole } from '../../shared/types/admin';
 
 interface AdminProtectedRouteProps {
   children: React.ReactNode;
@@ -26,6 +26,7 @@ export function AdminProtectedRoute({
     checkAllPermissions,
     checkAnyPermission,
   } = useAdminAuth();
+  const location = useLocation();
 
   // Affichage du loader pendant le chargement
   if (loading) {
@@ -44,6 +45,26 @@ export function AdminProtectedRoute({
   // Redirection vers la page de login si non authentifié
   if (!isAuthenticated) {
     return <Navigate to="/admin/login" replace />;
+  }
+
+  // Vérification que le compte est actif
+  if (adminProfile && !adminProfile.isActive) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  // REDIRECTION AUTOMATIQUE POUR LE RÔLE SCANNER
+  // Si l'utilisateur est un Scanner et qu'il n'est pas déjà sur /scanner, le rediriger
+  if (adminProfile && adminProfile.role === AdminRole.SCANNER) {
+    // Vérifier qu'on n'est pas déjà sur /scanner pour éviter une boucle de redirection
+    if (!location.pathname.startsWith('/scanner')) {
+      return <Navigate to="/scanner" replace />;
+    }
+  }
+
+  // BLOQUER L'ACCÈS AU PANEL ADMIN POUR LE RÔLE SCANNER
+  // Si un Scanner essaie d'accéder au panel admin, le rediriger vers /scanner
+  if (adminProfile && adminProfile.role === AdminRole.SCANNER && location.pathname.startsWith('/admin')) {
+    return <Navigate to="/scanner" replace />;
   }
 
   // Vérification des permissions si spécifiées
@@ -68,11 +89,6 @@ export function AdminProtectedRoute({
         />
       );
     }
-  }
-
-  // Vérification que le compte est actif
-  if (adminProfile && !adminProfile.isActive) {
-    return <Navigate to="/admin/login" replace />;
   }
 
   return <>{children}</>;

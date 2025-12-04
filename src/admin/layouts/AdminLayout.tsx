@@ -27,7 +27,7 @@ export function AdminLayout() {
   const [aiSidebarOpened, setAiSidebarOpened] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { adminProfile, logout } = useAdminAuth();
+  const { adminProfile, logout, checkPermission } = useAdminAuth();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const isTablet = useMediaQuery('(max-width: 1024px)');
 
@@ -104,6 +104,36 @@ export function AdminLayout() {
   };
 
   const roleInfo = getRoleInfo();
+
+  // Filtrer les éléments de navigation selon les permissions
+  const filteredNavigationItems = navigationItems.filter((item) => {
+    // Si l'item n'a pas de permission requise, il est accessible à tous
+    if (!item.requiredPermission) {
+      return true;
+    }
+    // Sinon, vérifier que l'utilisateur a la permission
+    return checkPermission(item.requiredPermission);
+  }).map((item) => {
+    // Filtrer aussi les sous-menus si présents
+    if (item.submenu) {
+      return {
+        ...item,
+        submenu: item.submenu.filter((subItem) => {
+          if (!subItem.requiredPermission) {
+            return true;
+          }
+          return checkPermission(subItem.requiredPermission);
+        }),
+      };
+    }
+    return item;
+  }).filter((item) => {
+    // Retirer les menus avec sous-menus vides
+    if (item.submenu && item.submenu.length === 0) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <>
@@ -262,7 +292,7 @@ export function AdminLayout() {
         <AppShell.Navbar p={isMobile ? "xs" : "md"}>
           <AppShell.Section grow component={ScrollArea}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '2px' : '4px' }}>
-              {navigationItems.map((item) => {
+              {filteredNavigationItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
                 const isSubmenuOpen = openSubmenu === item.label;

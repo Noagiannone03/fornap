@@ -17,16 +17,25 @@ import { Timestamp } from 'firebase/firestore';
  * Système hiérarchique du plus élevé au plus bas
  */
 export const AdminRole = {
-  /** Accès complet à toutes les fonctionnalités */
+  /** Accès complet à toutes les fonctionnalités, y compris suppression d'admins */
   ADMINISTRATEUR: 'administrateur',
 
-  /** Peut créer des admins (sauf administrateur), accès complet aux données */
+  /** Peut créer des admins (sauf administrateur), tous les droits sauf supprimer les admins */
   CO_ADMINISTRATEUR: 'co-administrateur',
 
-  /** Peut modifier users et events, lecture seule sur analytics */
+  /** Peut voir, ajouter et modifier, mais ne peut pas supprimer */
+  EDITOR: 'editor',
+
+  /** Accès en lecture seule à tous les onglets, ne peut ni créer ni supprimer */
+  VIEWER: 'viewer',
+
+  /** Accès uniquement au scanner de QR code, pas d'accès au panel admin */
+  SCANNER: 'scanner',
+
+  /** [LEGACY] Peut modifier users et events, lecture seule sur analytics */
   MODERATEUR: 'moderateur',
 
-  /** Lecture + édition basique des users uniquement */
+  /** [LEGACY] Lecture + édition basique des users uniquement */
   SUPPORT: 'support',
 } as const;
 
@@ -54,30 +63,54 @@ export const ADMIN_ROLES_CONFIG: Record<AdminRole, RoleConfig> = {
     label: 'Administrateur',
     description: 'Accès complet à toutes les fonctionnalités de la plateforme',
     color: 'red',
-    level: 4,
+    level: 7,
     icon: 'shield',
   },
   [AdminRole.CO_ADMINISTRATEUR]: {
     key: AdminRole.CO_ADMINISTRATEUR,
     label: 'Co-Administrateur',
-    description: 'Peut gérer les admins et accéder à toutes les données',
+    description: 'Tous les droits sauf supprimer les administrateurs',
     color: 'orange',
-    level: 3,
+    level: 6,
     icon: 'shield-half',
+  },
+  [AdminRole.EDITOR]: {
+    key: AdminRole.EDITOR,
+    label: 'Éditeur',
+    description: 'Peut voir, ajouter et modifier, mais ne peut pas supprimer',
+    color: 'blue',
+    level: 5,
+    icon: 'edit',
+  },
+  [AdminRole.VIEWER]: {
+    key: AdminRole.VIEWER,
+    label: 'Visualisateur',
+    description: 'Accès en lecture seule à tous les onglets',
+    color: 'cyan',
+    level: 4,
+    icon: 'eye',
+  },
+  [AdminRole.SCANNER]: {
+    key: AdminRole.SCANNER,
+    label: 'Scanneur',
+    description: 'Accès uniquement au scanner de QR code',
+    color: 'grape',
+    level: 3,
+    icon: 'qrcode',
   },
   [AdminRole.MODERATEUR]: {
     key: AdminRole.MODERATEUR,
-    label: 'Modérateur',
+    label: 'Modérateur [Legacy]',
     description: 'Peut modifier les utilisateurs et événements',
-    color: 'blue',
+    color: 'gray',
     level: 2,
     icon: 'user-shield',
   },
   [AdminRole.SUPPORT]: {
     key: AdminRole.SUPPORT,
-    label: 'Support',
+    label: 'Support [Legacy]',
     description: 'Accès limité pour le support client',
-    color: 'green',
+    color: 'gray',
     level: 1,
     icon: 'headset',
   },
@@ -190,7 +223,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     AdminPermission.ANALYTICS_FINANCIAL,
     AdminPermission.ANALYTICS_EXPORT,
 
-    // Admins (peut créer sauf administrateur)
+    // Admins (peut créer/modifier/désactiver sauf administrateur, mais ne peut pas supprimer)
     AdminPermission.ADMINS_VIEW,
     AdminPermission.ADMINS_CREATE,
     AdminPermission.ADMINS_EDIT,
@@ -207,6 +240,69 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     // Logs
     AdminPermission.LOGS_VIEW,
     AdminPermission.LOGS_EXPORT,
+  ],
+
+  [AdminRole.EDITOR]: [
+    // Utilisateurs (création + modification, PAS de suppression)
+    AdminPermission.USERS_VIEW,
+    AdminPermission.USERS_CREATE,
+    AdminPermission.USERS_EDIT,
+    AdminPermission.USERS_BLOCK,
+    AdminPermission.USERS_EXPORT,
+
+    // Événements (création + modification, PAS de suppression)
+    AdminPermission.EVENTS_VIEW,
+    AdminPermission.EVENTS_CREATE,
+    AdminPermission.EVENTS_EDIT,
+    AdminPermission.EVENTS_PUBLISH,
+    AdminPermission.EVENTS_EXPORT,
+
+    // Abonnements (création + modification, PAS de suppression)
+    AdminPermission.MEMBERSHIPS_VIEW,
+    AdminPermission.MEMBERSHIPS_CREATE,
+    AdminPermission.MEMBERSHIPS_EDIT,
+    AdminPermission.MEMBERSHIPS_RENEW,
+
+    // Coworking
+    AdminPermission.COWORKING_VIEW,
+    AdminPermission.COWORKING_MANAGE,
+
+    // Analytics
+    AdminPermission.ANALYTICS_VIEW,
+    AdminPermission.ANALYTICS_FINANCIAL,
+    AdminPermission.ANALYTICS_EXPORT,
+
+    // Check-in
+    AdminPermission.CHECKIN_SCAN,
+    AdminPermission.CHECKIN_VIEW_HISTORY,
+
+    // Paramètres (lecture seule)
+    AdminPermission.SETTINGS_VIEW,
+
+    // Logs
+    AdminPermission.LOGS_VIEW,
+    AdminPermission.LOGS_EXPORT,
+  ],
+
+  [AdminRole.VIEWER]: [
+    // Lecture seule sur TOUT
+    AdminPermission.USERS_VIEW,
+    AdminPermission.EVENTS_VIEW,
+    AdminPermission.MEMBERSHIPS_VIEW,
+    AdminPermission.COWORKING_VIEW,
+    AdminPermission.ANALYTICS_VIEW,
+    AdminPermission.ANALYTICS_FINANCIAL,
+    AdminPermission.SETTINGS_VIEW,
+    AdminPermission.CHECKIN_VIEW_HISTORY,
+    AdminPermission.LOGS_VIEW,
+    // Pas de permissions de création, édition ou suppression
+  ],
+
+  [AdminRole.SCANNER]: [
+    // Accès UNIQUEMENT au scanner de QR code
+    AdminPermission.CHECKIN_SCAN,
+    AdminPermission.CHECKIN_VIEW_HISTORY,
+    // Rien d'autre
   ],
 
   [AdminRole.MODERATEUR]: [

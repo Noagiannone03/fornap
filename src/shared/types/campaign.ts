@@ -67,6 +67,7 @@ export interface TargetingFilters {
 
   // Filtre d'envoi de carte d'adhérent
   membershipCardNotSent?: boolean; // true = seulement ceux qui n'ont PAS reçu leur carte
+  membershipCardSent?: boolean; // true = seulement ceux qui ONT reçu leur carte
 }
 
 /**

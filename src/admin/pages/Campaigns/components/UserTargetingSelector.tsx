@@ -469,7 +469,7 @@ export function UserTargetingSelector({
                   <Group>
                     <IconSettings size={18} />
                     <Text fw={500}>Options</Text>
-                    {(filters.includeBlocked || filters.membershipCardNotSent) && (
+                    {(filters.includeBlocked || filters.membershipCardNotSent || filters.membershipCardSent) && (
                       <Badge size="sm">Actif</Badge>
                     )}
                   </Group>
@@ -489,6 +489,14 @@ export function UserTargetingSelector({
                       checked={filters.membershipCardNotSent || false}
                       onChange={(e) =>
                         onFiltersChange({ ...filters, membershipCardNotSent: e.currentTarget.checked || undefined })
+                      }
+                    />
+                    <Checkbox
+                      label="Envoyer un email aux utilisateurs ayant reçu par erreur un email de carte erroné"
+                      description="Cible uniquement les utilisateurs ayant déjà reçu leur carte d'adhérent"
+                      checked={filters.membershipCardSent || false}
+                      onChange={(e) =>
+                        onFiltersChange({ ...filters, membershipCardSent: e.currentTarget.checked || undefined })
                       }
                     />
                   </Stack>

@@ -1,93 +1,44 @@
 /**
- * Configuration pour le système d'envoi d'emails
+ * Configuration pour le système d'envoi d'emails - SIMPLIFIÉ
  *
- * Ce fichier centralise toute la configuration liée à l'envoi d'emails :
- * - Batch size pour éviter les timeouts Vercel
- * - Rate limiting pour respecter les quotas des services
- * - Configuration des services (Resend, QStash)
+ * ⚠️ SYSTÈME UNIFIÉ:
+ * Tous les emails sont envoyés via Nodemailer (SMTP FORNAP) depuis les APIs serverless.
+ * Plus besoin de Resend ni de QStash.
+ *
+ * Configuration SMTP:
+ * - Serveur: mail.fornap.fr (port 587, TLS)
+ * - Expéditeur: no-reply@fornap.fr
+ * - Gestion dans les variables d'environnement
  */
 
 export const EMAIL_CONFIG = {
   /**
-   * Nombre d'emails par batch
-   * Limité à 50 pour rester dans la limite de 10s de Vercel (plan Hobby)
-   * Chaque batch est traité par une fonction serverless séparée via QStash
+   * Configuration SMTP FORNAP
+   * Défini dans les variables d'environnement:
+   * - SMTP_HOST (défaut: mail.fornap.fr)
+   * - SMTP_PORT (défaut: 587)
+   * - SMTP_USER (défaut: no-reply@fornap.fr)
+   * - SMTP_PASSWORD
    */
-  BATCH_SIZE: 50,
+  DEFAULT_FROM_NAME: 'FOR+NAP Social Club',
+  DEFAULT_FROM_EMAIL: 'no-reply@fornap.fr',
+  DEFAULT_REPLY_TO: 'contact@fornap.fr',
 
   /**
-   * Délai entre les batches (en secondes)
-   * Pour éviter le rate limiting du service d'envoi
+   * Délai entre les envois d'emails (en ms)
+   * Pour éviter de surcharger le serveur SMTP
    */
-  BATCH_DELAY_SECONDS: 2,
+  DELAY_BETWEEN_EMAILS_MS: 500,
 
   /**
-   * Nombre maximum de tentatives pour chaque email
-   */
-  MAX_RETRY_ATTEMPTS: 3,
-
-  /**
-   * Délai de retry en cas d'échec (en secondes)
-   * QStash gérera automatiquement les retries avec backoff exponentiel
-   */
-  RETRY_DELAY_SECONDS: 60,
-
-  /**
-   * Template par défaut pour les emails
-   *
-   * IMPORTANT: Pour envoyer des emails en production :
-   * 1. Vérifiez votre domaine sur https://resend.com/domains
-   * 2. Ajoutez les enregistrements DNS demandés
-   * 3. Remplacez onboarding@resend.dev par votre email (ex: noreply@fornap.com)
-   *
-   * Le domaine onboarding@resend.dev est fourni par Resend pour les tests
-   */
-  DEFAULT_FROM_NAME: 'FORNAP',
-  DEFAULT_FROM_EMAIL: 'onboarding@resend.dev', // Domaine de test Resend (vérifié par défaut)
-
-  /**
-   * Limite de taux d'envoi (emails par seconde)
-   * Pour Resend plan gratuit : ~10 emails/seconde
-   */
-  RATE_LIMIT_PER_SECOND: 8,
-
-  /**
-   * Timeout pour les requêtes API (en ms)
-   */
-  API_TIMEOUT_MS: 8000, // Moins de 10s pour rester dans les limites Vercel
-
-  /**
-   * Variables de fusion disponibles dans les templates
+   * Variables de fusion disponibles dans les templates d'emails
    */
   MERGE_VARIABLES: [
     '{{first_name}}',
     '{{last_name}}',
     '{{email}}',
     '{{membership_type}}',
-    '{{unsubscribe_url}}',
   ] as const,
-} as const;
-
-/**
- * Configuration Resend
- */
-export const RESEND_CONFIG = {
-  apiKey: process.env.RESEND_API_KEY || '',
-  // URL de base pour les webhooks
-  // IMPORTANT: On utilise WEBHOOK_BASE_URL en priorité car VERCEL_URL change à chaque déploiement
-  webhookBaseUrl: process.env.WEBHOOK_BASE_URL
-    || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
-    || 'http://localhost:5173',
-} as const;
-
-/**
- * Configuration QStash (Upstash)
- */
-export const QSTASH_CONFIG = {
-  url: process.env.QSTASH_URL || '',
-  token: process.env.QSTASH_TOKEN || '',
-  currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY || '',
-  nextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY || '',
 } as const;
 
 /**
@@ -95,31 +46,20 @@ export const QSTASH_CONFIG = {
  */
 export const FIREBASE_ADMIN_CONFIG = {
   projectId: process.env.VITE_FIREBASE_PROJECT_ID || '',
-  // Pour l'authentification, on utilisera les credentials par défaut de Vercel
-  // ou la variable d'environnement GOOGLE_APPLICATION_CREDENTIALS
 };
 
 /**
- * Validation de la configuration
+ * Validation de la configuration email
  */
 export function validateEmailConfig(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if (!RESEND_CONFIG.apiKey) {
-    errors.push('RESEND_API_KEY manquante');
-  }
-
-  if (!QSTASH_CONFIG.token) {
-    errors.push('QSTASH_TOKEN manquante');
-  }
-
-  if (!QSTASH_CONFIG.currentSigningKey) {
-    errors.push('QSTASH_CURRENT_SIGNING_KEY manquante');
-  }
-
+  // Vérifier que Firebase est configuré
   if (!FIREBASE_ADMIN_CONFIG.projectId) {
     errors.push('VITE_FIREBASE_PROJECT_ID manquante');
   }
+
+  // Note: Les variables SMTP sont vérifiées côté API au moment de l'envoi
 
   return {
     valid: errors.length === 0,

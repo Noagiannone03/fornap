@@ -711,42 +711,15 @@ export async function estimateRecipients(
 // ============================================================================
 
 /**
- * Crée les destinataires d'une campagne
+ * @deprecated Les recipients sont créés automatiquement lors de l'envoi via l'API
+ * Ne plus utiliser cette fonction - conservée pour compatibilité
  */
 export async function createCampaignRecipients(
-  campaignId: string,
-  users: User[]
+  _campaignId: string,
+  _users: User[]
 ): Promise<void> {
-  try {
-    const batch = writeBatch(db);
-    const recipientsRef = collection(db, CAMPAIGNS_COLLECTION, campaignId, RECIPIENTS_SUBCOLLECTION);
-    const now = Timestamp.now();
-
-    users.forEach(user => {
-      const recipientRef = doc(recipientsRef);
-      const recipient: Omit<CampaignRecipient, 'id'> = {
-        campaignId,
-        userId: user.uid,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        status: 'pending',
-        openCount: 0,
-        clickCount: 0,
-        createdAt: now,
-        updatedAt: now,
-      };
-      batch.set(recipientRef, cleanUndefinedFields(recipient));
-    });
-
-    await batch.commit();
-
-    // Mettre à jour les stats de la campagne
-    await updateCampaignStats(campaignId);
-  } catch (error) {
-    console.error('Error creating campaign recipients:', error);
-    throw error;
-  }
+  console.warn('⚠️ createCampaignRecipients est obsolète - les recipients sont créés automatiquement lors de l\'envoi');
+  // Ne rien faire - les recipients sont créés automatiquement par l'API
 }
 
 /**
@@ -847,31 +820,12 @@ export async function updateCampaignStats(campaignId: string): Promise<void> {
 }
 
 /**
- * Prépare une campagne pour l'envoi (crée les destinataires)
+ * @deprecated Plus nécessaire - l'envoi se fait directement via sendCampaignEmails
+ * Conservée pour compatibilité
  */
-export async function prepareCampaignForSending(campaignId: string): Promise<void> {
-  try {
-    const campaign = await getCampaignById(campaignId);
-    if (!campaign) {
-      throw new Error('Campaign not found');
-    }
-
-    // Récupérer les utilisateurs ciblés
-    const users = await getTargetedUsers(
-      campaign.targeting.mode,
-      campaign.targeting.manualUserIds,
-      campaign.targeting.filters
-    );
-
-    // Créer les destinataires
-    await createCampaignRecipients(campaignId, users);
-
-    // Mettre à jour le statut de la campagne
-    await updateCampaignStatus(campaignId, campaign.sendImmediately ? 'sending' : 'scheduled');
-  } catch (error) {
-    console.error('Error preparing campaign for sending:', error);
-    throw error;
-  }
+export async function prepareCampaignForSending(_campaignId: string): Promise<void> {
+  console.warn('⚠️ prepareCampaignForSending est obsolète - utiliser sendCampaignEmails directement');
+  // Ne rien faire - l'envoi se fait directement via sendCampaignEmails
 }
 
 /**
@@ -886,9 +840,20 @@ export type SendCampaignProgressCallback = (progress: {
 }) => void;
 
 /**
- * Envoie une campagne email - SIMPLIFIÉ COMME LES CARTES D'ADHÉRENT
- * Récupère directement les users ciblés et envoie l'email à chacun
- * Pas de sous-collection recipients, tout se fait en temps réel
+ * Envoie une campagne email - SYSTÈME UNIFIÉ
+ *
+ * Principe:
+ * 1. Récupère tous les utilisateurs ciblés
+ * 2. Envoie un email à chaque utilisateur via l'API unifiée
+ * 3. L'API crée automatiquement le recipient, injecte le tracking et envoie
+ * 4. Suivi en temps réel avec callback de progression
+ *
+ * L'API /api/campaigns/send-email gère:
+ * - Création du recipient dans Firestore
+ * - Injection du pixel de tracking
+ * - Transformation des liens pour le suivi des clics
+ * - Envoi via Nodemailer (no-reply@fornap.fr)
+ * - Mise à jour des stats
  */
 export async function sendCampaignEmails(
   campaignId: string,
@@ -942,7 +907,7 @@ export async function sendCampaignEmails(
       }
 
       try {
-        // Envoyer l'email à cet utilisateur
+        // Envoyer l'email à cet utilisateur via l'API unifiée
         const result = await sendCampaignEmail(campaignId, user.uid);
 
         if (result.success) {
@@ -980,6 +945,8 @@ export async function sendCampaignEmails(
 
 /**
  * Envoie un email de campagne à un utilisateur spécifique
+ * Appelle l'API unifiée /api/campaigns/send-email
+ *
  * @param campaignId - ID de la campagne
  * @param userId - ID de l'utilisateur
  * @returns Résultat de l'envoi
@@ -989,7 +956,7 @@ async function sendCampaignEmail(
   userId: string
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    // Appeler l'API Vercel serverless
+    // Appeler l'API Vercel serverless unifiée
     const apiUrl = `${import.meta.env.VITE_API_URL || ''}/api/campaigns/send-email`;
 
     const response = await fetch(apiUrl, {
@@ -1019,103 +986,6 @@ async function sendCampaignEmail(
       success: false,
       error: error.message,
     };
-  }
-}
-
-/**
- * @deprecated Utiliser sendCampaignEmails à la place
- * Envoie une campagne email à tous ses destinataires
- * Appelle l'API pour chaque destinataire avec suivi en temps réel
- */
-export async function sendCampaignToRecipients(
-  campaignId: string,
-  onProgress?: SendCampaignProgressCallback
-): Promise<{
-  success: number;
-  errors: number;
-  total: number;
-  errorDetails: Array<{ recipientId: string; recipientName: string; error: string }>;
-}> {
-  try {
-    // Récupérer tous les destinataires en attente
-    const recipients = await getCampaignRecipients(campaignId);
-    const pendingRecipients = recipients.filter(r => r.status === 'pending');
-
-    const results = {
-      success: 0,
-      errors: 0,
-      total: pendingRecipients.length,
-      errorDetails: [] as Array<{ recipientId: string; recipientName: string; error: string }>,
-    };
-
-    let current = 0;
-
-    // Parcourir tous les destinataires en attente
-    for (const recipient of pendingRecipients) {
-      current++;
-      const recipientName = `${recipient.firstName} ${recipient.lastName}`.trim() || recipient.email;
-
-      // Appeler le callback de progression
-      if (onProgress) {
-        onProgress({
-          current,
-          total: results.total,
-          currentRecipient: recipientName,
-          success: results.success,
-          errors: results.errors,
-        });
-      }
-
-      try {
-        // Appeler l'API pour envoyer l'email à ce destinataire
-        const apiUrl = `${import.meta.env.VITE_API_URL || ''}/api/campaigns/send-campaign-email`;
-
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            campaignId,
-            recipientId: recipient.id,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          results.success++;
-        } else {
-          results.errors++;
-          results.errorDetails.push({
-            recipientId: recipient.id,
-            recipientName,
-            error: data.message || data.error || 'Erreur inconnue',
-          });
-        }
-      } catch (error: any) {
-        results.errors++;
-        results.errorDetails.push({
-          recipientId: recipient.id,
-          recipientName,
-          error: error.message || 'Erreur inconnue',
-        });
-      }
-
-      // Petite pause pour ne pas surcharger l'API
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    // Mettre à jour le statut final de la campagne
-    await updateCampaignStatus(campaignId, 'sent');
-
-    // Mettre à jour les stats finales
-    await updateCampaignStats(campaignId);
-
-    return results;
-  } catch (error) {
-    console.error('Error sending campaign to recipients:', error);
-    throw error;
   }
 }
 

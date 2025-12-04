@@ -886,6 +886,144 @@ export type SendCampaignProgressCallback = (progress: {
 }) => void;
 
 /**
+ * Envoie une campagne email - SIMPLIFIÉ COMME LES CARTES D'ADHÉRENT
+ * Récupère directement les users ciblés et envoie l'email à chacun
+ * Pas de sous-collection recipients, tout se fait en temps réel
+ */
+export async function sendCampaignEmails(
+  campaignId: string,
+  onProgress?: SendCampaignProgressCallback
+): Promise<{
+  success: number;
+  errors: number;
+  total: number;
+  errorDetails: Array<{ userId: string; userName: string; error: string }>;
+}> {
+  try {
+    // 1. Récupérer la campagne
+    const campaign = await getCampaignById(campaignId);
+    if (!campaign) {
+      throw new Error('Campaign not found');
+    }
+
+    // 2. Mettre la campagne en statut "sending"
+    await updateCampaignStatus(campaignId, 'sending');
+
+    // 3. Récupérer tous les utilisateurs ciblés
+    const targetedUsers = await getTargetedUsers(
+      campaign.targeting.mode,
+      campaign.targeting.manualUserIds,
+      campaign.targeting.filters
+    );
+
+    const results = {
+      success: 0,
+      errors: 0,
+      total: targetedUsers.length,
+      errorDetails: [] as Array<{ userId: string; userName: string; error: string }>,
+    };
+
+    let current = 0;
+
+    // 4. Parcourir tous les utilisateurs ciblés
+    for (const user of targetedUsers) {
+      current++;
+      const userName = `${user.firstName} ${user.lastName}`.trim() || user.email;
+
+      // Appeler le callback de progression
+      if (onProgress) {
+        onProgress({
+          current,
+          total: results.total,
+          currentRecipient: userName,
+          success: results.success,
+          errors: results.errors,
+        });
+      }
+
+      try {
+        // Envoyer l'email à cet utilisateur
+        const result = await sendCampaignEmail(campaignId, user.uid);
+
+        if (result.success) {
+          results.success++;
+        } else {
+          results.errors++;
+          results.errorDetails.push({
+            userId: user.uid,
+            userName,
+            error: result.error || 'Unknown error',
+          });
+        }
+      } catch (error: any) {
+        results.errors++;
+        results.errorDetails.push({
+          userId: user.uid,
+          userName,
+          error: error.message || 'Unknown error',
+        });
+      }
+
+      // Petite pause pour ne pas surcharger l'API
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // 5. Mettre à jour le statut final de la campagne
+    await updateCampaignStatus(campaignId, 'sent');
+
+    return results;
+  } catch (error: any) {
+    console.error('Error sending campaign emails:', error);
+    throw error;
+  }
+}
+
+/**
+ * Envoie un email de campagne à un utilisateur spécifique
+ * @param campaignId - ID de la campagne
+ * @param userId - ID de l'utilisateur
+ * @returns Résultat de l'envoi
+ */
+async function sendCampaignEmail(
+  campaignId: string,
+  userId: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    // Appeler l'API Vercel serverless
+    const apiUrl = `${import.meta.env.VITE_API_URL || ''}/api/campaigns/send-email`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        campaignId,
+        userId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to send campaign email');
+    }
+
+    return {
+      success: data.success,
+      message: data.message || 'Email sent successfully',
+    };
+  } catch (error: any) {
+    console.error('Error sending campaign email:', error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * @deprecated Utiliser sendCampaignEmails à la place
  * Envoie une campagne email à tous ses destinataires
  * Appelle l'API pour chaque destinataire avec suivi en temps réel
  */

@@ -35,6 +35,7 @@ import {
   getCampaignById,
   getCampaignRecipients,
   cancelCampaign,
+  estimateRecipients,
 } from '../../../shared/services/campaignService';
 import { Timestamp } from 'firebase/firestore';
 import { SendCampaignModal } from '../../components/campaigns/SendCampaignModal';
@@ -47,6 +48,7 @@ export function CampaignDetailPage() {
   const [recipients, setRecipients] = useState<CampaignRecipient[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendModalOpened, setSendModalOpened] = useState(false);
+  const [estimatedRecipients, setEstimatedRecipients] = useState(0);
 
   useEffect(() => {
     if (campaignId) {
@@ -63,6 +65,14 @@ export function CampaignDetailPage() {
       const data = await getCampaignById(campaignId);
       if (data) {
         setCampaign(data);
+
+        // Calculer le nombre estimé de destinataires
+        const estimated = await estimateRecipients(
+          data.targeting.mode,
+          data.targeting.manualUserIds,
+          data.targeting.filters
+        );
+        setEstimatedRecipients(estimated);
       } else {
         notifications.show({
           title: 'Erreur',
@@ -206,7 +216,7 @@ export function CampaignDetailPage() {
                   leftSection={<IconSend size={18} />}
                   color="green"
                   onClick={handleSendNow}
-                  disabled={campaign.stats.totalRecipients === 0}
+                  disabled={estimatedRecipients === 0}
                 >
                   Envoyer maintenant
                 </Button>
@@ -475,7 +485,7 @@ export function CampaignDetailPage() {
           onComplete={handleSendComplete}
           campaignId={campaignId}
           campaignName={campaign.name}
-          totalRecipients={campaign.stats.totalRecipients}
+          totalRecipients={estimatedRecipients}
         />
       )}
     </div>

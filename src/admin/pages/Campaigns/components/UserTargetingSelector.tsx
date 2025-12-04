@@ -92,10 +92,10 @@ export function UserTargetingSelector({
         const searchLower = manualSearchTerm.toLowerCase();
         filtered = filtered.filter(
           (user) =>
-            user.firstName.toLowerCase().includes(searchLower) ||
-            user.lastName.toLowerCase().includes(searchLower) ||
-            user.email.toLowerCase().includes(searchLower) ||
-            user.postalCode.includes(searchLower)
+            user.firstName?.toLowerCase().includes(searchLower) ||
+            user.lastName?.toLowerCase().includes(searchLower) ||
+            user.email?.toLowerCase().includes(searchLower) ||
+            user.postalCode?.includes(searchLower)
         );
       }
 

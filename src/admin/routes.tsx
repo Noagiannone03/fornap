@@ -22,7 +22,6 @@ import { EngagementAnalyticsPage } from './pages/Analytics/EngagementAnalyticsPa
 import { EventStatsPage } from './pages/Analytics/EventStatsPage';
 import { ContributionStatsPage } from './pages/Analytics/ContributionStatsPage';
 import { CampaignsListPage, CampaignCreatePage, CampaignEditPage, CampaignDetailPage } from './pages/Campaigns';
-import { EmailDiagnosticsPage } from './pages/EmailDiagnostics';
 import { AIAssistantPage } from './pages/AIAssistantPage';
 import { CrowdfundingManagementPage } from './pages/Crowdfunding';
 
@@ -65,7 +64,6 @@ export function AdminRoutes() {
           <Route path="campaigns/create" element={<CampaignCreatePage />} />
           <Route path="campaigns/:campaignId" element={<CampaignDetailPage />} />
           <Route path="campaigns/:campaignId/edit" element={<CampaignEditPage />} />
-          <Route path="campaigns/diagnostics" element={<EmailDiagnosticsPage />} />
 
           {/* Routes Analytics */}
           <Route path="analytics" element={<Navigate to="/admin/analytics/overview" replace />} />

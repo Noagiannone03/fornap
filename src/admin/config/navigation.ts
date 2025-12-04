@@ -7,7 +7,6 @@ import {
   IconBuildingCommunity,
   IconSettings,
   IconMail,
-  IconBug,
   IconQrcode,
   IconChartBar,
   IconCurrencyEuro,
@@ -40,15 +39,7 @@ export const navigationItems: NavItem[] = [
   { icon: IconBuildingCommunity, label: 'Coworking', path: '/admin/coworking' },
   { icon: IconChartPie, label: 'Crowdfunding', path: '/admin/crowdfunding' },
   { icon: IconQrcode, label: 'Scanner QR', path: '/scanner', isExternal: true },
-  {
-    icon: IconMail,
-    label: 'Campagnes Email',
-    path: '/admin/campaigns',
-    submenu: [
-      { icon: IconMail, label: 'Liste des campagnes', path: '/admin/campaigns' },
-      { icon: IconBug, label: 'Diagnostics Email', path: '/admin/campaigns/diagnostics' },
-    ],
-  },
+  { icon: IconMail, label: 'Campagnes Email', path: '/admin/campaigns' },
   {
     icon: IconChartBar,
     label: 'Analytics',

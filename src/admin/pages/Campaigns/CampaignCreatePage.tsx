@@ -10,7 +10,6 @@ import {
   Stack,
   Stepper,
   LoadingOverlay,
-  Switch,
   Divider,
   Grid,
   Card,
@@ -27,10 +26,7 @@ import {
   IconUsers,
   IconEdit,
   IconSend,
-  IconClock,
   IconFileText,
-  IconAlertCircle,
-  IconCalendarEvent,
   IconBulb,
   IconFilter,
   IconCode,
@@ -38,14 +34,9 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
-import { DateTimePicker } from '@mantine/dates';
 import type { TargetingMode, TargetingFilters } from '../../../shared/types/campaign';
-import {
-  createCampaign,
-  prepareCampaignForSending,
-} from '../../../shared/services/campaignService';
+import { createCampaign } from '../../../shared/services/campaignService';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
-import { Timestamp } from 'firebase/firestore';
 import { UserTargetingSelector, EmailEditorModal } from './components';
 import type { EmailEditorModalHandle } from './components';
 
@@ -63,9 +54,6 @@ export function CampaignCreatePage() {
   const [description, setDescription] = useState('');
   const [subject, setSubject] = useState('');
   const [preheader, setPreheader] = useState('');
-  const [fromName, setFromName] = useState('FORNAP');
-  const [fromEmail, setFromEmail] = useState('contact@fornap.fr');
-  const [replyTo, setReplyTo] = useState('');
 
   // Étape 2: Ciblage
   const [targetingMode, setTargetingMode] = useState<TargetingMode>('all');
@@ -82,9 +70,8 @@ export function CampaignCreatePage() {
   const [emailBody, setEmailBody] = useState('');
   const [editorOpened, setEditorOpened] = useState(false);
 
-  // Étape 4: Planification
-  const [sendImmediately, setSendImmediately] = useState(false);
-  const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
+  // Étape 4: Plus besoin de planification - tout est en brouillon
+  // L'envoi se fait depuis la page de détail
 
   const handleNext = async () => {
     // Validation selon l'étape
@@ -101,14 +88,6 @@ export function CampaignCreatePage() {
         notifications.show({
           title: 'Erreur',
           message: 'Le sujet de l\'email est requis',
-          color: 'red',
-        });
-        return;
-      }
-      if (!fromName.trim() || !fromEmail.trim()) {
-        notifications.show({
-          title: 'Erreur',
-          message: 'Les informations de l\'expéditeur sont requises',
           color: 'red',
         });
         return;
@@ -142,16 +121,8 @@ export function CampaignCreatePage() {
           return;
         }
       }
-    } else if (active === 3) {
-      if (!sendImmediately && !scheduledDate) {
-        notifications.show({
-          title: 'Erreur',
-          message: 'Veuillez choisir une date d\'envoi ou activer l\'envoi immédiat',
-          color: 'red',
-        });
-        return;
-      }
     }
+    // Plus de validation pour l'étape 3 (planification) - tout est en brouillon
 
     setActive((current) => (current < 3 ? current + 1 : current));
   };
@@ -207,11 +178,11 @@ export function CampaignCreatePage() {
 </html>`.trim();
       }
 
-      // Créer le contenu de l'email en ne incluant que les champs définis
+      // Créer le contenu de l'email
+      // Note: fromName, fromEmail et replyTo sont maintenant gérés automatiquement par l'API
+      // (toujours no-reply@fornap.fr)
       const content: any = {
         subject,
-        fromName,
-        fromEmail,
         html: finalHtml,
       };
 
@@ -223,11 +194,6 @@ export function CampaignCreatePage() {
       // Ajouter design seulement s'il existe
       if (emailDesign) {
         content.design = emailDesign;
-      }
-
-      // Ajouter replyTo seulement s'il n'est pas vide
-      if (replyTo && replyTo.trim()) {
-        content.replyTo = replyTo;
       }
 
       // Créer le ciblage en ne incluant que les champs pertinents
@@ -244,11 +210,12 @@ export function CampaignCreatePage() {
       }
 
       // Créer les données de la campagne
+      // Note: sendImmediately est toujours false - l'envoi se fait depuis la page de détail
       const campaignData: any = {
         name,
         content,
         targeting,
-        sendImmediately,
+        sendImmediately: false,
       };
 
       // Ajouter description seulement si elle existe
@@ -256,26 +223,12 @@ export function CampaignCreatePage() {
         campaignData.description = description;
       }
 
-      // Ajouter scheduledAt seulement si une date est définie
-      if (scheduledDate) {
-        campaignData.scheduledAt = Timestamp.fromDate(scheduledDate);
-      }
-
-      // Créer la campagne
-      const campaign = await createCampaign(adminProfile.uid, campaignData);
-
-      // Si envoi immédiat ou planifié, préparer l'envoi
-      if (sendImmediately || scheduledDate) {
-        await prepareCampaignForSending(campaign.id);
-      }
+      // Créer la campagne (toujours en brouillon)
+      await createCampaign(adminProfile.uid, campaignData);
 
       notifications.show({
         title: 'Succès',
-        message: sendImmediately
-          ? 'Campagne créée et prête pour l\'envoi'
-          : scheduledDate
-          ? 'Campagne créée et planifiée avec succès'
-          : 'Campagne créée en brouillon',
+        message: 'Campagne créée en brouillon. Rendez-vous sur la page de détail pour l\'envoyer.',
         color: 'green',
       });
 
@@ -362,36 +315,20 @@ export function CampaignCreatePage() {
 
               <Divider />
 
-              <Grid>
-                <Grid.Col span={6}>
-                  <TextInput
-                    label="Nom de l'expéditeur"
-                    required
-                    size="md"
-                    value={fromName}
-                    onChange={(e) => setFromName(e.currentTarget.value)}
-                  />
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <TextInput
-                    label="Email de l'expéditeur"
-                    required
-                    type="email"
-                    size="md"
-                    value={fromEmail}
-                    onChange={(e) => setFromEmail(e.currentTarget.value)}
-                  />
-                </Grid.Col>
-              </Grid>
-
-              <TextInput
-                label="Email de réponse (optionnel)"
-                description="Si différent de l'email de l'expéditeur"
-                type="email"
-                size="md"
-                value={replyTo}
-                onChange={(e) => setReplyTo(e.currentTarget.value)}
-              />
+              <Card p="md" bg="blue.0">
+                <Group gap="xs">
+                  <IconMail size={18} />
+                  <div>
+                    <Text fw={600} size="sm">Expéditeur automatique</Text>
+                    <Text size="xs" c="dimmed">
+                      Tous les emails sont envoyés depuis <strong>no-reply@fornap.fr</strong>
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Les réponses sont dirigées vers <strong>contact@fornap.fr</strong>
+                    </Text>
+                  </div>
+                </Group>
+              </Card>
             </Stack>
           </Card>
         </Stack>
@@ -771,10 +708,10 @@ export function CampaignCreatePage() {
         <Stack gap="lg">
           <div>
             <Text size="xl" fw={700} mb="xs">
-              Planification de l'envoi
+              Récapitulatif et création
             </Text>
             <Text c="dimmed" size="sm">
-              Choisissez quand envoyer votre campagne
+              Vérifiez les informations avant de créer votre campagne
             </Text>
           </div>
 
@@ -793,6 +730,15 @@ export function CampaignCreatePage() {
                     </Text>
                     <Text size="sm">{name}</Text>
                   </Group>
+
+                  {description && (
+                    <Group>
+                      <Text fw={500} size="sm" w={140}>
+                        Description :
+                      </Text>
+                      <Text size="sm" lineClamp={2}>{description}</Text>
+                    </Group>
+                  )}
 
                   <Group>
                     <Text fw={500} size="sm" w={140}>
@@ -822,75 +768,20 @@ export function CampaignCreatePage() {
                   </Group>
                 </Stack>
               </div>
-
-              <Divider />
-
-              <div>
-                <Group gap="xs" mb="md">
-                  <IconCalendarEvent size={20} />
-                  <Text fw={600}>Programmation</Text>
-                </Group>
-
-                <Stack gap="md">
-                  <Switch
-                    label="Envoyer immédiatement après la création"
-                    description="La campagne sera mise en file d'attente d'envoi dès sa création"
-                    checked={sendImmediately}
-                    onChange={(e) => setSendImmediately(e.currentTarget.checked)}
-                    size="md"
-                  />
-
-                  {!sendImmediately && (
-                    <DateTimePicker
-                      label="Date et heure d'envoi planifiée"
-                      description="Programmez l'envoi de votre campagne à une date ultérieure"
-                      placeholder="Sélectionner une date et heure"
-                      value={scheduledDate}
-                      onChange={(value) => {
-                        if (typeof value === 'string') {
-                          setScheduledDate(new Date(value));
-                        } else {
-                          setScheduledDate(value);
-                        }
-                      }}
-                      minDate={new Date()}
-                      valueFormat="DD/MM/YYYY HH:mm"
-                      size="md"
-                      clearable
-                      withSeconds={false}
-                      popoverProps={{ withinPortal: true }}
-                      leftSection={<IconCalendarEvent size={18} />}
-                    />
-                  )}
-
-                  {!sendImmediately && !scheduledDate && (
-                    <Group gap="xs">
-                      <IconBulb size={16} />
-                      <Text size="sm" c="dimmed">
-                        Si vous ne sélectionnez pas de date, la campagne sera sauvegardée en brouillon
-                      </Text>
-                    </Group>
-                  )}
-                </Stack>
-              </div>
             </Stack>
           </Card>
 
-          <Card withBorder p="md" bg="orange.0">
+          <Card withBorder p="md" bg="blue.0">
             <Group>
-              <ThemeIcon color="orange" variant="light">
-                <IconAlertCircle size={20} />
+              <ThemeIcon color="blue" variant="light" size="lg">
+                <IconSend size={24} />
               </ThemeIcon>
               <Stack gap={4}>
                 <Text fw={600} size="sm">
-                  Avant de continuer
+                  Campagne en brouillon
                 </Text>
                 <Text size="sm">
-                  {sendImmediately
-                    ? 'La campagne sera envoyée immédiatement. Vérifiez bien tous les détails.'
-                    : scheduledDate
-                    ? `La campagne sera envoyée le ${scheduledDate.toLocaleString('fr-FR')}.`
-                    : 'La campagne sera sauvegardée en brouillon. Vous pourrez la modifier et l\'envoyer plus tard.'}
+                  Votre campagne sera créée en brouillon. Vous pourrez l'envoyer depuis la page de détail de la campagne.
                 </Text>
               </Stack>
             </Group>
@@ -899,27 +790,27 @@ export function CampaignCreatePage() {
       </Grid.Col>
 
       <Grid.Col span={{ base: 12, md: 4 }}>
-        <Card withBorder p="lg" bg="grape.0">
+        <Card withBorder p="lg" bg="green.0">
           <Stack gap="md">
             <Group>
-              <ThemeIcon size="lg" variant="light" color="grape">
-                <IconClock size={20} />
+              <ThemeIcon size="lg" variant="light" color="green">
+                <IconCheck size={20} />
               </ThemeIcon>
-              <Text fw={600}>Conseils d'envoi</Text>
+              <Text fw={600}>Prochaines étapes</Text>
             </Group>
 
             <List spacing="sm" size="sm" icon={<IconCheck size={14} />}>
               <List.Item>
-                Les meilleurs jours : mardi, mercredi, jeudi
+                La campagne sera créée en mode brouillon
               </List.Item>
               <List.Item>
-                Heures optimales : 10h-11h ou 14h-15h
+                Accédez à la page de détail de la campagne
               </List.Item>
               <List.Item>
-                Évitez les week-ends et jours fériés
+                Cliquez sur "Envoyer maintenant" quand vous êtes prêt
               </List.Item>
               <List.Item>
-                Testez différentes heures pour votre audience
+                Suivez l'envoi en temps réel avec la barre de progression
               </List.Item>
             </List>
           </Stack>
@@ -985,9 +876,9 @@ export function CampaignCreatePage() {
             </Stepper.Step>
 
             <Stepper.Step
-              label="Envoi"
-              description="Quand envoyer"
-              icon={<IconClock size={20} />}
+              label="Récapitulatif"
+              description="Vérification finale"
+              icon={<IconCheck size={20} />}
             >
               {renderSchedulingStep()}
             </Stepper.Step>
@@ -1014,40 +905,15 @@ export function CampaignCreatePage() {
                 Suivant
               </Button>
             ) : (
-              <Group>
-                <Button
-                  onClick={async () => {
-                    // Sauvegarder en brouillon sans date ni envoi immédiat
-                    const originalSendImmediately = sendImmediately;
-                    const originalScheduledDate = scheduledDate;
-                    setSendImmediately(false);
-                    setScheduledDate(null);
-                    await handleSubmit();
-                    // Restaurer les valeurs originales en cas d'erreur
-                    setSendImmediately(originalSendImmediately);
-                    setScheduledDate(originalScheduledDate);
-                  }}
-                  variant="default"
-                  leftSection={<IconFileText size={18} />}
-                  loading={loading}
-                  size="md"
-                >
-                  Sauvegarder en brouillon
-                </Button>
-                <Button
-                  onClick={handleSubmit}
-                  leftSection={sendImmediately ? <IconSend size={18} /> : <IconCheck size={18} />}
-                  color={sendImmediately ? 'green' : 'blue'}
-                  loading={loading}
-                  size="md"
-                >
-                  {sendImmediately
-                    ? 'Créer et envoyer'
-                    : scheduledDate
-                    ? 'Créer et planifier'
-                    : 'Créer en brouillon'}
-                </Button>
-              </Group>
+              <Button
+                onClick={handleSubmit}
+                leftSection={<IconCheck size={18} />}
+                color="green"
+                loading={loading}
+                size="lg"
+              >
+                Créer la campagne
+              </Button>
             )}
           </Group>
         </Paper>

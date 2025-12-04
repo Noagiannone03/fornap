@@ -308,11 +308,20 @@ function userMatchesFilters(user: User, filters: TargetingFilters): boolean {
     }
   }
 
-  // Filtre d'envoi de carte d'adhérent
+  // Filtre d'envoi de carte d'adhérent - N'a PAS reçu
   if (filters.membershipCardNotSent) {
     // Vérifier si l'utilisateur n'a PAS reçu sa carte
     const hasReceivedCard = user.emailStatus?.membershipCardSent || false;
     if (hasReceivedCard) {
+      return false;
+    }
+  }
+
+  // Filtre d'envoi de carte d'adhérent - A reçu
+  if (filters.membershipCardSent) {
+    // Vérifier si l'utilisateur A reçu sa carte
+    const hasReceivedCard = user.emailStatus?.membershipCardSent || false;
+    if (!hasReceivedCard) {
       return false;
     }
   }

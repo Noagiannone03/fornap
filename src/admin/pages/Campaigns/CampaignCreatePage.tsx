@@ -184,6 +184,9 @@ export function CampaignCreatePage() {
       const content: any = {
         subject,
         html: finalHtml,
+        fromName: 'FOR+NAP Social Club',
+        fromEmail: 'no-reply@fornap.fr',
+        replyTo: 'contact@fornap.fr',
       };
 
       // Ajouter preheader seulement s'il est défini
@@ -191,10 +194,12 @@ export function CampaignCreatePage() {
         content.preheader = preheader;
       }
 
-      // Ajouter design seulement s'il existe
-      if (emailDesign) {
-        content.design = emailDesign;
-      }
+      // ⚠️ Ne PAS sauvegarder le design dans Firestore car il contient des entités imbriquées complexes
+      // Firebase n'accepte pas les objets trop profonds
+      // Le HTML exporté par Unlayer suffit pour l'envoi des emails
+      // if (emailDesign) {
+      //   content.design = emailDesign;
+      // }
 
       // Créer le ciblage en ne incluant que les champs pertinents
       const targeting: any = {
@@ -519,6 +524,7 @@ export function CampaignCreatePage() {
                       value={emailBody}
                       onChange={(e) => setEmailBody(e.currentTarget.value)}
                       minRows={12}
+                      autosize
                       required
                     />
                   </Stack>

@@ -7,7 +7,8 @@
  * - La persistance dans Firestore
  */
 
-import Pxl from 'pxl-for-emails';
+import PxlTracker from 'pxl';
+import PxlForEmails from 'pxl-for-emails';
 import { getFirestore, getFieldValue } from './firebase-admin.js';
 
 // Configuration de la base URL pour le tracking
@@ -22,9 +23,17 @@ const getBaseUrl = (): string => {
 };
 
 /**
- * Instance PXL configurée pour notre système
+ * Instance PXL de base pour le tracking
  */
-export const pxl = new Pxl({
+const basePxl = new PxlTracker();
+
+/**
+ * Instance PXL configurée pour les emails
+ */
+export const pxl = new PxlForEmails({
+  // Instance PXL de base (requis)
+  pxl: basePxl,
+
   // URL de base pour les endpoints de tracking
   baseUrl: getBaseUrl(),
 

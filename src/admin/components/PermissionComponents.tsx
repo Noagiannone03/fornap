@@ -5,7 +5,7 @@
  * Composants réutilisables pour gérer les permissions dans l'UI
  */
 
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Button, ActionIcon, Tooltip } from '@mantine/core';
 import type { ButtonProps, ActionIconProps } from '@mantine/core';
 import { useAdminAuth } from '../../shared/contexts/AdminAuthContext';

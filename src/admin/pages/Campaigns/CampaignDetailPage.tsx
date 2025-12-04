@@ -39,6 +39,7 @@ import {
   cancelCampaign,
   deleteCampaign,
   estimateRecipients,
+  retryFailedEmails,
 } from '../../../shared/services/campaignService';
 import { Timestamp } from 'firebase/firestore';
 import { SendCampaignModal } from '../../components/campaigns/SendCampaignModal';
@@ -51,6 +52,7 @@ export function CampaignDetailPage() {
   const [recipients, setRecipients] = useState<CampaignRecipient[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [sendModalOpened, setSendModalOpened] = useState(false);
   const [estimatedRecipients, setEstimatedRecipients] = useState(0);
 
@@ -134,6 +136,60 @@ export function CampaignDetailPage() {
       console.error('Error refreshing:', error);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    if (!campaignId || !campaign) return;
+
+    const failedCount = campaign.stats.failed;
+
+    if (failedCount === 0) {
+      notifications.show({
+        title: 'Information',
+        message: 'Aucun email en échec à renvoyer',
+        color: 'blue',
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Voulez-vous réessayer d'envoyer les ${failedCount} email(s) en échec ?`
+    );
+
+    if (!confirmed) return;
+
+    setRetrying(true);
+    try {
+      const result = await retryFailedEmails(campaignId);
+
+      if (result.success && result.results) {
+        notifications.show({
+          title: 'Retry terminé',
+          message: `${result.results.success} succès, ${result.results.failed} échecs sur ${result.results.total} emails`,
+          color: result.results.failed === 0 ? 'green' : 'orange',
+          autoClose: 5000,
+        });
+
+        // Afficher les erreurs s'il y en a
+        if (result.errors && result.errors.length > 0) {
+          console.error('Erreurs de retry:', result.errors);
+        }
+
+        // Rafraîchir les données
+        await Promise.all([loadCampaign(), loadRecipients()]);
+      } else {
+        throw new Error(result.error || 'Erreur lors du retry');
+      }
+    } catch (error: any) {
+      console.error('Error retrying failed emails:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de renvoyer les emails en échec',
+        color: 'red',
+      });
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -269,16 +325,31 @@ export function CampaignDetailPage() {
             )}
           </div>
           <Group>
-            {/* Bouton refresh pour les campagnes envoyées */}
+            {/* Boutons pour les campagnes envoyées */}
             {campaign.status === 'sent' && (
-              <Button
-                variant="light"
-                leftSection={<IconRefresh size={18} />}
-                onClick={handleRefresh}
-                loading={refreshing}
-              >
-                Rafraîchir les stats
-              </Button>
+              <>
+                <Button
+                  variant="light"
+                  leftSection={<IconRefresh size={18} />}
+                  onClick={handleRefresh}
+                  loading={refreshing}
+                >
+                  Rafraîchir les stats
+                </Button>
+
+                {/* Bouton retry si des emails ont échoué */}
+                {campaign.stats.failed > 0 && (
+                  <Button
+                    variant="light"
+                    color="orange"
+                    leftSection={<IconMail size={18} />}
+                    onClick={handleRetryFailed}
+                    loading={retrying}
+                  >
+                    Renvoyer les échecs ({campaign.stats.failed})
+                  </Button>
+                )}
+              </>
             )}
 
             {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
@@ -514,6 +585,11 @@ export function CampaignDetailPage() {
                       <Text fw={500}>Engagement</Text>
                       <Text size="sm">👁️ Ouvertures : {campaign.stats.opened} ({campaign.stats.openRate.toFixed(1)}%)</Text>
                       <Text size="sm">🖱️ Clics : {campaign.stats.clicked} ({campaign.stats.clickRate.toFixed(1)}%)</Text>
+                      {campaign.retryCount && campaign.retryCount > 0 && (
+                        <Text size="sm" c="orange">
+                          🔄 Tentatives de renvoi : {campaign.retryCount}
+                        </Text>
+                      )}
                     </Stack>
                   </Grid.Col>
                 </Grid>

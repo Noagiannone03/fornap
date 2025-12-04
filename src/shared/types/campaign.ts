@@ -152,6 +152,10 @@ export interface Campaign {
   // Statistiques
   stats: CampaignStats;
 
+  // Retry des emails en échec
+  retryCount?: number; // Nombre de fois qu'on a réessayé
+  lastRetryAt?: Timestamp; // Dernière tentative de retry
+
   // Métadonnées
   createdBy: string; // UID de l'admin créateur
   createdAt: Timestamp;
@@ -188,8 +192,9 @@ export interface CampaignRecipient {
   openCount: number;
   clickCount: number;
 
-  // Erreurs
+  // Erreurs et retry
   errorMessage?: string;
+  lastRetryAt?: Timestamp; // Dernière tentative de renvoi pour cet email
 
   // Métadonnées
   createdAt: Timestamp;

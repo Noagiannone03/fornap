@@ -105,8 +105,11 @@ export function UserTargetingSelector({
     try {
       setLoading(true);
       const users = await getAllUsersForList();
-      setAllUsers(users);
-      setFilteredUsersForManual(users);
+      // Exclure les legacy members car ils ne sont pas dans la collection 'users'
+      // et ne peuvent pas recevoir d'emails de campagne
+      const nonLegacyUsers = users.filter(user => !user.isLegacy);
+      setAllUsers(nonLegacyUsers);
+      setFilteredUsersForManual(nonLegacyUsers);
     } catch (error) {
       console.error('Error loading users:', error);
     } finally {

@@ -60,8 +60,11 @@ export function MembershipForm({ form }: MembershipFormProps) {
 
       <MultiSelect
         label="Tags"
-        placeholder="Sélectionnez les tags"
+        placeholder="Sélectionnez ou créez des tags"
         data={tagOptions}
+        searchable
+        creatable
+        getCreateLabel={(query) => `+ Créer "${query}"`}
         {...form.getInputProps('tags')}
       />
 

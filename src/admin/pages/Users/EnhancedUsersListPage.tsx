@@ -158,6 +158,31 @@ function UserTableRow({
         </Text>
       </Table.Td>
       <Table.Td>
+        <Group gap={4} wrap="nowrap">
+          {user.tags && user.tags.length > 0 ? (
+            user.tags.slice(0, 2).map((tag, index) => (
+              <Badge
+                key={index}
+                size="xs"
+                variant="dot"
+                color={tag.includes('MIGRATED') || tag.includes('LEGACY') ? 'orange' : 'blue'}
+              >
+                {tag.length > 15 ? `${tag.substring(0, 15)}...` : tag}
+              </Badge>
+            ))
+          ) : (
+            <Text size="xs" c="dimmed">-</Text>
+          )}
+          {user.tags && user.tags.length > 2 && (
+            <Tooltip label={user.tags.slice(2).join(', ')}>
+              <Badge size="xs" variant="light" color="gray">
+                +{user.tags.length - 2}
+              </Badge>
+            </Tooltip>
+          )}
+        </Group>
+      </Table.Td>
+      <Table.Td>
         <Badge
           size="sm"
           variant="light"
@@ -305,6 +330,7 @@ export function EnhancedUsersListPage() {
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [blockedFilter, setBlockedFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<string>('date_desc');
 
   // Pagination
   const [legacyPage, setLegacyPage] = useState(1);
@@ -335,7 +361,7 @@ export function EnhancedUsersListPage() {
     }
   };
 
-  // Appliquer les filtres
+  // Appliquer les filtres et le tri
   useEffect(() => {
     const applyFilters = (userList: UserListItem[]) => {
       let filtered = [...userList];
@@ -361,6 +387,46 @@ export function EnhancedUsersListPage() {
       return filtered;
     };
 
+    const applySorting = (userList: UserListItem[]) => {
+      const sorted = [...userList];
+
+      switch (sortBy) {
+        case 'name_asc':
+          sorted.sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+          break;
+        case 'name_desc':
+          sorted.sort((a, b) => `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`));
+          break;
+        case 'date_asc':
+          sorted.sort((a, b) => {
+            const dateA = a.createdAt?.toDate?.() || new Date(0);
+            const dateB = b.createdAt?.toDate?.() || new Date(0);
+            return dateA.getTime() - dateB.getTime();
+          });
+          break;
+        case 'date_desc':
+          sorted.sort((a, b) => {
+            const dateA = a.createdAt?.toDate?.() || new Date(0);
+            const dateB = b.createdAt?.toDate?.() || new Date(0);
+            return dateB.getTime() - dateA.getTime();
+          });
+          break;
+        case 'points_asc':
+          sorted.sort((a, b) => a.loyaltyPoints - b.loyaltyPoints);
+          break;
+        case 'points_desc':
+          sorted.sort((a, b) => b.loyaltyPoints - a.loyaltyPoints);
+          break;
+        case 'tags_count':
+          sorted.sort((a, b) => b.tags.length - a.tags.length);
+          break;
+        default:
+          break;
+      }
+
+      return sorted;
+    };
+
     let filteredUsersData = applyFilters(users);
 
     if (selectedTags.length > 0) {
@@ -379,11 +445,15 @@ export function EnhancedUsersListPage() {
       );
     }
 
-    setFilteredLegacyMembers(applyFilters(legacyMembers));
+    // Appliquer le tri
+    filteredUsersData = applySorting(filteredUsersData);
+    const filteredLegacyData = applySorting(applyFilters(legacyMembers));
+
+    setFilteredLegacyMembers(filteredLegacyData);
     setFilteredUsers(filteredUsersData);
     setLegacyPage(1);
     setUsersPage(1);
-  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, legacyMembers, users]);
+  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, sortBy, legacyMembers, users]);
 
   // Pagination
   const legacyTotalPages = Math.ceil(filteredLegacyMembers.length / itemsPerPage);
@@ -555,43 +625,67 @@ export function EnhancedUsersListPage() {
   };
 
   const handleMigrateLegacyMember = (uid: string, userName: string) => {
-    modals.openConfirmModal({
+    let migrationTags: string[] = [];
+
+    modals.open({
       title: 'Migrer vers le nouveau système',
       centered: true,
       children: (
-        <Text size="sm">
-          Êtes-vous sûr de vouloir migrer <strong>{userName}</strong> vers le nouveau système ?
-          <br />
-          <br />
-          Les informations suivantes seront conservées :
-          <ul>
-            <li>Nom et prénom</li>
-            <li>Email et téléphone</li>
-            <li>Code postal</li>
-            <li>Type d'abonnement</li>
-            <li>Date de fin d'abonnement</li>
-          </ul>
-        </Text>
+        <Stack gap="md">
+          <Text size="sm">
+            Êtes-vous sûr de vouloir migrer <strong>{userName}</strong> vers le nouveau système ?
+            <br />
+            <br />
+            Les informations suivantes seront conservées :
+            <ul>
+              <li>Nom et prénom</li>
+              <li>Email et téléphone</li>
+              <li>Code postal</li>
+              <li>Type d'abonnement</li>
+              <li>Date de fin d'abonnement</li>
+            </ul>
+          </Text>
+          <MultiSelect
+            label="Tags à ajouter (optionnel)"
+            placeholder="Sélectionnez ou créez des tags"
+            data={AVAILABLE_TAGS.map((tag) => ({ value: tag, label: tag }))}
+            defaultValue={[]}
+            onChange={(value) => { migrationTags = value; }}
+            searchable
+            creatable
+            getCreateLabel={(query) => `+ Créer "${query}"`}
+            description="Des tags automatiques seront ajoutés (MIGRATED_FROM_LEGACY, etc.)"
+          />
+          <Group justify="flex-end">
+            <Button variant="subtle" onClick={() => modals.closeAll()}>
+              Annuler
+            </Button>
+            <Button
+              color="blue"
+              onClick={async () => {
+                modals.closeAll();
+                try {
+                  await migrateLegacyMember(uid, adminUserId, undefined, migrationTags);
+                  notifications.show({
+                    title: 'Succès',
+                    message: 'Membre migré avec succès',
+                    color: 'green',
+                  });
+                  loadUsers();
+                } catch (error: any) {
+                  notifications.show({
+                    title: 'Erreur',
+                    message: error.message || 'Impossible de migrer le membre',
+                    color: 'red',
+                  });
+                }
+              }}
+            >
+              Migrer
+            </Button>
+          </Group>
+        </Stack>
       ),
-      labels: { confirm: 'Migrer', cancel: 'Annuler' },
-      confirmProps: { color: 'blue' },
-      onConfirm: async () => {
-        try {
-          await migrateLegacyMember(uid, adminUserId);
-          notifications.show({
-            title: 'Succès',
-            message: 'Membre migré avec succès',
-            color: 'green',
-          });
-          loadUsers();
-        } catch (error: any) {
-          notifications.show({
-            title: 'Erreur',
-            message: error.message || 'Impossible de migrer le membre',
-            color: 'red',
-          });
-        }
-      },
     });
   };
 
@@ -766,6 +860,26 @@ export function EnhancedUsersListPage() {
               onChange={setSelectedTags}
               clearable
               searchable
+              creatable
+              getCreateLabel={(query) => `+ Créer "${query}"`}
+              style={{ flex: 1 }}
+            />
+          </Group>
+
+          <Group>
+            <Select
+              label="Trier par"
+              data={[
+                { value: 'date_desc', label: 'Date d\'inscription (plus récent)' },
+                { value: 'date_asc', label: 'Date d\'inscription (plus ancien)' },
+                { value: 'name_asc', label: 'Nom (A-Z)' },
+                { value: 'name_desc', label: 'Nom (Z-A)' },
+                { value: 'points_desc', label: 'Points de fidélité (plus élevé)' },
+                { value: 'points_asc', label: 'Points de fidélité (plus bas)' },
+                { value: 'tags_count', label: 'Nombre de tags' },
+              ]}
+              value={sortBy}
+              onChange={(value) => setSortBy(value || 'date_desc')}
               style={{ flex: 1 }}
             />
           </Group>
@@ -788,6 +902,7 @@ export function EnhancedUsersListPage() {
                   setMembershipStatus(null);
                   setSelectedTags([]);
                   setBlockedFilter(null);
+                  setSortBy('date_desc');
                 }}
               >
                 Réinitialiser les filtres
@@ -824,6 +939,7 @@ export function EnhancedUsersListPage() {
                   <Table.Th>Abonnement</Table.Th>
                   <Table.Th>Statut</Table.Th>
                   <Table.Th>Points</Table.Th>
+                  <Table.Th>Tags</Table.Th>
                   <Table.Th>Source</Table.Th>
                   <Table.Th>Inscription</Table.Th>
                   <Table.Th>Actions</Table.Th>
@@ -905,6 +1021,7 @@ export function EnhancedUsersListPage() {
                     <Table.Th>Type</Table.Th>
                     <Table.Th>Statut</Table.Th>
                     <Table.Th>Points</Table.Th>
+                    <Table.Th>Tags</Table.Th>
                     <Table.Th>Source</Table.Th>
                     <Table.Th>Inscription</Table.Th>
                     <Table.Th>Actions</Table.Th>

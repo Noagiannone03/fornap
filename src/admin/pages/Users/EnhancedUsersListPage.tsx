@@ -39,6 +39,7 @@ import {
   IconMailCheck,
   IconMailX,
   IconSend,
+  IconTags,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -66,6 +67,13 @@ import {
 } from '../../../shared/types/user';
 import { CsvImportModal } from '../../components/CsvImportModal';
 import { SendMassiveCardsModal } from '../../components/SendMassiveCardsModal';
+import { TagsManagerModal, type TagConfig } from '../../components/TagsManagerModal';
+import {
+  getTagsConfig,
+  saveTagsConfig,
+  getTagColor,
+  mergeTagsWithConfig,
+} from '../../../shared/utils/tagsConfig';
 
 const membershipTypeColors: Record<MembershipType, string> = {
   monthly: 'blue',
@@ -84,6 +92,7 @@ const membershipStatusColors: Record<MembershipStatus, string> = {
 function UserTableRow({
   user,
   isLegacy,
+  tagsConfig,
   onView,
   onEdit,
   onDelete,
@@ -95,6 +104,7 @@ function UserTableRow({
 }: {
   user: UserListItem;
   isLegacy: boolean;
+  tagsConfig: TagConfig[];
   onView?: (uid: string) => void;
   onEdit?: (uid: string) => void;
   onDelete?: (uid: string, name: string) => void;
@@ -156,29 +166,28 @@ function UserTableRow({
       <Table.Td>
         <Group gap={6} wrap="wrap" maw={200}>
           {user.tags && user.tags.length > 0 ? (
-            user.tags.map((tag, index) => (
-              <Badge
-                key={index}
-                size="sm"
-                variant="light"
-                color={
-                  tag.includes('MIGRATED') || tag.includes('LEGACY')
-                    ? 'orange'
-                    : tag === 'vip'
-                    ? 'grape'
-                    : tag === 'actif'
-                    ? 'green'
-                    : tag === 'inactif'
-                    ? 'gray'
-                    : 'blue'
-                }
-                style={{ cursor: 'default' }}
-              >
-                {tag.length > 20 ? `${tag.substring(0, 20)}...` : tag}
-              </Badge>
-            ))
+            user.tags.map((tag, index) => {
+              const tagColor = getTagColor(tag, tagsConfig);
+              return (
+                <Badge
+                  key={index}
+                  size="sm"
+                  variant="light"
+                  style={{
+                    cursor: 'default',
+                    backgroundColor: tagColor + '20',
+                    color: tagColor,
+                    borderColor: tagColor + '40',
+                  }}
+                >
+                  {tag.length > 20 ? `${tag.substring(0, 20)}...` : tag}
+                </Badge>
+              );
+            })
           ) : (
-            <Text size="xs" c="dimmed" fs="italic">Aucun tag</Text>
+            <Text size="xs" c="dimmed" fs="italic">
+              Aucun tag
+            </Text>
           )}
         </Group>
       </Table.Td>
@@ -317,6 +326,8 @@ export function EnhancedUsersListPage() {
   const [forceResend, setForceResend] = useState(false);
   const [onlyUnsent, setOnlyUnsent] = useState(false);
   const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
+  const [tagsConfig, setTagsConfig] = useState<TagConfig[]>([]);
+  const [tagsManagerOpened, setTagsManagerOpened] = useState(false);
 
   const adminUserId = currentUser?.uid || 'system';
 
@@ -341,6 +352,7 @@ export function EnhancedUsersListPage() {
   useEffect(() => {
     loadUsers();
     loadAllTags();
+    loadTagsConfig();
   }, []);
 
   const loadUsers = async () => {
@@ -363,6 +375,11 @@ export function EnhancedUsersListPage() {
     }
   };
 
+  const loadTagsConfig = () => {
+    const config = getTagsConfig();
+    setTagsConfig(config);
+  };
+
   const loadAllTags = async () => {
     try {
       const uniqueTags = await getAllUniqueTags();
@@ -374,6 +391,20 @@ export function EnhancedUsersListPage() {
       // En cas d'erreur, garder les tags par défaut
       setAllTags(AVAILABLE_TAGS);
     }
+  };
+
+  const handleSaveTagsConfig = (tags: TagConfig[]) => {
+    saveTagsConfig(tags);
+    setTagsConfig(tags);
+    // Fusionner avec les tags existants
+    const mergedConfig = mergeTagsWithConfig(allTags, tags);
+    saveTagsConfig(mergedConfig);
+    setTagsConfig(mergedConfig);
+    notifications.show({
+      title: 'Succès',
+      message: 'Configuration des tags enregistrée',
+      color: 'green',
+    });
   };
 
   // Appliquer les filtres et le tri
@@ -723,6 +754,14 @@ export function EnhancedUsersListPage() {
       <Group justify="space-between" mb="xl">
         <Title order={1}>Gestion des Utilisateurs</Title>
         <Group>
+          <Button
+            leftSection={<IconTags size={16} />}
+            variant="light"
+            color="grape"
+            onClick={() => setTagsManagerOpened(true)}
+          >
+            Gérer les tags
+          </Button>
           <Button leftSection={<IconDownload size={16} />} variant="light" onClick={handleExport}>
             Exporter
           </Button>
@@ -961,6 +1000,7 @@ export function EnhancedUsersListPage() {
                     key={user.uid}
                     user={user}
                     isLegacy={false}
+                    tagsConfig={tagsConfig}
                     onView={handleViewUser}
                     onEdit={handleEditUser}
                     onDelete={handleDeleteUser}
@@ -1042,6 +1082,7 @@ export function EnhancedUsersListPage() {
                       key={member.uid}
                       user={member}
                       isLegacy={true}
+                      tagsConfig={tagsConfig}
                       onSendEmail={handleSendEmail}
                       onMigrate={handleMigrateLegacyMember}
                     />
@@ -1085,6 +1126,14 @@ export function EnhancedUsersListPage() {
         totalUsers={onlyUnsent ? unsentUsersCount : users.length}
         forceResend={forceResend}
         onlyUnsent={onlyUnsent}
+      />
+
+      {/* Modal de gestion des tags */}
+      <TagsManagerModal
+        opened={tagsManagerOpened}
+        onClose={() => setTagsManagerOpened(false)}
+        onSave={handleSaveTagsConfig}
+        initialTags={tagsConfig}
       />
     </Container>
   );

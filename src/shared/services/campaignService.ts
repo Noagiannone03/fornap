@@ -326,6 +326,13 @@ function userMatchesFilters(user: User, filters: TargetingFilters): boolean {
     }
   }
 
+  // Filtre d'exclusion manuelle
+  if (filters.excludedUserIds && filters.excludedUserIds.length > 0) {
+    if (filters.excludedUserIds.includes(user.uid)) {
+      return false;
+    }
+  }
+
   return true;
 }
 

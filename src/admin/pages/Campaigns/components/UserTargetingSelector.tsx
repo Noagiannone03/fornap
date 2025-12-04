@@ -67,6 +67,10 @@ export function UserTargetingSelector({
   const [estimatedCount, setEstimatedCount] = useState(0);
   const [manualPage, setManualPage] = useState(1);
   const manualItemsPerPage = 10;
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [filteredPage, setFilteredPage] = useState(1);
+  const filteredItemsPerPage = 10;
+  const [showFullFilteredList, setShowFullFilteredList] = useState(false);
 
   // Charger tous les users pour la sélection manuelle
   useEffect(() => {
@@ -127,12 +131,20 @@ export function UserTargetingSelector({
       setEstimatedCount(count);
       onEstimatedCountChange(count);
 
-      // Charger un aperçu des users ciblés
-      if (targetingMode !== 'manual') {
+      // Charger la liste complète des users ciblés pour le mode "filtered"
+      if (targetingMode === 'filtered') {
         const users = await getTargetedUsers(
           targetingMode,
           undefined,
-          targetingMode === 'filtered' ? filters : undefined
+          filters
+        );
+        setFilteredUsers(users);
+        setPreviewUsers(users.slice(0, 5));
+      } else if (targetingMode === 'all') {
+        const users = await getTargetedUsers(
+          targetingMode,
+          undefined,
+          filters
         );
         setPreviewUsers(users.slice(0, 5));
       }
@@ -146,6 +158,22 @@ export function UserTargetingSelector({
       ? selectedUserIds.filter((id) => id !== userId)
       : [...selectedUserIds, userId];
     onSelectedUsersChange(newSelection);
+  };
+
+  const handleFilteredUserToggle = (userId: string) => {
+    const currentExcluded = filters.excludedUserIds || [];
+    const newExcluded = currentExcluded.includes(userId)
+      ? currentExcluded.filter((id) => id !== userId)
+      : [...currentExcluded, userId];
+
+    onFiltersChange({
+      ...filters,
+      excludedUserIds: newExcluded.length > 0 ? newExcluded : undefined
+    });
+  };
+
+  const isUserExcluded = (userId: string) => {
+    return filters.excludedUserIds?.includes(userId) || false;
   };
 
   const handleSelectAll = () => {
@@ -519,6 +547,137 @@ export function UserTargetingSelector({
         </Paper>
       )}
 
+      {/* Liste complète des utilisateurs filtrés avec exclusion manuelle */}
+      {targetingMode === 'filtered' && filteredUsers.length > 0 && (
+        <Paper p="lg" withBorder>
+          <Stack gap="md">
+            <Group justify="space-between">
+              <Group>
+                <IconUsers size={20} />
+                <Text fw={600} size="lg">Liste des destinataires filtrés</Text>
+              </Group>
+              <Group>
+                <Badge size="lg" color="blue">
+                  {filteredUsers.length} utilisateur{filteredUsers.length !== 1 ? 's' : ''}
+                </Badge>
+                {(filters.excludedUserIds?.length || 0) > 0 && (
+                  <Badge size="lg" color="red">
+                    {filters.excludedUserIds?.length} exclu{(filters.excludedUserIds?.length || 0) !== 1 ? 's' : ''}
+                  </Badge>
+                )}
+                <Button
+                  variant="light"
+                  size="sm"
+                  onClick={() => setShowFullFilteredList(!showFullFilteredList)}
+                >
+                  {showFullFilteredList ? 'Masquer' : 'Afficher'} la liste complète
+                </Button>
+              </Group>
+            </Group>
+
+            {showFullFilteredList && (
+              <>
+                <Text size="sm" c="dimmed">
+                  Décochez les utilisateurs que vous souhaitez exclure de cette campagne
+                </Text>
+
+                <ScrollArea h={400}>
+                  <Table striped highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th style={{ width: 50 }}>
+                          <Checkbox
+                            checked={
+                              filteredUsers.length > 0 &&
+                              filteredUsers.every((u) => !isUserExcluded(u.uid))
+                            }
+                            indeterminate={
+                              filteredUsers.some((u) => !isUserExcluded(u.uid)) &&
+                              !filteredUsers.every((u) => !isUserExcluded(u.uid))
+                            }
+                            onChange={() => {
+                              const allIncluded = filteredUsers.every((u) => !isUserExcluded(u.uid));
+                              if (allIncluded) {
+                                // Exclure tous
+                                onFiltersChange({
+                                  ...filters,
+                                  excludedUserIds: filteredUsers.map(u => u.uid)
+                                });
+                              } else {
+                                // Inclure tous
+                                onFiltersChange({
+                                  ...filters,
+                                  excludedUserIds: undefined
+                                });
+                              }
+                            }}
+                          />
+                        </Table.Th>
+                        <Table.Th>Nom</Table.Th>
+                        <Table.Th>Email</Table.Th>
+                        <Table.Th>Abonnement</Table.Th>
+                        <Table.Th>Code postal</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {filteredUsers
+                        .slice(
+                          (filteredPage - 1) * filteredItemsPerPage,
+                          filteredPage * filteredItemsPerPage
+                        )
+                        .map((user) => (
+                          <Table.Tr
+                            key={user.uid}
+                            style={{
+                              opacity: isUserExcluded(user.uid) ? 0.5 : 1,
+                              textDecoration: isUserExcluded(user.uid) ? 'line-through' : 'none',
+                            }}
+                          >
+                            <Table.Td>
+                              <Checkbox
+                                checked={!isUserExcluded(user.uid)}
+                                onChange={() => handleFilteredUserToggle(user.uid)}
+                              />
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" fw={500}>
+                                {user.firstName} {user.lastName}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm" c="dimmed">
+                                {user.email}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge size="sm" color={user.currentMembership.status === 'active' ? 'green' : 'gray'}>
+                                {MEMBERSHIP_TYPE_LABELS[user.currentMembership.planType as MembershipType]}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm">{user.postalCode}</Text>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                    </Table.Tbody>
+                  </Table>
+                </ScrollArea>
+
+                {Math.ceil(filteredUsers.length / filteredItemsPerPage) > 1 && (
+                  <Group justify="center">
+                    <Pagination
+                      value={filteredPage}
+                      onChange={setFilteredPage}
+                      total={Math.ceil(filteredUsers.length / filteredItemsPerPage)}
+                    />
+                  </Group>
+                )}
+              </>
+            )}
+          </Stack>
+        </Paper>
+      )}
+
       {targetingMode === 'manual' && (
         <Paper p="lg" withBorder style={{ position: 'relative' }}>
           <LoadingOverlay visible={loading} />
@@ -625,7 +784,14 @@ export function UserTargetingSelector({
             </Text>
             <Text size="sm" c="dimmed">
               {targetingMode === 'all' && 'Tous les utilisateurs actifs'}
-              {targetingMode === 'filtered' && 'Selon les filtres sélectionnés'}
+              {targetingMode === 'filtered' && (
+                <>
+                  Selon les filtres sélectionnés
+                  {(filters.excludedUserIds?.length || 0) > 0 && (
+                    <> ({filters.excludedUserIds?.length} exclusion{(filters.excludedUserIds?.length || 0) !== 1 ? 's' : ''} manuelle{(filters.excludedUserIds?.length || 0) !== 1 ? 's' : ''})</>
+                  )}
+                </>
+              )}
               {targetingMode === 'manual' && 'Sélection manuelle'}
             </Text>
           </Box>

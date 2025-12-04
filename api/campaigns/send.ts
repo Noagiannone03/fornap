@@ -14,7 +14,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getFirestore, getTimestamp } from '../_lib/firebase-admin.js';
+import { getFirestore, getFieldValue } from '../_lib/firebase-admin.js';
 import type { Campaign } from '../../src/shared/types/campaign.js';
 
 /**
@@ -43,6 +43,7 @@ export default async function handler(
     }
 
     const db = getFirestore();
+    const FieldValue = getFieldValue();
     const campaignRef = db.collection('campaigns').doc(campaignId);
     const campaignSnap = await campaignRef.get();
 
@@ -86,7 +87,7 @@ export default async function handler(
     // Mettre à jour le statut à 'sending'
     await campaignRef.update({
       status: 'sending',
-      updatedAt: getTimestamp().FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     console.log('=== Campagne prête pour envoi ===');

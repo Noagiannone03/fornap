@@ -27,6 +27,7 @@ import {
   IconClick,
   IconCheck,
   IconSend,
+  IconTrash,
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -35,6 +36,7 @@ import {
   getCampaignById,
   getCampaignRecipients,
   cancelCampaign,
+  deleteCampaign,
   estimateRecipients,
 } from '../../../shared/services/campaignService';
 import { Timestamp } from 'firebase/firestore';
@@ -123,6 +125,32 @@ export function CampaignDetailPage() {
       notifications.show({
         title: 'Erreur',
         message: 'Impossible d\'annuler la campagne',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!campaign || !campaignId) return;
+
+    const confirmed = window.confirm(
+      `⚠️ Attention : Vous êtes sur le point de supprimer définitivement la campagne "${campaign.name}".\n\nCette action est IRRÉVERSIBLE et supprimera :\n- La campagne\n- Tous les destinataires\n- Toutes les statistiques\n\nÊtes-vous absolument certain de vouloir continuer ?`
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteCampaign(campaignId);
+      notifications.show({
+        title: 'Succès',
+        message: 'Campagne supprimée définitivement',
+        color: 'green',
+      });
+      navigate('/admin/campaigns');
+    } catch (error: any) {
+      console.error('Error deleting campaign:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de supprimer la campagne',
         color: 'red',
       });
     }
@@ -237,6 +265,16 @@ export function CampaignDetailPage() {
                 onClick={handleCancel}
               >
                 Annuler
+              </Button>
+            )}
+            {(campaign.status === 'draft' || campaign.status === 'cancelled') && (
+              <Button
+                leftSection={<IconTrash size={18} />}
+                color="red"
+                variant="outline"
+                onClick={handleDelete}
+              >
+                Supprimer
               </Button>
             )}
           </Group>

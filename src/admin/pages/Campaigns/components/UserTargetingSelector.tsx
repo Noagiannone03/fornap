@@ -31,11 +31,12 @@ import {
   IconSettings,
 } from '@tabler/icons-react';
 import type { TargetingMode, TargetingFilters } from '../../../../shared/types/campaign';
-import type { User, MembershipType, MembershipStatus } from '../../../../shared/types/user';
+import type { User, MembershipType, MembershipStatus, RegistrationSource } from '../../../../shared/types/user';
 import {
   MEMBERSHIP_TYPE_LABELS,
   MEMBERSHIP_STATUS_LABELS,
   AVAILABLE_TAGS,
+  REGISTRATION_SOURCE_LABELS,
 } from '../../../../shared/types/user';
 import { getAllUsersForList } from '../../../../shared/services/userService';
 import { estimateRecipients, getTargetedUsers } from '../../../../shared/services/campaignService';
@@ -313,6 +314,35 @@ export function UserTargetingSelector({
                       }}
                     />
                   </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
+
+              {/* Filtre de source d'inscription */}
+              <Accordion.Item value="registration">
+                <Accordion.Control>
+                  <Group>
+                    <IconUser size={18} />
+                    <Text fw={500}>Source d'inscription</Text>
+                    {filters.registrationSources?.length && (
+                      <Badge size="sm">{filters.registrationSources.length} source{filters.registrationSources.length !== 1 ? 's' : ''}</Badge>
+                    )}
+                  </Group>
+                </Accordion.Control>
+                <Accordion.Panel>
+                  <MultiSelect
+                    label="Sources d'inscription"
+                    description="Filtrer par la provenance des utilisateurs"
+                    placeholder="Sélectionner les sources..."
+                    data={Object.entries(REGISTRATION_SOURCE_LABELS).map(([value, label]) => ({
+                      value,
+                      label,
+                    }))}
+                    value={filters.registrationSources as string[] || []}
+                    onChange={(value) =>
+                      onFiltersChange({ ...filters, registrationSources: value as RegistrationSource[] })
+                    }
+                    clearable
+                  />
                 </Accordion.Panel>
               </Accordion.Item>
 

@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase/firestore';
-import type { MemberTag, MembershipType, MembershipStatus, ProfessionalStatus } from './user.js';
+import type { MemberTag, MembershipType, MembershipStatus, ProfessionalStatus, RegistrationSource } from './user.js';
 
 // ============================================================================
 // TYPES DE BASE
@@ -34,6 +34,9 @@ export interface TargetingFilters {
   // Filtres de localisation
   postalCodes?: string[];
   cities?: string[];
+
+  // Filtre de source d'inscription
+  registrationSources?: RegistrationSource[];
 
   // Filtres de date d'inscription
   registrationDateRange?: {

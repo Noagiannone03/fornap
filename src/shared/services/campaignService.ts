@@ -658,19 +658,23 @@ export async function getTargetedUsers(
       });
     }
 
-    if (mode === 'manual' && manualUserIds) {
-      const users: User[] = [];
-      for (const userId of manualUserIds) {
+    if (mode === 'manual' && manualUserIds && manualUserIds.length > 0) {
+      // Paralléliser les requêtes pour tous les users sélectionnés
+      const userPromises = manualUserIds.map(async (userId) => {
         const userRef = doc(db, 'users', userId);
         const userDoc = await getDoc(userRef);
         if (userDoc.exists()) {
-          users.push({
+          return {
             ...userDoc.data(),
             uid: userDoc.id,
-          } as User);
+          } as User;
         }
-      }
-      return users;
+        return null;
+      });
+
+      const usersOrNull = await Promise.all(userPromises);
+      // Filtrer les null (utilisateurs non trouvés)
+      return usersOrNull.filter((user): user is User => user !== null);
     }
 
     if (mode === 'filtered' && filters) {

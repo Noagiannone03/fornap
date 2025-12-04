@@ -14,6 +14,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestore, getFieldValue } from '../_lib/firebase-admin.js';
+import { prepareEmailWithTracking } from '../_lib/pxl-tracking.js';
 import nodemailer from 'nodemailer';
 
 // Configuration Nodemailer - TOUJOURS no-reply@fornap.fr
@@ -32,56 +33,6 @@ function createEmailTransporter() {
   };
 
   return nodemailer.createTransport(smtpConfig);
-}
-
-/**
- * Injecte le pixel de tracking dans le HTML
- */
-function injectTrackingPixel(html: string, campaignId: string, recipientId: string): string {
-  // Utiliser l'URL complète pour que le pixel fonctionne dans les clients email
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : (process.env.VITE_API_URL || 'https://fornap.vercel.app');
-
-  const trackingPixel = `<img src="${baseUrl}/api/campaigns/track/open?campaign=${campaignId}&recipient=${recipientId}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;" />`;
-
-  // Injecter le pixel juste avant la fermeture du body
-  if (html.includes('</body>')) {
-    return html.replace('</body>', `${trackingPixel}</body>`);
-  }
-
-  // Si pas de balise body, ajouter à la fin
-  return html + trackingPixel;
-}
-
-/**
- * Transforme tous les liens pour le suivi des clics
- */
-function transformLinksForTracking(html: string, campaignId: string, recipientId: string): string {
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : (process.env.VITE_API_URL || 'https://fornap.vercel.app');
-
-  // Regex pour capturer les liens href="..."
-  const linkRegex = /href=["']([^"']+)["']/gi;
-
-  return html.replace(linkRegex, (match, url) => {
-    // Ne pas tracker les ancres (#) ni les mailto:
-    if (url.startsWith('#') || url.startsWith('mailto:')) {
-      return match;
-    }
-
-    // Ne pas tracker les liens de tracking déjà existants
-    if (url.includes('/api/campaigns/track/')) {
-      return match;
-    }
-
-    // Créer l'URL de tracking
-    const encodedUrl = encodeURIComponent(url);
-    const trackingUrl = `${baseUrl}/api/campaigns/track/click?campaign=${campaignId}&recipient=${recipientId}&url=${encodedUrl}`;
-
-    return `href="${trackingUrl}"`;
-  });
 }
 
 /**
@@ -265,14 +216,13 @@ export default async function handler(
     console.log(`📝 Destinataire créé: ${recipientId}`);
 
     try {
-      // 4. Transformer le HTML avec tracking
-      let emailHtml = campaign.content.html;
-
-      // Injecter le pixel de tracking
-      emailHtml = injectTrackingPixel(emailHtml, campaignId, recipientId);
-
-      // Transformer les liens pour le suivi des clics
-      emailHtml = transformLinksForTracking(emailHtml, campaignId, recipientId);
+      // 4. Préparer le HTML avec tracking PXL
+      // PXL injecte automatiquement le pixel de tracking et transforme tous les liens
+      const emailHtml = prepareEmailWithTracking(
+        campaign.content.html,
+        campaignId,
+        recipientId
+      );
 
       // 5. Envoyer l'email via Nodemailer
       const transporter = createEmailTransporter();

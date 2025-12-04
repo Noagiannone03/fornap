@@ -1,7 +1,10 @@
 /**
- * Route API: Tracking des ouvertures d'emails
+ * Route API: Tracking des ouvertures d'emails (LEGACY - Gardé pour compatibilité)
  *
  * Endpoint: GET /api/campaigns/track/open
+ *
+ * ⚠️ LEGACY: Cette route est conservée pour compatibilité avec les anciens emails.
+ * Les nouveaux emails utilisent /api/campaigns/pxl/open avec la librairie PXL.
  *
  * Cette route renvoie un pixel transparent 1x1 et enregistre
  * l'ouverture de l'email dans Firestore.

@@ -1,7 +1,10 @@
 /**
- * Route API: Tracking des clics dans les emails
+ * Route API: Tracking des clics dans les emails (LEGACY - Gardé pour compatibilité)
  *
  * Endpoint: GET /api/campaigns/track/click
+ *
+ * ⚠️ LEGACY: Cette route est conservée pour compatibilité avec les anciens emails.
+ * Les nouveaux emails utilisent /api/campaigns/pxl/click avec la librairie PXL.
  *
  * Cette route enregistre le clic et redirige vers l'URL originale.
  *

@@ -58,6 +58,24 @@ class InMemoryPersistenceLayer extends PxlTracker.PersistenceLayerBase {
     return this.data.get(pxlId);
   }
 
+  async checkAndAddLink(linkId: string, link: string): Promise<string> {
+    // Vérifier si le lien existe déjà
+    const linkKey = `link:${linkId}`;
+    const existing = this.data.get(linkKey);
+    if (existing) {
+      return linkId;
+    }
+
+    // Sinon créer un nouvel ID et le stocker
+    const finalLinkId = linkId || this.generateId();
+    this.data.set(`link:${finalLinkId}`, link);
+    return finalLinkId;
+  }
+
+  async getLink(linkId: string): Promise<string | undefined> {
+    return this.data.get(`link:${linkId}`);
+  }
+
   private generateId(): string {
     return Math.random().toString(36).substring(2, 15) +
            Math.random().toString(36).substring(2, 15);

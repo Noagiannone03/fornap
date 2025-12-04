@@ -150,12 +150,22 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
   const handleStopScan = async () => {
     try {
       if (scannerRef.current) {
-        // Check if scanner is running before stopping
-        const state = scannerRef.current.getState();
-        if (state === 2 || state === 1) { // SCANNING or PAUSED
-          await scannerRef.current.stop();
+        try {
+          const state = scannerRef.current.getState();
+          // Only stop if scanning (2) or paused (3)
+          if (state === 2 || state === 3) {
+            await scannerRef.current.stop();
+          }
+        } catch (err) {
+          // Ignore state errors, scanner might be already stopped
+          console.warn('Scanner stop warning:', err);
         }
-        scannerRef.current.clear();
+        
+        try {
+          scannerRef.current.clear();
+        } catch (err) {
+          // Ignore clear errors
+        }
         scannerRef.current = null;
       }
     } catch (err) {
@@ -171,10 +181,17 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
       handleStartScan();
     }
     
-    // Cleanup on unmount
+    // Cleanup on unmount or mode change
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.stop().catch(console.error);
+        try {
+          const state = scannerRef.current.getState();
+          if (state === 2 || state === 3) {
+            scannerRef.current.stop().catch((err) => console.warn('Cleanup stop error:', err));
+          }
+        } catch (e) {
+          // Ignore
+        }
       }
     };
   }, [mode]);

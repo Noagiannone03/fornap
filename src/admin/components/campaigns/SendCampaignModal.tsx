@@ -18,7 +18,7 @@ import {
   IconX,
   IconSend,
 } from '@tabler/icons-react';
-import { sendCampaignToRecipients } from '../../../shared/services/campaignService';
+import { sendCampaignEmails } from '../../../shared/services/campaignService';
 
 interface SendCampaignModalProps {
   opened: boolean;
@@ -41,7 +41,7 @@ interface ResultState {
   success: number;
   errors: number;
   total: number;
-  errorDetails: Array<{ recipientId: string; recipientName: string; error: string }>;
+  errorDetails: Array<{ userId: string; userName: string; error: string }>;
 }
 
 export function SendCampaignModal({
@@ -68,7 +68,7 @@ export function SendCampaignModal({
     setResult(null);
 
     try {
-      const sendResult = await sendCampaignToRecipients(campaignId, (progressUpdate) => {
+      const sendResult = await sendCampaignEmails(campaignId, (progressUpdate) => {
         setProgress(progressUpdate);
       });
 
@@ -79,7 +79,7 @@ export function SendCampaignModal({
         success: 0,
         errors: totalRecipients,
         total: totalRecipients,
-        errorDetails: [{ recipientId: 'system', recipientName: 'Erreur système', error: error.message }],
+        errorDetails: [{ userId: 'system', userName: 'Erreur système', error: error.message }],
       });
     } finally {
       setSending(false);
@@ -234,7 +234,7 @@ export function SendCampaignModal({
                           {result.errorDetails.map((err, idx) => (
                             <List.Item key={idx}>
                               <Text size="xs">
-                                <strong>{err.recipientName}</strong>: {err.error}
+                                <strong>{err.userName}</strong>: {err.error}
                               </Text>
                             </List.Item>
                           ))}

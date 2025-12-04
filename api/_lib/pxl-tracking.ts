@@ -23,9 +23,31 @@ const getBaseUrl = (): string => {
 };
 
 /**
+ * Couche de persistance en mémoire pour PXL
+ * On n'a pas besoin de persister les données de tracking car on utilise directement Firestore
+ */
+class InMemoryPersistenceLayer extends PxlTracker.PersistenceLayerBase {
+  private data: Map<string, any> = new Map();
+
+  async get(key: string): Promise<any> {
+    return this.data.get(key);
+  }
+
+  async set(key: string, value: any): Promise<void> {
+    this.data.set(key, value);
+  }
+
+  async del(key: string): Promise<void> {
+    this.data.delete(key);
+  }
+}
+
+/**
  * Instance PXL de base pour le tracking
  */
-const basePxl = new PxlTracker();
+const basePxl = new PxlTracker({
+  persistenceLayer: new InMemoryPersistenceLayer()
+});
 
 /**
  * Instance PXL configurée pour les emails

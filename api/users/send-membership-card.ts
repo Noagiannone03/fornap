@@ -187,7 +187,7 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     ctx.fillText(fullName, 225, 700);
 
     // Convertir en buffer JPEG
-    const buffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });
+    const buffer = canvas.toBuffer('image/jpeg', 0.9);
 
     console.log('✅ Card generated successfully with @napi-rs/canvas');
     return buffer;

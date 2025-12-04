@@ -6,7 +6,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getFirestore, getTimestamp } from '../_lib/firebase-admin.js';
+import { getFirestore, getFieldValue } from '../_lib/firebase-admin.js';
 import nodemailer from 'nodemailer';
 
 // Configuration Nodemailer
@@ -24,7 +24,7 @@ function createEmailTransporter() {
     }
   };
 
-  return nodemailer.createTransporter(smtpConfig);
+  return nodemailer.createTransport(smtpConfig);
 }
 
 /**
@@ -41,6 +41,7 @@ export default async function handler(
 
   try {
     const { campaignId, recipientId } = req.body;
+    const FieldValue = getFieldValue();
 
     if (!campaignId || !recipientId) {
       res.status(400).json({
@@ -105,8 +106,8 @@ export default async function handler(
     // Mettre à jour le statut du destinataire
     await recipientRef.update({
       status: 'sent',
-      sentAt: getTimestamp().FieldValue.serverTimestamp(),
-      updatedAt: getTimestamp().FieldValue.serverTimestamp(),
+      sentAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     console.log(`✅ Email envoyé à ${recipient.email} pour la campagne ${campaignId}`);
@@ -130,7 +131,7 @@ export default async function handler(
           .update({
             status: 'failed',
             errorMessage: error.message || 'Erreur inconnue',
-            updatedAt: getTimestamp().FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           });
       } catch (updateError) {
         console.error('❌ Erreur mise à jour statut:', updateError);

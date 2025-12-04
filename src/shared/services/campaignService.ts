@@ -218,6 +218,13 @@ function userMatchesFilters(user: User, filters: TargetingFilters): boolean {
     }
   }
 
+  // Filtre de source d'inscription
+  if (filters.registrationSources && filters.registrationSources.length > 0) {
+    if (!filters.registrationSources.includes(user.registration.source)) {
+      return false;
+    }
+  }
+
   // Filtre de date d'inscription
   if (filters.registrationDateRange) {
     const registrationDate = user.registration.createdAt;

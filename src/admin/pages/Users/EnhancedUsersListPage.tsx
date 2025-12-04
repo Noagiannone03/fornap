@@ -51,6 +51,7 @@ import {
   deleteUser,
   migrateLegacyMember,
   sendMembershipCard,
+  getAllUniqueTags,
 } from '../../../shared/services/userService';
 import type {
   UserListItem,
@@ -153,32 +154,31 @@ function UserTableRow({
         </Badge>
       </Table.Td>
       <Table.Td>
-        <Text size="sm" fw={500}>
-          {user.loyaltyPoints}
-        </Text>
-      </Table.Td>
-      <Table.Td>
-        <Group gap={4} wrap="nowrap">
+        <Group gap={6} wrap="wrap" maw={200}>
           {user.tags && user.tags.length > 0 ? (
-            user.tags.slice(0, 2).map((tag, index) => (
+            user.tags.map((tag, index) => (
               <Badge
                 key={index}
-                size="xs"
-                variant="dot"
-                color={tag.includes('MIGRATED') || tag.includes('LEGACY') ? 'orange' : 'blue'}
+                size="sm"
+                variant="light"
+                color={
+                  tag.includes('MIGRATED') || tag.includes('LEGACY')
+                    ? 'orange'
+                    : tag === 'vip'
+                    ? 'grape'
+                    : tag === 'actif'
+                    ? 'green'
+                    : tag === 'inactif'
+                    ? 'gray'
+                    : 'blue'
+                }
+                style={{ cursor: 'default' }}
               >
-                {tag.length > 15 ? `${tag.substring(0, 15)}...` : tag}
+                {tag.length > 20 ? `${tag.substring(0, 20)}...` : tag}
               </Badge>
             ))
           ) : (
-            <Text size="xs" c="dimmed">-</Text>
-          )}
-          {user.tags && user.tags.length > 2 && (
-            <Tooltip label={user.tags.slice(2).join(', ')}>
-              <Badge size="xs" variant="light" color="gray">
-                +{user.tags.length - 2}
-              </Badge>
-            </Tooltip>
+            <Text size="xs" c="dimmed" fs="italic">Aucun tag</Text>
           )}
         </Group>
       </Table.Td>
@@ -316,6 +316,7 @@ export function EnhancedUsersListPage() {
   const [sendMassiveCardsModalOpened, setSendMassiveCardsModalOpened] = useState(false);
   const [forceResend, setForceResend] = useState(false);
   const [onlyUnsent, setOnlyUnsent] = useState(false);
+  const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
 
   const adminUserId = currentUser?.uid || 'system';
 
@@ -339,6 +340,7 @@ export function EnhancedUsersListPage() {
 
   useEffect(() => {
     loadUsers();
+    loadAllTags();
   }, []);
 
   const loadUsers = async () => {
@@ -358,6 +360,19 @@ export function EnhancedUsersListPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAllTags = async () => {
+    try {
+      const uniqueTags = await getAllUniqueTags();
+      // Fusionner les tags prédéfinis avec les tags existants, sans doublons
+      const mergedTags = Array.from(new Set([...AVAILABLE_TAGS, ...uniqueTags]));
+      setAllTags(mergedTags.sort((a, b) => a.localeCompare(b)));
+    } catch (error) {
+      console.error('Error loading tags:', error);
+      // En cas d'erreur, garder les tags par défaut
+      setAllTags(AVAILABLE_TAGS);
     }
   };
 
@@ -648,7 +663,7 @@ export function EnhancedUsersListPage() {
           <TagsInput
             label="Tags à ajouter (optionnel)"
             placeholder="Sélectionnez ou créez des tags"
-            data={AVAILABLE_TAGS}
+            data={allTags}
             defaultValue={[]}
             onChange={(value) => { migrationTags = value; }}
             clearable
@@ -852,12 +867,13 @@ export function EnhancedUsersListPage() {
             />
 
             <TagsInput
-              placeholder="Tags"
-              data={AVAILABLE_TAGS}
+              placeholder="Filtrer par tags"
+              data={allTags}
               value={selectedTags}
               onChange={setSelectedTags}
               clearable
               style={{ flex: 1 }}
+              description={`${allTags.length} tags disponibles`}
             />
           </Group>
 
@@ -933,7 +949,6 @@ export function EnhancedUsersListPage() {
                   <Table.Th>Email</Table.Th>
                   <Table.Th>Abonnement</Table.Th>
                   <Table.Th>Statut</Table.Th>
-                  <Table.Th>Points</Table.Th>
                   <Table.Th>Tags</Table.Th>
                   <Table.Th>Source</Table.Th>
                   <Table.Th>Inscription</Table.Th>
@@ -1015,7 +1030,6 @@ export function EnhancedUsersListPage() {
                     <Table.Th>Email</Table.Th>
                     <Table.Th>Type</Table.Th>
                     <Table.Th>Statut</Table.Th>
-                    <Table.Th>Points</Table.Th>
                     <Table.Th>Tags</Table.Th>
                     <Table.Th>Source</Table.Th>
                     <Table.Th>Inscription</Table.Th>

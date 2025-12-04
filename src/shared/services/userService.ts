@@ -1838,6 +1838,36 @@ function determineLegacyMembershipType(legacy: LegacyMember): 'monthly' | 'annua
 }
 
 /**
+ * Récupère tous les tags uniques utilisés dans le système
+ */
+export async function getAllUniqueTags(): Promise<string[]> {
+  try {
+    const usersRef = collection(db, USERS_COLLECTION);
+    const snapshot = await getDocs(usersRef);
+
+    const tagsSet = new Set<string>();
+
+    snapshot.docs.forEach((doc) => {
+      const userData = doc.data();
+      if (userData.status?.tags && Array.isArray(userData.status.tags)) {
+        userData.status.tags.forEach((tag: string) => {
+          // Filtrer les tags système automatiques si besoin
+          if (!tag.startsWith('DATA_ANOMALY')) {
+            tagsSet.add(tag);
+          }
+        });
+      }
+    });
+
+    // Convertir le Set en tableau et trier alphabétiquement
+    return Array.from(tagsSet).sort((a, b) => a.localeCompare(b));
+  } catch (error) {
+    console.error('Error fetching unique tags:', error);
+    return [];
+  }
+}
+
+/**
  * Migre un ancien membre vers le nouveau système
  */
 export async function migrateLegacyMember(

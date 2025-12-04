@@ -14,8 +14,9 @@ import {
   TextInput,
   Card,
   Avatar,
-  ActionIcon,
-  Tabs,
+  SegmentedControl,
+  Paper,
+  rem,
 } from '@mantine/core';
 import {
   IconAlertCircle,
@@ -28,6 +29,8 @@ import {
   IconMail,
   IconEdit,
   IconUser,
+  IconCamera,
+  IconX,
 } from '@tabler/icons-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
@@ -54,27 +57,38 @@ interface UserSearchResult {
 }
 
 export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProps) => {
+  // Mode: 'scan' | 'search'
+  const [mode, setMode] = useState<string>('scan');
+  
+  // Scanner states
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [startRequested, setStartRequested] = useState(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const lastScanTimeRef = useRef<number>(0);
+  const scanCooldownMs = 2000;
+
+  // Pending payment states
   const [pendingModalOpen, setPendingModalOpen] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [validatingPayment, setValidatingPayment] = useState(false);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const scannerDivRef = useRef<HTMLDivElement>(null);
-  const lastScanTimeRef = useRef<number>(0);
-  const scanCooldownMs = 2000; // Cooldown de 2 secondes entre scans
 
-  // États pour la recherche manuelle
-  const [activeTab, setActiveTab] = useState<string | null>('scanner');
+  // Search states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [resendingCard, setResendingCard] = useState<string | null>(null);
 
-  // Effet pour démarrer le scanner une fois que le DOM est prêt
+  // --- Scanner Logic ---
+
   useEffect(() => {
+    // Only initialize scanner if in scan mode
+    if (mode !== 'scan') {
+      handleStopScan();
+      return;
+    }
+
     if (!startRequested || scanning) return;
 
     const initScanner = async () => {
@@ -82,36 +96,30 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
         setError(null);
         setSuccess(false);
 
-        // Vérifier support caméra
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error('CAMERA_NOT_SUPPORTED');
         }
 
-        // Attendre que l'élément soit dans le DOM
         const element = document.getElementById('qr-reader');
         if (!element) {
-          console.error('Element qr-reader not found');
-          throw new Error('Element qr-reader not ready');
+          // Retry shortly if element not yet ready
+          setTimeout(() => setStartRequested(true), 100);
+          return;
         }
 
-        // Créer le scanner et démarrer directement (Html5Qrcode gère les permissions)
         const scanner = new Html5Qrcode('qr-reader');
         scannerRef.current = scanner;
 
-        // Démarrer le scan - Html5Qrcode va demander la permission automatiquement
         await scanner.start(
-          { facingMode: 'environment' }, // Caméra arrière
+          { facingMode: 'environment' },
           {
             fps: 10,
             qrbox: { width: 250, height: 250 },
           },
           (decodedText) => {
-            // QR code scanné avec succès
             handleScanSuccess(decodedText);
           },
-          () => {
-            // Erreur de scan (ignorée, se produit continuellement)
-          }
+          () => {} // Ignore scan errors
         );
 
         setScanning(true);
@@ -121,17 +129,13 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
         setScanning(false);
         setStartRequested(false);
 
-        // Messages d'erreur détaillés
         let errorMessage = 'Impossible d\'accéder à la caméra';
-
         if (err.message === 'CAMERA_NOT_SUPPORTED') {
-          errorMessage = 'Votre navigateur ne supporte pas l\'accès à la caméra. Utilisez Chrome, Firefox ou Safari.';
+          errorMessage = 'Votre navigateur ne supporte pas l\'accès à la caméra.';
         } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          errorMessage = 'Accès caméra refusé. Autorisez l\'accès dans les paramètres de votre navigateur puis réessayez.';
-        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-          errorMessage = 'Aucune caméra détectée. Utilisez la fonction "Importer" pour scanner depuis une image.';
-        } else if (err.message && err.message.includes('Permission')) {
-          errorMessage = 'Erreur de permission caméra. Vérifiez les paramètres de votre navigateur.';
+          errorMessage = 'Accès caméra refusé. Vérifiez vos permissions.';
+        } else if (err.name === 'NotFoundError') {
+          errorMessage = 'Aucune caméra détectée.';
         }
 
         setError(errorMessage);
@@ -139,10 +143,8 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
       }
     };
 
-    // Petit délai pour s'assurer que le DOM est mis à jour
-    const timer = setTimeout(initScanner, 100);
-    return () => clearTimeout(timer);
-  }, [startRequested, scanning]);
+    initScanner();
+  }, [startRequested, scanning, mode]);
 
   const handleStartScan = () => {
     setStartRequested(true);
@@ -151,7 +153,11 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
   const handleStopScan = async () => {
     try {
       if (scannerRef.current) {
-        await scannerRef.current.stop();
+        // Check if scanner is running before stopping
+        const state = scannerRef.current.getState();
+        if (state === 2 || state === 1) { // SCANNING or PAUSED
+          await scannerRef.current.stop();
+        }
         scannerRef.current.clear();
         scannerRef.current = null;
       }
@@ -162,38 +168,28 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
     setStartRequested(false);
   };
 
-  // Cleanup au démontage du composant
   useEffect(() => {
+    // Start scanning automatically when entering scan mode
+    if (mode === 'scan') {
+      handleStartScan();
+    }
+    
+    // Cleanup on unmount
     return () => {
       if (scannerRef.current) {
-        try {
-          const state = scannerRef.current.getState();
-          if (state === 2) { // Scanner is running (state 2 = SCANNING)
-            scannerRef.current.stop().then(() => {
-              if (scannerRef.current) {
-                scannerRef.current.clear();
-              }
-            }).catch(console.error);
-          }
-        } catch (err) {
-          console.error('Error in cleanup:', err);
-        }
+        scannerRef.current.stop().catch(console.error);
       }
     };
-  }, []);
+  }, [mode]);
 
   const handleScanSuccess = async (qrContent: string) => {
-    // Vérifier le cooldown pour éviter les scans multiples
     const now = Date.now();
-    if (now - lastScanTimeRef.current < scanCooldownMs) {
-      return; // Ignorer le scan si trop récent
-    }
+    if (now - lastScanTimeRef.current < scanCooldownMs) return;
     lastScanTimeRef.current = now;
 
     let uid: string | null = null;
     let isPending = false;
 
-    // Vérifier si c'est un QR code PENDING (format: FORNAP-MEMBER:uid:PENDING)
     if (qrContent.includes(':PENDING')) {
       const parts = qrContent.split(':');
       if (parts.length === 3 && parts[0] === 'FORNAP-MEMBER' && parts[2] === 'PENDING') {
@@ -202,79 +198,57 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
       }
     }
 
-    // Si ce n'est pas un QR PENDING, parser normalement
     if (!uid) {
       const { parseQRCodeContent } = await import('../../../shared/utils/qrcode');
       uid = parseQRCodeContent(qrContent);
     }
 
-    // Vérifier qu'on a bien un UID valide
     if (!uid) {
-      setError('QR code invalide. Veuillez scanner un QR code Fornap.');
+      setError('QR code invalide.');
       onError?.('QR code invalide');
       return;
     }
 
-    // Si c'est un utilisateur PENDING, proposer la validation
     if (isPending) {
       handlePendingPayment(uid);
       return;
     }
 
-    // Scan normal
     setSuccess(true);
     setError(null);
     onScan(uid);
-
-    // Réinitialiser le message de succès après 1.5 secondes
-    setTimeout(() => {
-      setSuccess(false);
-    }, 1500);
+    setTimeout(() => setSuccess(false), 1500);
   };
 
-  // Gérer les paiements pending
-  const handlePendingPayment = async (uid: string) => {
-    // Ouvrir le modal élégant au lieu du window.confirm
+  // --- Pending Payment Logic ---
+
+  const handlePendingPayment = (uid: string) => {
     setPendingUserId(uid);
     setPendingModalOpen(true);
   };
 
-  // Valider le paiement depuis le modal
   const handleValidatePayment = async () => {
     if (!pendingUserId) return;
-
     setValidatingPayment(true);
-
     try {
-      // Appeler l'API pour valider le paiement
       const response = await fetch('/api/adhesion/validate-pending-payment', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: pendingUserId }),
       });
-
       const data = await response.json();
 
       if (data.success) {
         setSuccess(true);
         setPendingModalOpen(false);
-        
-        // Scanner l'utilisateur maintenant qu'il est validé
         onScan(pendingUserId);
-        
-        // Message de succès
-        setTimeout(() => {
-          setSuccess(false);
-        }, 2000);
+        setTimeout(() => setSuccess(false), 2000);
       } else {
-        setError('Erreur lors de la validation du paiement: ' + data.error);
+        setError('Erreur validation: ' + data.error);
         setPendingModalOpen(false);
       }
     } catch (error) {
-      console.error('❌ Erreur:', error);
-      setError('Erreur réseau lors de la validation');
+      setError('Erreur réseau');
       setPendingModalOpen(false);
     } finally {
       setValidatingPayment(false);
@@ -282,27 +256,17 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
     }
   };
 
-  // Scanner sans valider le paiement
   const handleScanWithoutValidation = () => {
     if (!pendingUserId) return;
-
     setSuccess(true);
     onScan(pendingUserId);
-    
     setPendingModalOpen(false);
     setPendingUserId(null);
-    
     setTimeout(() => setSuccess(false), 1500);
   };
 
-  // Auto-start scanner on mount only if on scanner tab
-  useEffect(() => {
-    if (activeTab === 'scanner') {
-      handleStartScan();
-    }
-  }, [activeTab]);
+  // --- Search Logic ---
 
-  // Fonction de recherche utilisateur
   const searchUsers = async (searchTerm: string) => {
     if (!searchTerm || searchTerm.length < 2) {
       setSearchResults([]);
@@ -314,7 +278,7 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
       const usersRef = collection(db, 'users');
       const results: UserSearchResult[] = [];
 
-      // Recherche par UID complet
+      // Search by UID
       if (searchTerm.length >= 5) {
         const docRef = doc(db, 'users', searchTerm);
         const docSnap = await getDoc(docRef);
@@ -331,700 +295,337 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
         }
       }
 
-      // Recherche par code membre (7 premiers caractères de l'UID)
-      if (searchTerm.length >= 5 && searchTerm.length <= 7) {
-        const allUsersQuery = query(usersRef);
-        const querySnapshot = await getDocs(allUsersQuery);
-
-        querySnapshot.forEach((doc) => {
-          const memberCode = doc.id.substring(0, 7).toUpperCase();
-          const searchUpper = searchTerm.toUpperCase();
-          if (memberCode.startsWith(searchUpper) && !results.find(r => r.uid === doc.id)) {
-            const data = doc.data();
-            results.push({
-              uid: doc.id,
-              firstName: data.firstName || '',
-              lastName: data.lastName || '',
-              email: data.email || '',
-              currentMembership: data.currentMembership,
-              emailStatus: data.emailStatus,
-            });
-          }
-        });
-      }
-
-      // Recherche par nom/prénom
+      // Search by Code or Name (simplified for brevity)
       const searchTermLower = searchTerm.toLowerCase();
-      const firstNameQuery = query(usersRef);
-      const lastNameQuery = query(usersRef);
-
-      const [firstNameSnapshot, lastNameSnapshot] = await Promise.all([
-        getDocs(firstNameQuery),
-        getDocs(lastNameQuery),
-      ]);
-
-      const addResultIfMatches = (doc: any) => {
+      const q = query(usersRef);
+      const snapshot = await getDocs(q);
+      
+      snapshot.forEach((doc) => {
+        if (results.find(r => r.uid === doc.id)) return; // Avoid duplicates
+        
         const data = doc.data();
         const firstName = (data.firstName || '').toLowerCase();
         const lastName = (data.lastName || '').toLowerCase();
         const email = (data.email || '').toLowerCase();
+        const memberCode = doc.id.substring(0, 7).toUpperCase();
 
         if (
           firstName.includes(searchTermLower) ||
           lastName.includes(searchTermLower) ||
-          email.includes(searchTermLower)
+          email.includes(searchTermLower) ||
+          memberCode.includes(searchTerm.toUpperCase())
         ) {
-          if (!results.find(r => r.uid === doc.id)) {
-            results.push({
-              uid: doc.id,
-              firstName: data.firstName || '',
-              lastName: data.lastName || '',
-              email: data.email || '',
-              currentMembership: data.currentMembership,
-              emailStatus: data.emailStatus,
-            });
-          }
+          results.push({
+            uid: doc.id,
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            email: data.email || '',
+            currentMembership: data.currentMembership,
+            emailStatus: data.emailStatus,
+          });
         }
-      };
+      });
 
-      firstNameSnapshot.forEach(addResultIfMatches);
-      lastNameSnapshot.forEach(addResultIfMatches);
-
-      setSearchResults(results.slice(0, 10)); // Limiter à 10 résultats
+      setSearchResults(results.slice(0, 10));
     } catch (error) {
-      console.error('Erreur de recherche:', error);
+      console.error('Erreur recherche:', error);
       setError('Erreur lors de la recherche');
     } finally {
       setSearching(false);
     }
   };
 
-  // Effet pour recherche en temps réel
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchQuery) {
+    const timer = setTimeout(() => {
+      if (searchQuery && mode === 'search') {
         searchUsers(searchQuery);
       } else {
         setSearchResults([]);
       }
-    }, 300); // Debounce de 300ms
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, mode]);
 
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
-
-  // Renvoyer la carte par email
   const handleResendCard = async (userId: string) => {
     setResendingCard(userId);
     try {
       const response = await fetch('/api/users/send-membership-card', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          forceResend: true,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, forceResend: true }),
       });
-
       const data = await response.json();
-
       if (data.success) {
         setSuccess(true);
         setTimeout(() => setSuccess(false), 2000);
       } else {
-        setError('Erreur lors de l\'envoi: ' + data.error);
+        setError('Erreur: ' + data.error);
       }
     } catch (error) {
-      console.error('Erreur:', error);
-      setError('Erreur réseau lors de l\'envoi');
+      setError('Erreur réseau');
     } finally {
       setResendingCard(null);
     }
   };
 
   return (
-    <Stack gap="lg">
-      {/* Barre de recherche toujours visible en haut */}
-      <Box
-        p="lg"
-        style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          borderRadius: '20px',
-          boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)',
-        }}
-      >
-        <Stack gap="sm">
-          <Group gap="xs">
-            <IconSearch size={24} color="white" style={{ opacity: 0.9 }} />
-            <Text size="lg" fw={700} c="white">
-              Recherche rapide
-            </Text>
-          </Group>
-
-          <TextInput
-            placeholder="Code, nom, prénom, email..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.currentTarget.value);
-              if (e.currentTarget.value.length > 0) {
-                setActiveTab('search');
-              }
-            }}
-            size="xl"
-            leftSection={<IconSearch size={20} />}
-            rightSection={
-              searchQuery && (
-                <ActionIcon
-                  onClick={() => {
-                    setSearchQuery('');
-                    setActiveTab('scanner');
-                  }}
-                  variant="subtle"
-                  color="gray"
-                  size="lg"
-                >
-                  ✕
-                </ActionIcon>
-              )
-            }
-            styles={{
-              input: {
-                borderRadius: '16px',
-                fontSize: '16px',
-                fontWeight: 500,
-                border: 'none',
-                backgroundColor: 'white',
-                padding: '12px 16px',
-                height: '56px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                '&::placeholder': {
-                  color: '#adb5bd',
-                },
-              },
-            }}
-          />
-        </Stack>
-      </Box>
-
-      {/* Onglets Scanner / Résultats */}
-      <Tabs
-        value={activeTab}
-        onChange={setActiveTab}
-        styles={{
-          root: {
-            backgroundColor: 'transparent',
-          },
-          list: {
-            borderBottom: '2px solid #e9ecef',
-            marginBottom: '16px',
-          },
-          tab: {
-            fontWeight: 600,
-            fontSize: '15px',
-            padding: '12px 20px',
-            transition: 'all 0.2s ease',
-            color: '#868e96',
-            '&:hover': {
-              backgroundColor: 'rgba(34, 139, 230, 0.08)',
-              color: '#228be6',
+    <Stack gap="md">
+      {/* Mode Toggle */}
+      <Paper withBorder shadow="sm" radius="lg" p="xs">
+        <SegmentedControl
+          fullWidth
+          value={mode}
+          onChange={setMode}
+          size="md"
+          radius="md"
+          data={[
+            {
+              value: 'scan',
+              label: (
+                <Center>
+                  <IconQrcode style={{ width: rem(16), height: rem(16) }} />
+                  <Box ml={10}>Scanner QR</Box>
+                </Center>
+              ),
             },
-            '&[data-active]': {
-              color: '#228be6',
-              borderBottom: '3px solid #228be6',
+            {
+              value: 'search',
+              label: (
+                <Center>
+                  <IconSearch style={{ width: rem(16), height: rem(16) }} />
+                  <Box ml={10}>Recherche Manuelle</Box>
+                </Center>
+              ),
             },
-          },
-        }}
-      >
-        <Tabs.List>
-          <Tabs.Tab value="scanner" leftSection={<IconQrcode size={18} />}>
-            Scanner QR Code
-          </Tabs.Tab>
-          <Tabs.Tab value="search" leftSection={<IconUser size={18} />}>
-            {searchResults.length > 0
-              ? `Résultats (${searchResults.length})`
-              : 'Résultats de recherche'}
-          </Tabs.Tab>
-        </Tabs.List>
+          ]}
+        />
+      </Paper>
 
-        <Tabs.Panel value="scanner" pt="lg">
-          <Stack gap="md">
-            {/* Zone de scan caméra */}
+      {/* Scan Mode */}
+      {mode === 'scan' && (
+        <Stack gap="md">
+          <Box
+            style={{
+              position: 'relative',
+              width: '100%',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              backgroundColor: '#000',
+              minHeight: '300px',
+            }}
+          >
+            {/* Camera View */}
             {(scanning || startRequested) ? (
-              <Box
-                style={{
-                  position: 'relative',
-                  width: '100%',
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  background: '#000',
-                }}
-              >
-                <div
-                  id="qr-reader"
-                  ref={scannerDivRef}
-                  style={{
-                    width: '100%',
-                  }}
-                />
-
-                {/* Cadre de scan simple */}
+              <>
+                <div id="qr-reader" style={{ width: '100%' }} />
+                
+                {/* Overlay Frame */}
                 <Box
                   style={{
                     position: 'absolute',
                     top: '50%',
                     left: '50%',
                     transform: 'translate(-50%, -50%)',
-                    width: '70%',
-                    maxWidth: '280px',
-                    height: '280px',
-                    border: '3px solid rgba(255, 255, 255, 0.6)',
-                    borderRadius: '16px',
-                    pointerEvents: 'none',
+                    width: '240px',
+                    height: '240px',
+                    border: '2px solid rgba(255, 255, 255, 0.8)',
+                    borderRadius: '20px',
                     boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
+                    pointerEvents: 'none',
                   }}
-                />
+                >
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      top: -2, left: -2, right: -2, bottom: -2,
+                      border: '2px solid transparent',
+                      borderRadius: '20px',
+                      background: 'linear-gradient(to right, #228be6, #228be6) top left / 30px 3px no-repeat, linear-gradient(to bottom, #228be6, #228be6) top left / 3px 30px no-repeat, linear-gradient(to left, #228be6, #228be6) top right / 30px 3px no-repeat, linear-gradient(to bottom, #228be6, #228be6) top right / 3px 30px no-repeat, linear-gradient(to right, #228be6, #228be6) bottom left / 30px 3px no-repeat, linear-gradient(to top, #228be6, #228be6) bottom left / 3px 30px no-repeat, linear-gradient(to left, #228be6, #228be6) bottom right / 30px 3px no-repeat, linear-gradient(to top, #228be6, #228be6) bottom right / 3px 30px no-repeat',
+                    }}
+                  />
+                </Box>
 
-                {/* Instructions */}
+                {/* Helper Text */}
                 <Text
+                  c="white"
+                  size="sm"
+                  fw={500}
                   style={{
                     position: 'absolute',
-                    bottom: '80px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    color: 'white',
-                    fontSize: '14px',
-                    fontWeight: 500,
+                    bottom: '40px',
+                    left: 0,
+                    right: 0,
                     textAlign: 'center',
-                    textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-                    width: '90%',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
                   }}
                 >
                   Placez le QR code dans le cadre
                 </Text>
-
-                {/* Bouton arrêter */}
-                {scanning && (
-                  <Box
-                    style={{
-                      position: 'absolute',
-                      bottom: '20px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      zIndex: 10,
-                    }}
-                  >
-                    <Button
-                      variant="filled"
-                      color="red"
-                      size="md"
-                      onClick={handleStopScan}
-                      styles={{
-                        root: {
-                          borderRadius: '20px',
-                          fontWeight: 600,
-                        },
-                      }}
-                    >
-                      Arrêter le scan
-                    </Button>
-                  </Box>
-                )}
-
-                {/* Message de chargement */}
-                {startRequested && !scanning && (
-                  <Box
-                    style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      textAlign: 'center',
-                    }}
-                  >
-                    <Stack gap="md" align="center">
-                      <Loader size="lg" color="white" />
-                      <Text c="white" size="md" fw={500}>
-                        Démarrage de la caméra...
-                      </Text>
-                    </Stack>
-                  </Box>
-                )}
-              </Box>
+              </>
             ) : (
-              <Center py="xl">
-                <Loader size="lg" />
-              </Center>
-            )}
-          </Stack>
-        </Tabs.Panel>
-
-        <Tabs.Panel value="search" pt="md">
-          <Stack gap="md">
-
-            {/* Résultats de recherche */}
-            {searching && (
-              <Center py="xl">
-                <Loader size="lg" />
-              </Center>
-            )}
-
-            {!searching && searchResults.length > 0 && (
-              <Stack gap="md">
-                <Text size="sm" c="dimmed" fw={500}>
-                  {searchResults.length} résultat{searchResults.length > 1 ? 's' : ''} trouvé{searchResults.length > 1 ? 's' : ''}
-                </Text>
-                {searchResults.map((user) => {
-                  const memberCode = user.uid.substring(0, 7).toUpperCase();
-                  return (
-                    <Card
-                      key={user.uid}
-                      shadow="md"
-                      padding="xl"
-                      radius="lg"
-                      withBorder
-                      style={{
-                        borderWidth: '2px',
-                        borderColor: '#e9ecef',
-                        transition: 'all 0.2s ease',
-                        cursor: 'default',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = '#228be6';
-                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(34, 139, 230, 0.15)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#e9ecef';
-                        e.currentTarget.style.boxShadow = '';
-                      }}
-                    >
-                      <Stack gap="md">
-                        {/* Header avec avatar et infos */}
-                        <Group justify="space-between" wrap="nowrap">
-                          <Group gap="md" style={{ flex: 1 }}>
-                            <Avatar size="xl" color="blue" radius="xl">
-                              <IconUser size={32} />
-                            </Avatar>
-
-                            <Stack gap={6} style={{ flex: 1 }}>
-                              <Group gap="sm">
-                                <Text size="xl" fw={700}>
-                                  {user.firstName} {user.lastName}
-                                </Text>
-                                <Badge
-                                  size="lg"
-                                  variant="gradient"
-                                  gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
-                                  styles={{
-                                    root: {
-                                      fontSize: '13px',
-                                      fontWeight: 700,
-                                      padding: '6px 12px',
-                                    },
-                                  }}
-                                >
-                                  CODE: {memberCode}
-                                </Badge>
-                              </Group>
-
-                              <Text size="md" c="dimmed">
-                                {user.email}
-                              </Text>
-
-                              {user.currentMembership && (
-                                <Badge
-                                  size="md"
-                                  variant="light"
-                                  color={
-                                    user.currentMembership.planType === 'lifetime'
-                                      ? 'yellow'
-                                      : user.currentMembership.planType === 'annual'
-                                      ? 'green'
-                                      : 'blue'
-                                  }
-                                  styles={{
-                                    root: {
-                                      fontWeight: 600,
-                                    },
-                                  }}
-                                >
-                                  {user.currentMembership.planName}
-                                </Badge>
-                              )}
-                            </Stack>
-                          </Group>
-                        </Group>
-
-                        {/* Actions */}
-                        <Group gap="sm" grow>
-                          <Button
-                            variant="light"
-                            color="blue"
-                            size="md"
-                            leftSection={<IconMail size={18} />}
-                            onClick={() => handleResendCard(user.uid)}
-                            loading={resendingCard === user.uid}
-                            disabled={!!resendingCard}
-                            styles={{
-                              root: {
-                                borderRadius: '10px',
-                                height: '46px',
-                                fontWeight: 600,
-                              },
-                            }}
-                          >
-                            Renvoyer carte
-                          </Button>
-
-                          {onEditUser && (
-                            <Button
-                              variant="light"
-                              color="orange"
-                              size="md"
-                              leftSection={<IconEdit size={18} />}
-                              onClick={() => onEditUser(user.uid)}
-                              styles={{
-                                root: {
-                                  borderRadius: '10px',
-                                  height: '46px',
-                                  fontWeight: 600,
-                                },
-                              }}
-                            >
-                              Modifier
-                            </Button>
-                          )}
-
-                          <Button
-                            variant="filled"
-                            color="green"
-                            size="md"
-                            leftSection={<IconCheck size={18} />}
-                            onClick={() => onScan(user.uid)}
-                            styles={{
-                              root: {
-                                borderRadius: '10px',
-                                height: '46px',
-                                fontWeight: 600,
-                                boxShadow: '0 4px 12px rgba(40, 167, 69, 0.3)',
-                              },
-                            }}
-                          >
-                            Scanner
-                          </Button>
-                        </Group>
-                      </Stack>
-                    </Card>
-                  );
-                })}
-              </Stack>
-            )}
-
-            {!searching && searchQuery && searchResults.length === 0 && (
-              <Center py="xl">
-                <Stack align="center" gap="xs">
-                  <Text size="lg" c="dimmed" fw={500}>
-                    Aucun résultat
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    Aucun membre trouvé pour "{searchQuery}"
-                  </Text>
+              <Center h={300}>
+                <Stack align="center" gap="sm">
+                  <Loader color="white" type="dots" />
+                  <Text c="white" size="sm">Initialisation de la caméra...</Text>
                 </Stack>
               </Center>
             )}
-
-            {!searching && !searchQuery && (
-              <Center py="xl">
-                <Stack align="center" gap="xs">
-                  <IconSearch size={48} color="#adb5bd" />
-                  <Text size="lg" c="dimmed" fw={500}>
-                    Commencez à rechercher
-                  </Text>
-                  <Text size="sm" c="dimmed" ta="center" maw={300}>
-                    Utilisez la barre de recherche ci-dessus pour trouver un membre
-                  </Text>
-                </Stack>
-              </Center>
-            )}
-          </Stack>
-        </Tabs.Panel>
-      </Tabs>
-
-      {/* Modal de validation de paiement en attente */}
-      <Modal
-        opened={pendingModalOpen}
-        onClose={() => {
-          if (!validatingPayment) {
-            setPendingModalOpen(false);
-            setPendingUserId(null);
-          }
-        }}
-        title={
-          <Group gap="sm">
-            <IconClock size={24} color="#f59f00" />
-            <Title order={3}>Paiement en attente</Title>
-          </Group>
-        }
-        centered
-        size="md"
-        styles={{
-          title: {
-            fontWeight: 600,
-          },
-          header: {
-            borderBottom: '2px solid #f59f00',
-            paddingBottom: '12px',
-          },
-        }}
-      >
-        <Stack gap="lg" py="md">
-          {/* Badge d'alerte */}
-          <Center>
-            <Badge
-              size="xl"
-              variant="light"
-              color="orange"
-              leftSection={<IconClock size={18} />}
-              styles={{
-                root: {
-                  paddingLeft: 12,
-                  paddingRight: 16,
-                  height: 36,
-                },
-              }}
-            >
-              En attente de validation
-            </Badge>
-          </Center>
-
-          {/* Message explicatif */}
-          <Box
-            p="md"
-            style={{
-              backgroundColor: '#fff3e0',
-              borderRadius: '12px',
-              border: '2px solid #f59f00',
-            }}
-          >
-            <Stack gap="sm">
-              <Text size="md" fw={500} c="#e67700">
-                ⚠️ Ce membre a effectué son inscription mais son paiement n'a pas encore été validé.
-              </Text>
-              <Text size="sm" c="dimmed">
-                Avant de continuer, vérifiez avec le membre qu'il a bien effectué son paiement au comptoir ou par le moyen convenu.
-              </Text>
-            </Stack>
           </Box>
 
-          {/* Options */}
-          <Stack gap="md">
-            <Button
-              size="lg"
-              color="green"
-              leftSection={<IconCreditCard size={20} />}
-              onClick={handleValidatePayment}
-              loading={validatingPayment}
-              fullWidth
-              styles={{
-                root: {
-                  height: 56,
-                  borderRadius: '12px',
-                  fontSize: '16px',
-                  fontWeight: 600,
-                },
-              }}
-            >
-              Valider le paiement et envoyer la carte
-            </Button>
-
-            <Button
-              size="md"
-              variant="light"
-              color="gray"
-              onClick={handleScanWithoutValidation}
-              disabled={validatingPayment}
-              fullWidth
-              styles={{
-                root: {
-                  height: 48,
-                  borderRadius: '10px',
-                },
-              }}
-            >
-              Scanner sans valider le paiement
-            </Button>
-          </Stack>
-
-          {/* Note informative */}
-          <Alert
-            color="blue"
-            variant="light"
-            styles={{
-              root: {
-                borderRadius: '10px',
-              },
-            }}
-          >
-            <Text size="xs" c="dimmed">
-              💡 <strong>Note:</strong> La validation du paiement enverra automatiquement un email avec la carte d'adhérent au membre.
-            </Text>
-          </Alert>
+          {/* Scan Controls */}
+          {scanning && (
+             <Button 
+                variant="light" 
+                color="red" 
+                fullWidth 
+                onClick={handleStopScan}
+                leftSection={<IconCamera size={16} />}
+             >
+                Arrêter la caméra
+             </Button>
+          )}
         </Stack>
-      </Modal>
+      )}
 
-      {/* Messages d'état globaux */}
-      {error && (
-        <Alert
-          icon={<IconAlertCircle size={20} />}
-          title="Erreur d'accès à la caméra"
-          color="red"
-          styles={{
-            root: {
-              borderRadius: '12px',
-              border: '2px solid',
-            },
-          }}
-        >
-          <Stack gap="md">
-            <Text size="sm">{error}</Text>
-            {error.includes('refusé') || error.includes('permissions') ? (
-              <Group gap="xs">
-                <Button
-                  size="sm"
-                  variant="light"
-                  color="red"
-                  leftSection={<IconRefresh size={16} />}
-                  onClick={() => {
-                    setError(null);
-                    handleStartScan();
-                  }}
-                >
-                  Réessayer
-                </Button>
-                <Text size="xs" c="dimmed">
-                  Autorisez la caméra puis cliquez sur "Réessayer"
-                </Text>
-              </Group>
-            ) : null}
+      {/* Search Mode */}
+      {mode === 'search' && (
+        <Stack gap="md">
+          <TextInput
+            placeholder="Rechercher par nom, email ou code..."
+            leftSection={<IconSearch size={16} />}
+            rightSection={
+              searchQuery && (
+                <ActionIcon onClick={() => setSearchQuery('')} variant="subtle" color="gray">
+                  <IconX size={16} />
+                </ActionIcon>
+              )
+            }
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            size="lg"
+            radius="md"
+            autoFocus
+          />
+
+          {searching && (
+            <Center py="xl">
+              <Loader size="sm" />
+            </Center>
+          )}
+
+          {!searching && searchResults.length === 0 && searchQuery.length > 1 && (
+             <Text c="dimmed" ta="center" size="sm" py="lg">
+                Aucun membre trouvé pour "{searchQuery}"
+             </Text>
+          )}
+
+          <Stack gap="sm">
+            {searchResults.map((user) => (
+              <Paper
+                key={user.uid}
+                withBorder
+                p="md"
+                radius="md"
+                style={{ cursor: 'pointer', transition: 'border-color 0.2s' }}
+                onClick={() => onScan(user.uid)}
+              >
+                <Group justify="space-between" align="flex-start">
+                  <Group>
+                    <Avatar color="blue" radius="xl">
+                      {user.firstName?.[0]}
+                    </Avatar>
+                    <Box>
+                      <Text size="sm" fw={600}>
+                        {user.firstName} {user.lastName}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {user.email}
+                      </Text>
+                      <Badge size="xs" mt={4} variant="dot">
+                        Code: {user.uid.substring(0, 7).toUpperCase()}
+                      </Badge>
+                    </Box>
+                  </Group>
+                  
+                  <Group gap="xs">
+                    <ActionIcon 
+                        variant="light" 
+                        color="blue" 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleResendCard(user.uid);
+                        }}
+                        loading={resendingCard === user.uid}
+                        title="Renvoyer la carte"
+                    >
+                        <IconMail size={16} />
+                    </ActionIcon>
+                    {onEditUser && (
+                        <ActionIcon
+                            variant="light"
+                            color="orange"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEditUser(user.uid);
+                            }}
+                            title="Modifier le membre"
+                        >
+                            <IconEdit size={16} />
+                        </ActionIcon>
+                    )}
+                  </Group>
+                </Group>
+              </Paper>
+            ))}
           </Stack>
+        </Stack>
+      )}
+
+      {/* Feedback Alerts */}
+      {error && (
+        <Alert icon={<IconAlertCircle size={16} />} title="Erreur" color="red" radius="md" withCloseButton onClose={() => setError(null)}>
+          {error}
         </Alert>
       )}
 
       {success && (
-        <Alert
-          icon={<IconCheck size={20} />}
-          title="Succès"
-          color="green"
-          styles={{
-            root: {
-              borderRadius: '12px',
-              border: '2px solid',
-            },
-          }}
-        >
-          QR code scanné avec succès !
+        <Alert icon={<IconCheck size={16} />} title="Succès" color="green" radius="md">
+          Opération effectuée avec succès
         </Alert>
       )}
+
+      {/* Pending Payment Modal */}
+      <Modal
+        opened={pendingModalOpen}
+        onClose={() => !validatingPayment && setPendingModalOpen(false)}
+        title="Paiement en attente"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <Alert color="orange" icon={<IconClock size={16} />}>
+            Ce membre n'a pas encore validé son paiement.
+          </Alert>
+          
+          <Group grow>
+            <Button
+              color="green"
+              onClick={handleValidatePayment}
+              loading={validatingPayment}
+              leftSection={<IconCreditCard size={16} />}
+            >
+              Valider le paiement
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleScanWithoutValidation}
+              disabled={validatingPayment}
+            >
+              Scanner uniquement
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 };

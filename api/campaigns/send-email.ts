@@ -218,7 +218,7 @@ export default async function handler(
     try {
       // 4. Préparer le HTML avec tracking PXL
       // PXL injecte automatiquement le pixel de tracking et transforme tous les liens
-      const emailHtml = prepareEmailWithTracking(
+      const emailHtml = await prepareEmailWithTracking(
         campaign.content.html,
         campaignId,
         recipientId

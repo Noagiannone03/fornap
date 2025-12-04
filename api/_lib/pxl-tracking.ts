@@ -40,6 +40,28 @@ class InMemoryPersistenceLayer extends PxlTracker.PersistenceLayerBase {
   async del(key: string): Promise<void> {
     this.data.delete(key);
   }
+
+  async checkAndAddPxl(pxl: string, metadata: any): Promise<string> {
+    // Vérifier si le pxl existe déjà
+    const existing = this.data.get(pxl);
+    if (existing) {
+      return pxl;
+    }
+
+    // Sinon créer un nouvel ID et le stocker
+    const pxlId = pxl || this.generateId();
+    this.data.set(pxlId, metadata);
+    return pxlId;
+  }
+
+  async getPxl(pxlId: string): Promise<any> {
+    return this.data.get(pxlId);
+  }
+
+  private generateId(): string {
+    return Math.random().toString(36).substring(2, 15) +
+           Math.random().toString(36).substring(2, 15);
+  }
 }
 
 /**
@@ -246,18 +268,18 @@ async function updateCampaignStats(campaignId: string): Promise<void> {
  * @param recipientId - ID du destinataire
  * @returns HTML avec tracking intégré
  */
-export function prepareEmailWithTracking(
+export async function prepareEmailWithTracking(
   html: string,
   campaignId: string,
   recipientId: string
-): string {
+): Promise<string> {
   try {
     console.log(`🔧 [PXL] Préparation email avec tracking - Campaign: ${campaignId}, Recipient: ${recipientId}`);
 
     // PXL transforme automatiquement le HTML en ajoutant:
     // - Le pixel de tracking pour les ouvertures
     // - La transformation des liens pour les clics
-    const trackedHtml = pxl.addTracking(html, recipientId, campaignId);
+    const trackedHtml = await pxl.addTracking(html, recipientId, campaignId);
 
     console.log('✅ [PXL] Email préparé avec tracking');
     return trackedHtml;

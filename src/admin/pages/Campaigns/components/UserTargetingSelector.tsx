@@ -63,14 +63,12 @@ export function UserTargetingSelector({
   const [filteredUsersForManual, setFilteredUsersForManual] = useState<any[]>([]);
   const [manualSearchTerm, setManualSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
-  const [previewUsers, setPreviewUsers] = useState<User[]>([]);
   const [estimatedCount, setEstimatedCount] = useState(0);
   const [manualPage, setManualPage] = useState(1);
   const manualItemsPerPage = 10;
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [filteredPage, setFilteredPage] = useState(1);
   const filteredItemsPerPage = 10;
-  const [showFullFilteredList, setShowFullFilteredList] = useState(false);
 
   // Charger tous les users pour la sélection manuelle
   useEffect(() => {
@@ -131,22 +129,16 @@ export function UserTargetingSelector({
       setEstimatedCount(count);
       onEstimatedCountChange(count);
 
-      // Charger la liste complète des users ciblés pour le mode "filtered"
-      if (targetingMode === 'filtered') {
+      // Charger la liste complète des users ciblés pour les modes "filtered" et "all"
+      if (targetingMode === 'filtered' || targetingMode === 'all') {
         const users = await getTargetedUsers(
           targetingMode,
           undefined,
-          filters
+          targetingMode === 'filtered' ? filters : undefined
         );
         setFilteredUsers(users);
-        setPreviewUsers(users.slice(0, 5));
-      } else if (targetingMode === 'all') {
-        const users = await getTargetedUsers(
-          targetingMode,
-          undefined,
-          filters
-        );
-        setPreviewUsers(users.slice(0, 5));
+      } else {
+        setFilteredUsers([]);
       }
     } catch (error) {
       console.error('Error estimating recipients:', error);
@@ -547,132 +539,156 @@ export function UserTargetingSelector({
         </Paper>
       )}
 
-      {/* Liste complète des utilisateurs filtrés avec exclusion manuelle */}
-      {targetingMode === 'filtered' && filteredUsers.length > 0 && (
+      {/* Liste des utilisateurs filtrés avec exclusion manuelle */}
+      {(targetingMode === 'filtered' || targetingMode === 'all') && filteredUsers.length > 0 && (
         <Paper p="lg" withBorder>
           <Stack gap="md">
-            <Group justify="space-between">
-              <Group>
-                <IconUsers size={20} />
-                <Text fw={600} size="lg">Liste des destinataires filtrés</Text>
-              </Group>
-              <Group>
-                <Badge size="lg" color="blue">
-                  {filteredUsers.length} utilisateur{filteredUsers.length !== 1 ? 's' : ''}
-                </Badge>
-                {(filters.excludedUserIds?.length || 0) > 0 && (
-                  <Badge size="lg" color="red">
-                    {filters.excludedUserIds?.length} exclu{(filters.excludedUserIds?.length || 0) !== 1 ? 's' : ''}
+            <div>
+              <Group justify="space-between" mb="xs">
+                <Group>
+                  <IconUsers size={24} />
+                  <div>
+                    <Text fw={600} size="lg">Destinataires de la campagne</Text>
+                    <Text size="sm" c="dimmed">
+                      {filteredUsers.length} utilisateur{filteredUsers.length !== 1 ? 's' : ''} correspondant aux filtres
+                      {(filters.excludedUserIds?.length || 0) > 0 && (
+                        <> · {filters.excludedUserIds?.length} exclu{(filters.excludedUserIds?.length || 0) !== 1 ? 's' : ''} manuellement</>
+                      )}
+                    </Text>
+                  </div>
+                </Group>
+                <Group>
+                  {(filters.excludedUserIds?.length || 0) > 0 && (
+                    <Badge size="lg" color="red" variant="filled">
+                      {filters.excludedUserIds?.length} exclu{(filters.excludedUserIds?.length || 0) !== 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                  <Badge size="lg" color="blue" variant="filled">
+                    {filteredUsers.length - (filters.excludedUserIds?.length || 0)} final{filteredUsers.length - (filters.excludedUserIds?.length || 0) !== 1 ? 'aux' : ''}
                   </Badge>
-                )}
+                </Group>
+              </Group>
+
+              <Divider mb="md" />
+
+              <Group justify="space-between" mb="md">
+                <Text size="sm" c="dimmed">
+                  💡 Décochez les utilisateurs que vous souhaitez exclure de cette campagne
+                </Text>
                 <Button
                   variant="light"
-                  size="sm"
-                  onClick={() => setShowFullFilteredList(!showFullFilteredList)}
+                  size="xs"
+                  onClick={() => {
+                    const allIncluded = filteredUsers.every((u) => !isUserExcluded(u.uid));
+                    if (allIncluded) {
+                      onFiltersChange({
+                        ...filters,
+                        excludedUserIds: filteredUsers.map(u => u.uid)
+                      });
+                    } else {
+                      onFiltersChange({
+                        ...filters,
+                        excludedUserIds: undefined
+                      });
+                    }
+                  }}
                 >
-                  {showFullFilteredList ? 'Masquer' : 'Afficher'} la liste complète
+                  {filteredUsers.every((u) => !isUserExcluded(u.uid)) ? 'Tout décocher' : 'Tout cocher'}
                 </Button>
               </Group>
-            </Group>
+            </div>
 
-            {showFullFilteredList && (
-              <>
-                <Text size="sm" c="dimmed">
-                  Décochez les utilisateurs que vous souhaitez exclure de cette campagne
-                </Text>
-
-                <ScrollArea h={400}>
-                  <Table striped highlightOnHover>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th style={{ width: 50 }}>
+            <ScrollArea h={500}>
+              <Table striped highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th style={{ width: 50 }}>
+                      <Checkbox
+                        checked={
+                          filteredUsers.length > 0 &&
+                          filteredUsers.every((u) => !isUserExcluded(u.uid))
+                        }
+                        indeterminate={
+                          filteredUsers.some((u) => !isUserExcluded(u.uid)) &&
+                          !filteredUsers.every((u) => !isUserExcluded(u.uid))
+                        }
+                        onChange={() => {
+                          const allIncluded = filteredUsers.every((u) => !isUserExcluded(u.uid));
+                          if (allIncluded) {
+                            onFiltersChange({
+                              ...filters,
+                              excludedUserIds: filteredUsers.map(u => u.uid)
+                            });
+                          } else {
+                            onFiltersChange({
+                              ...filters,
+                              excludedUserIds: undefined
+                            });
+                          }
+                        }}
+                      />
+                    </Table.Th>
+                    <Table.Th>Nom</Table.Th>
+                    <Table.Th>Email</Table.Th>
+                    <Table.Th>Abonnement</Table.Th>
+                    <Table.Th>Code postal</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {filteredUsers
+                    .slice(
+                      (filteredPage - 1) * filteredItemsPerPage,
+                      filteredPage * filteredItemsPerPage
+                    )
+                    .map((user) => (
+                      <Table.Tr
+                        key={user.uid}
+                        style={{
+                          opacity: isUserExcluded(user.uid) ? 0.5 : 1,
+                          backgroundColor: isUserExcluded(user.uid) ? 'var(--mantine-color-red-0)' : undefined,
+                        }}
+                      >
+                        <Table.Td>
                           <Checkbox
-                            checked={
-                              filteredUsers.length > 0 &&
-                              filteredUsers.every((u) => !isUserExcluded(u.uid))
-                            }
-                            indeterminate={
-                              filteredUsers.some((u) => !isUserExcluded(u.uid)) &&
-                              !filteredUsers.every((u) => !isUserExcluded(u.uid))
-                            }
-                            onChange={() => {
-                              const allIncluded = filteredUsers.every((u) => !isUserExcluded(u.uid));
-                              if (allIncluded) {
-                                // Exclure tous
-                                onFiltersChange({
-                                  ...filters,
-                                  excludedUserIds: filteredUsers.map(u => u.uid)
-                                });
-                              } else {
-                                // Inclure tous
-                                onFiltersChange({
-                                  ...filters,
-                                  excludedUserIds: undefined
-                                });
-                              }
-                            }}
+                            checked={!isUserExcluded(user.uid)}
+                            onChange={() => handleFilteredUserToggle(user.uid)}
                           />
-                        </Table.Th>
-                        <Table.Th>Nom</Table.Th>
-                        <Table.Th>Email</Table.Th>
-                        <Table.Th>Abonnement</Table.Th>
-                        <Table.Th>Code postal</Table.Th>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" fw={500} style={{ textDecoration: isUserExcluded(user.uid) ? 'line-through' : 'none' }}>
+                            {user.firstName} {user.lastName}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c="dimmed" style={{ textDecoration: isUserExcluded(user.uid) ? 'line-through' : 'none' }}>
+                            {user.email}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge size="sm" color={user.currentMembership.status === 'active' ? 'green' : 'gray'}>
+                            {MEMBERSHIP_TYPE_LABELS[user.currentMembership.planType as MembershipType]}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" style={{ textDecoration: isUserExcluded(user.uid) ? 'line-through' : 'none' }}>
+                            {user.postalCode}
+                          </Text>
+                        </Table.Td>
                       </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {filteredUsers
-                        .slice(
-                          (filteredPage - 1) * filteredItemsPerPage,
-                          filteredPage * filteredItemsPerPage
-                        )
-                        .map((user) => (
-                          <Table.Tr
-                            key={user.uid}
-                            style={{
-                              opacity: isUserExcluded(user.uid) ? 0.5 : 1,
-                              textDecoration: isUserExcluded(user.uid) ? 'line-through' : 'none',
-                            }}
-                          >
-                            <Table.Td>
-                              <Checkbox
-                                checked={!isUserExcluded(user.uid)}
-                                onChange={() => handleFilteredUserToggle(user.uid)}
-                              />
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm" fw={500}>
-                                {user.firstName} {user.lastName}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm" c="dimmed">
-                                {user.email}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <Badge size="sm" color={user.currentMembership.status === 'active' ? 'green' : 'gray'}>
-                                {MEMBERSHIP_TYPE_LABELS[user.currentMembership.planType as MembershipType]}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm">{user.postalCode}</Text>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
-                    </Table.Tbody>
-                  </Table>
-                </ScrollArea>
+                    ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
 
-                {Math.ceil(filteredUsers.length / filteredItemsPerPage) > 1 && (
-                  <Group justify="center">
-                    <Pagination
-                      value={filteredPage}
-                      onChange={setFilteredPage}
-                      total={Math.ceil(filteredUsers.length / filteredItemsPerPage)}
-                    />
-                  </Group>
-                )}
-              </>
+            {Math.ceil(filteredUsers.length / filteredItemsPerPage) > 1 && (
+              <Group justify="center" mt="md">
+                <Pagination
+                  value={filteredPage}
+                  onChange={setFilteredPage}
+                  total={Math.ceil(filteredUsers.length / filteredItemsPerPage)}
+                  size="lg"
+                />
+              </Group>
             )}
           </Stack>
         </Paper>
@@ -774,53 +790,20 @@ export function UserTargetingSelector({
         </Paper>
       )}
 
-      {/* Résumé du ciblage */}
-      <Paper p="md" withBorder bg="blue.0">
-        <Group>
-          <IconUsers size={32} color="blue" />
-          <Box>
-            <Text fw={700} size="xl" c="blue">
-              {estimatedCount} destinataire{estimatedCount !== 1 ? 's' : ''}
-            </Text>
-            <Text size="sm" c="dimmed">
-              {targetingMode === 'all' && 'Tous les utilisateurs actifs'}
-              {targetingMode === 'filtered' && (
-                <>
-                  Selon les filtres sélectionnés
-                  {(filters.excludedUserIds?.length || 0) > 0 && (
-                    <> ({filters.excludedUserIds?.length} exclusion{(filters.excludedUserIds?.length || 0) !== 1 ? 's' : ''} manuelle{(filters.excludedUserIds?.length || 0) !== 1 ? 's' : ''})</>
-                  )}
-                </>
-              )}
-              {targetingMode === 'manual' && 'Sélection manuelle'}
-            </Text>
-          </Box>
-        </Group>
-      </Paper>
-
-      {/* Aperçu des destinataires (pour filtré et tous) */}
-      {targetingMode !== 'manual' && previewUsers.length > 0 && (
-        <Paper p="md" withBorder>
-          <Stack gap="xs">
-            <Text fw={600} size="sm">
-              Aperçu des destinataires (5 premiers)
-            </Text>
-            {previewUsers.map((user) => (
-              <Group key={user.uid} gap="xs">
-                <Text size="sm">
-                  {user.firstName} {user.lastName}
-                </Text>
-                <Text size="sm" c="dimmed">
-                  ({user.email})
-                </Text>
-              </Group>
-            ))}
-            {estimatedCount > 5 && (
-              <Text size="xs" c="dimmed">
-                ... et {estimatedCount - 5} autres
+      {/* Résumé du ciblage - Affiché uniquement pour la sélection manuelle */}
+      {targetingMode === 'manual' && (
+        <Paper p="md" withBorder bg="blue.0">
+          <Group>
+            <IconUsers size={32} color="blue" />
+            <Box>
+              <Text fw={700} size="xl" c="blue">
+                {estimatedCount} destinataire{estimatedCount !== 1 ? 's' : ''}
               </Text>
-            )}
-          </Stack>
+              <Text size="sm" c="dimmed">
+                Sélection manuelle
+              </Text>
+            </Box>
+          </Group>
         </Paper>
       )}
     </Stack>

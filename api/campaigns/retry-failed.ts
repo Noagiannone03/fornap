@@ -15,25 +15,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestore, getFieldValue } from '../_lib/firebase-admin.js';
 import { prepareEmailWithTracking } from '../_lib/pxl-tracking.js';
-import nodemailer from 'nodemailer';
-
-// Configuration Nodemailer
-function createEmailTransporter() {
-  const smtpConfig = {
-    host: process.env.SMTP_HOST || 'mail.fornap.fr',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER || 'no-reply@fornap.fr',
-      pass: process.env.SMTP_PASSWORD || 'rU6*suHY_b-ce1Z',
-    },
-    tls: {
-      rejectUnauthorized: false
-    }
-  };
-
-  return nodemailer.createTransport(smtpConfig);
-}
+import { createEmailTransporter } from '../_lib/email-transport.js';
 
 /**
  * Met à jour le statut d'un destinataire
@@ -165,7 +147,7 @@ export default async function handler(
 
     const failedRecipients = recipientsSnap.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...(doc.data() as any)
     }));
 
     if (failedRecipients.length === 0) {

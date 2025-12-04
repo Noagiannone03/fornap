@@ -15,11 +15,10 @@ export default async function handler(
 
   try {
     const config = {
-      RESEND_API_KEY: !!process.env.RESEND_API_KEY,
-      QSTASH_TOKEN: !!process.env.QSTASH_TOKEN,
-      QSTASH_CURRENT_SIGNING_KEY: !!process.env.QSTASH_CURRENT_SIGNING_KEY,
-      QSTASH_NEXT_SIGNING_KEY: !!process.env.QSTASH_NEXT_SIGNING_KEY,
-      WEBHOOK_BASE_URL: !!process.env.WEBHOOK_BASE_URL || !!process.env.VERCEL_URL,
+      SMTP_HOST: !!process.env.SMTP_HOST,
+      SMTP_PORT: !!process.env.SMTP_PORT,
+      SMTP_USER: !!process.env.SMTP_USER,
+      SMTP_PASSWORD: !!process.env.SMTP_PASSWORD,
       VITE_FIREBASE_PROJECT_ID: !!process.env.VITE_FIREBASE_PROJECT_ID,
     };
 
@@ -29,7 +28,7 @@ export default async function handler(
       success: allConfigured,
       config,
       message: allConfigured
-        ? 'Toutes les variables sont configurées'
+        ? 'Toutes les variables SMTP sont configurées'
         : 'Certaines variables sont manquantes',
     });
   } catch (error: any) {

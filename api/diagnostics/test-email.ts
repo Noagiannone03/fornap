@@ -3,8 +3,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sendSingleEmail } from '../../src/shared/services/emailService.js';
-import { EMAIL_CONFIG } from '../../src/shared/config/email.js';
+import { createEmailTransporter } from '../_lib/email-transport.js';
 
 export default async function handler(
   req: VercelRequest,
@@ -50,7 +49,7 @@ export default async function handler(
     <div style="background-color: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0;">
       <p style="margin: 0; font-size: 14px; color: #666;">
         <strong>Date d'envoi:</strong> ${new Date().toLocaleString('fr-FR')}<br>
-        <strong>Service:</strong> Resend via FORNAP<br>
+        <strong>Service:</strong> SMTP FORNAP<br>
         <strong>Type:</strong> Email de test
       </p>
     </div>
@@ -60,8 +59,8 @@ export default async function handler(
     </p>
     
     <ul style="font-size: 14px; color: #666;">
-      <li>✅ Votre API Key Resend est valide</li>
-      <li>✅ La configuration des variables d'environnement est correcte</li>
+      <li>✅ La configuration SMTP est correcte</li>
+      <li>✅ Les variables d'environnement sont chargées</li>
       <li>✅ Les routes API fonctionnent correctement</li>
       <li>✅ Le système d'envoi est opérationnel</li>
     </ul>
@@ -77,39 +76,31 @@ export default async function handler(
 </html>
     `.trim();
 
-    const result = await sendSingleEmail({
-      to,
-      toName: to,
+    const transporter = createEmailTransporter();
+
+    const mailOptions = {
+      from: '"FOR+NAP Social Club" <no-reply@fornap.fr>',
+      to: to,
       subject: '✅ Email de test FORNAP - Système fonctionnel',
       html: testHtml,
-      fromName: EMAIL_CONFIG.DEFAULT_FROM_NAME,
-      fromEmail: EMAIL_CONFIG.DEFAULT_FROM_EMAIL,
+      replyTo: 'contact@fornap.fr',
       headers: {
         'X-Test-Email': 'true',
         'X-Sent-At': new Date().toISOString(),
-      },
-      tags: [
-        { name: 'type', value: 'test' },
-        { name: 'source', value: 'diagnostics' },
-      ],
+      }
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log(`Email de test envoyé avec succès - Message ID: ${info.messageId}`);
+    
+    res.status(200).json({
+      success: true,
+      message: `Email de test envoyé à ${to}`,
+      messageId: info.messageId,
+      sentAt: new Date().toISOString(),
     });
 
-    if (result.success) {
-      console.log(`Email de test envoyé avec succès - Message ID: ${result.messageId}`);
-      res.status(200).json({
-        success: true,
-        message: `Email de test envoyé à ${to}`,
-        messageId: result.messageId,
-        sentAt: result.sentAt,
-      });
-    } else {
-      console.error(`Échec de l'envoi de l'email de test:`, result.error);
-      res.status(500).json({
-        success: false,
-        error: result.error || 'Échec de l\'envoi',
-        details: result,
-      });
-    }
   } catch (error: any) {
     console.error('Error sending test email:', error);
     res.status(500).json({

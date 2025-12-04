@@ -64,6 +64,9 @@ export interface TargetingFilters {
 
   // Filtres de blocage
   includeBlocked?: boolean;
+
+  // Filtre d'envoi de carte d'adhérent
+  membershipCardNotSent?: boolean; // true = seulement ceux qui n'ont PAS reçu leur carte
 }
 
 /**

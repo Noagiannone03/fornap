@@ -469,16 +469,29 @@ export function UserTargetingSelector({
                   <Group>
                     <IconSettings size={18} />
                     <Text fw={500}>Options</Text>
+                    {(filters.includeBlocked || filters.membershipCardNotSent) && (
+                      <Badge size="sm">Actif</Badge>
+                    )}
                   </Group>
                 </Accordion.Control>
                 <Accordion.Panel>
-                  <Checkbox
-                    label="Inclure les comptes bloqués"
-                    checked={filters.includeBlocked || false}
-                    onChange={(e) =>
-                      onFiltersChange({ ...filters, includeBlocked: e.currentTarget.checked })
-                    }
-                  />
+                  <Stack gap="md">
+                    <Checkbox
+                      label="Inclure les comptes bloqués"
+                      checked={filters.includeBlocked || false}
+                      onChange={(e) =>
+                        onFiltersChange({ ...filters, includeBlocked: e.currentTarget.checked })
+                      }
+                    />
+                    <Checkbox
+                      label="Uniquement les utilisateurs n'ayant pas reçu leur carte d'adhérent"
+                      description="Filtre les utilisateurs de la collection 'users' qui n'ont pas encore reçu leur email de carte"
+                      checked={filters.membershipCardNotSent || false}
+                      onChange={(e) =>
+                        onFiltersChange({ ...filters, membershipCardNotSent: e.currentTarget.checked || undefined })
+                      }
+                    />
+                  </Stack>
                 </Accordion.Panel>
               </Accordion.Item>
             </Accordion>

@@ -184,10 +184,14 @@ export async function getRevenueEvolution(
       }
     >();
 
-    // Parcourir tous les utilisateurs et leur historique
-    for (const userDoc of snapshot.docs) {
-      const history = await getUserMembershipHistory(userDoc.id);
+    // Récupérer tous les historiques en parallèle
+    const historyPromises = snapshot.docs.map(userDoc =>
+      getUserMembershipHistory(userDoc.id)
+    );
+    const allHistories = await Promise.all(historyPromises);
 
+    // Parcourir tous les historiques
+    for (const history of allHistories) {
       for (const entry of history) {
         const entryDate = toDate(entry.startDate);
         if (!entryDate) continue; // Skip si la conversion échoue
@@ -263,11 +267,18 @@ export async function getTransactionsForPeriod(
 
     const transactions: TransactionData[] = [];
 
-    // Parcourir tous les utilisateurs
-    for (const userDoc of snapshot.docs) {
-      const userData = userDoc.data();
-      const history = await getUserMembershipHistory(userDoc.id);
+    // Récupérer tous les historiques en parallèle
+    const historyPromises = snapshot.docs.map(userDoc =>
+      getUserMembershipHistory(userDoc.id).then(history => ({
+        userId: userDoc.id,
+        userData: userDoc.data(),
+        history
+      }))
+    );
+    const allHistories = await Promise.all(historyPromises);
 
+    // Parcourir tous les historiques
+    for (const { userId, userData, history } of allHistories) {
       for (const entry of history) {
         const entryDate = toDate(entry.startDate);
         if (!entryDate) continue; // Skip si la conversion échoue
@@ -277,7 +288,7 @@ export async function getTransactionsForPeriod(
           transactions.push({
             id: entry.id,
             date: entry.startDate,
-            userId: userDoc.id,
+            userId: userId,
             userName: `${userData.firstName} ${userData.lastName}`,
             userEmail: userData.email,
             membershipType: entry.planType,

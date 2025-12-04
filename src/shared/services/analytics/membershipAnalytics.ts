@@ -85,9 +85,14 @@ export async function getRenewalRate(
     // Map pour stocker l'évolution mensuelle
     const monthlyEvolution = new Map<string, { renewals: number; expirations: number }>();
 
-    for (const userDoc of usersSnapshot.docs) {
-      const history = await getUserMembershipHistory(userDoc.id);
+    // Récupérer tous les historiques en parallèle
+    const historyPromises = usersSnapshot.docs.map(userDoc =>
+      getUserMembershipHistory(userDoc.id)
+    );
+    const allHistories = await Promise.all(historyPromises);
 
+    // Parcourir tous les historiques
+    for (const history of allHistories) {
       for (const entry of history) {
         // Vérifier si l'entrée est dans la période analysée
         const entryDate = toDate(entry.startDate);

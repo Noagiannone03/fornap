@@ -9,26 +9,23 @@ import {
   Box,
   Center,
   Modal,
-  Title,
   Badge,
   TextInput,
-  Card,
   Avatar,
   SegmentedControl,
   Paper,
   rem,
+  ActionIcon,
 } from '@mantine/core';
 import {
   IconAlertCircle,
   IconCheck,
-  IconRefresh,
   IconCreditCard,
   IconClock,
   IconSearch,
   IconQrcode,
   IconMail,
   IconEdit,
-  IconUser,
   IconCamera,
   IconX,
 } from '@tabler/icons-react';
@@ -550,8 +547,8 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
                   <Group gap="xs">
                     <ActionIcon 
                         variant="light" 
-                        color="blue" 
-                        onClick={(e) => {
+                        color="blue"
+                        onClick={(e: React.MouseEvent) => {
                             e.stopPropagation();
                             handleResendCard(user.uid);
                         }}
@@ -564,7 +561,7 @@ export const QRCodeScanner = ({ onScan, onError, onEditUser }: QRCodeScannerProp
                         <ActionIcon
                             variant="light"
                             color="orange"
-                            onClick={(e) => {
+                            onClick={(e: React.MouseEvent) => {
                                 e.stopPropagation();
                                 onEditUser(user.uid);
                             }}

@@ -873,3 +873,111 @@ export async function prepareCampaignForSending(campaignId: string): Promise<voi
     throw error;
   }
 }
+
+/**
+ * Type pour le callback de progression d'envoi de campagne
+ */
+export type SendCampaignProgressCallback = (progress: {
+  current: number;
+  total: number;
+  currentRecipient: string;
+  success: number;
+  errors: number;
+}) => void;
+
+/**
+ * Envoie une campagne email à tous ses destinataires
+ * Appelle l'API pour chaque destinataire avec suivi en temps réel
+ */
+export async function sendCampaignToRecipients(
+  campaignId: string,
+  onProgress?: SendCampaignProgressCallback
+): Promise<{
+  success: number;
+  errors: number;
+  total: number;
+  errorDetails: Array<{ recipientId: string; recipientName: string; error: string }>;
+}> {
+  try {
+    // Récupérer tous les destinataires en attente
+    const recipients = await getCampaignRecipients(campaignId);
+    const pendingRecipients = recipients.filter(r => r.status === 'pending');
+
+    const results = {
+      success: 0,
+      errors: 0,
+      total: pendingRecipients.length,
+      errorDetails: [] as Array<{ recipientId: string; recipientName: string; error: string }>,
+    };
+
+    let current = 0;
+
+    // Parcourir tous les destinataires en attente
+    for (const recipient of pendingRecipients) {
+      current++;
+      const recipientName = `${recipient.firstName} ${recipient.lastName}`.trim() || recipient.email;
+
+      // Appeler le callback de progression
+      if (onProgress) {
+        onProgress({
+          current,
+          total: results.total,
+          currentRecipient: recipientName,
+          success: results.success,
+          errors: results.errors,
+        });
+      }
+
+      try {
+        // Appeler l'API pour envoyer l'email à ce destinataire
+        const apiUrl = `${import.meta.env.VITE_API_URL || ''}/api/campaigns/send-campaign-email`;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            campaignId,
+            recipientId: recipient.id,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          results.success++;
+        } else {
+          results.errors++;
+          results.errorDetails.push({
+            recipientId: recipient.id,
+            recipientName,
+            error: data.message || data.error || 'Erreur inconnue',
+          });
+        }
+      } catch (error: any) {
+        results.errors++;
+        results.errorDetails.push({
+          recipientId: recipient.id,
+          recipientName,
+          error: error.message || 'Erreur inconnue',
+        });
+      }
+
+      // Petite pause pour ne pas surcharger l'API
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // Mettre à jour le statut final de la campagne
+    await updateCampaignStatus(campaignId, 'sent');
+
+    // Mettre à jour les stats finales
+    await updateCampaignStats(campaignId);
+
+    return results;
+  } catch (error) {
+    console.error('Error sending campaign to recipients:', error);
+    throw error;
+  }
+}
+

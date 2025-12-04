@@ -37,6 +37,7 @@ import {
   cancelCampaign,
 } from '../../../shared/services/campaignService';
 import { Timestamp } from 'firebase/firestore';
+import { SendCampaignModal } from '../../components/campaigns/SendCampaignModal';
 
 export function CampaignDetailPage() {
   const { campaignId } = useParams<{ campaignId: string }>();
@@ -45,7 +46,7 @@ export function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [recipients, setRecipients] = useState<CampaignRecipient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
+  const [sendModalOpened, setSendModalOpened] = useState(false);
 
   useEffect(() => {
     if (campaignId) {
@@ -117,56 +118,16 @@ export function CampaignDetailPage() {
     }
   };
 
-  const handleSendNow = async () => {
+  const handleSendNow = () => {
     if (!campaign || !campaignId) return;
+    // Ouvrir le modal d'envoi
+    setSendModalOpened(true);
+  };
 
-    const confirmed = window.confirm(
-      `Êtes-vous sûr de vouloir envoyer la campagne "${campaign.name}" maintenant ?\n\n` +
-      `Cela enverra ${campaign.stats.totalRecipients} emails.`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setSending(true);
-
-      // Appeler l'API d'envoi (toujours utiliser l'origin actuel)
-      const apiUrl = window.location.origin;
-      const response = await fetch(`${apiUrl}/api/campaigns/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ campaignId }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        notifications.show({
-          title: 'Envoi démarré',
-          message: `L'envoi de ${campaign.stats.totalRecipients} emails a été démarré avec succès`,
-          color: 'green',
-          autoClose: 5000,
-        });
-
-        // Recharger la campagne pour voir le nouveau statut
-        await loadCampaign();
-        await loadRecipients();
-      } else {
-        throw new Error(data.message || 'Erreur lors du démarrage de l\'envoi');
-      }
-    } catch (error: any) {
-      console.error('Error sending campaign:', error);
-      notifications.show({
-        title: 'Erreur',
-        message: error.message || 'Impossible de démarrer l\'envoi de la campagne',
-        color: 'red',
-        autoClose: 10000,
-      });
-    } finally {
-      setSending(false);
-    }
+  const handleSendComplete = async () => {
+    // Recharger la campagne après l'envoi
+    await loadCampaign();
+    await loadRecipients();
   };
 
   const getStatusBadge = (status: Campaign['status']) => {
@@ -506,6 +467,18 @@ export function CampaignDetailPage() {
           </Paper>
         )}
       </Stack>
+
+      {/* Modal d'envoi de campagne */}
+      {campaign && campaignId && (
+        <SendCampaignModal
+          opened={sendModalOpened}
+          onClose={() => setSendModalOpened(false)}
+          onComplete={handleSendComplete}
+          campaignId={campaignId}
+          campaignName={campaign.name}
+          totalRecipients={campaign.stats.totalRecipients}
+        />
+      )}
     </div>
   );
 }

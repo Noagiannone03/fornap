@@ -308,6 +308,15 @@ function userMatchesFilters(user: User, filters: TargetingFilters): boolean {
     }
   }
 
+  // Filtre d'envoi de carte d'adhérent
+  if (filters.membershipCardNotSent) {
+    // Vérifier si l'utilisateur n'a PAS reçu sa carte
+    const hasReceivedCard = user.emailStatus?.membershipCardSent || false;
+    if (hasReceivedCard) {
+      return false;
+    }
+  }
+
   return true;
 }
 

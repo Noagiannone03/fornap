@@ -1,4 +1,4 @@
-import { Stack, Select, TextInput, Switch, MultiSelect, Group, Text } from '@mantine/core';
+import { Stack, Select, TextInput, Switch, TagsInput, Group, Text } from '@mantine/core';
 import type { UseFormReturnType } from '@mantine/form';
 import { useMembershipPlans } from '../../../../shared/hooks/useMembershipPlans';
 import { AVAILABLE_TAGS } from '../../../../shared/types/user';
@@ -14,11 +14,6 @@ export function MembershipForm({ form }: MembershipFormProps) {
   const planOptions = plans.map((plan) => ({
     value: plan.id,
     label: `${plan.name} - ${plan.price}€ (${plan.period === 'month' ? 'Mensuel' : plan.period === 'year' ? 'Annuel' : 'À vie'})`,
-  }));
-
-  const tagOptions = AVAILABLE_TAGS.map((tag) => ({
-    value: tag,
-    label: tag.charAt(0).toUpperCase() + tag.slice(1).replace('_', ' '),
   }));
 
   return (
@@ -58,13 +53,11 @@ export function MembershipForm({ form }: MembershipFormProps) {
         </div>
       </Group>
 
-      <MultiSelect
+      <TagsInput
         label="Tags"
         placeholder="Sélectionnez ou créez des tags"
-        data={tagOptions}
-        searchable
-        creatable
-        getCreateLabel={(query) => `+ Créer "${query}"`}
+        data={AVAILABLE_TAGS}
+        clearable
         {...form.getInputProps('tags')}
       />
 

@@ -13,6 +13,7 @@ import {
   Switch,
   NumberInput,
   Select,
+  TagsInput,
   MultiSelect,
   Textarea,
 } from '@mantine/core';
@@ -469,15 +470,13 @@ export function UserEditPage() {
                   onChange={(value) => setRegistrationSource(value as RegistrationSource)}
                 />
 
-                <MultiSelect
+                <TagsInput
                   label="Tags"
                   placeholder="Sélectionnez ou créez des tags"
                   data={AVAILABLE_TAGS}
                   value={tags}
                   onChange={setTags}
-                  searchable
-                  creatable
-                  getCreateLabel={(query) => `+ Créer "${query}"`}
+                  clearable
                 />
 
                 <Switch

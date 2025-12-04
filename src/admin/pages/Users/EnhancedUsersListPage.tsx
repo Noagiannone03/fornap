@@ -15,7 +15,7 @@ import {
   Text,
   Stack,
   Pagination,
-  MultiSelect,
+  TagsInput,
   LoadingOverlay,
   Tooltip,
 } from '@mantine/core';
@@ -645,15 +645,13 @@ export function EnhancedUsersListPage() {
               <li>Date de fin d'abonnement</li>
             </ul>
           </Text>
-          <MultiSelect
+          <TagsInput
             label="Tags à ajouter (optionnel)"
             placeholder="Sélectionnez ou créez des tags"
-            data={AVAILABLE_TAGS.map((tag) => ({ value: tag, label: tag }))}
+            data={AVAILABLE_TAGS}
             defaultValue={[]}
             onChange={(value) => { migrationTags = value; }}
-            searchable
-            creatable
-            getCreateLabel={(query) => `+ Créer "${query}"`}
+            clearable
             description="Des tags automatiques seront ajoutés (MIGRATED_FROM_LEGACY, etc.)"
           />
           <Group justify="flex-end">
@@ -853,15 +851,12 @@ export function EnhancedUsersListPage() {
               style={{ flex: 1 }}
             />
 
-            <MultiSelect
+            <TagsInput
               placeholder="Tags"
-              data={AVAILABLE_TAGS.map((tag) => ({ value: tag, label: tag }))}
+              data={AVAILABLE_TAGS}
               value={selectedTags}
               onChange={setSelectedTags}
               clearable
-              searchable
-              creatable
-              getCreateLabel={(query) => `+ Créer "${query}"`}
               style={{ flex: 1 }}
             />
           </Group>

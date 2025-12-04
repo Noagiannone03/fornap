@@ -38,7 +38,11 @@ function createEmailTransporter() {
  * Injecte le pixel de tracking dans le HTML
  */
 function injectTrackingPixel(html: string, campaignId: string, recipientId: string): string {
-  const baseUrl = process.env.VITE_API_URL || '';
+  // Utiliser l'URL complète pour que le pixel fonctionne dans les clients email
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : (process.env.VITE_API_URL || 'https://fornap.vercel.app');
+
   const trackingPixel = `<img src="${baseUrl}/api/campaigns/track/open?campaign=${campaignId}&recipient=${recipientId}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;" />`;
 
   // Injecter le pixel juste avant la fermeture du body
@@ -54,7 +58,9 @@ function injectTrackingPixel(html: string, campaignId: string, recipientId: stri
  * Transforme tous les liens pour le suivi des clics
  */
 function transformLinksForTracking(html: string, campaignId: string, recipientId: string): string {
-  const baseUrl = process.env.VITE_API_URL || '';
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : (process.env.VITE_API_URL || 'https://fornap.vercel.app');
 
   // Regex pour capturer les liens href="..."
   const linkRegex = /href=["']([^"']+)["']/gi;

@@ -68,6 +68,7 @@ import {
 import { CsvImportModal } from '../../components/CsvImportModal';
 import { SendMassiveCardsModal } from '../../components/SendMassiveCardsModal';
 import { TagsManagerModal, type TagConfig } from '../../components/TagsManagerModal';
+import { BulkDeleteModal } from '../../components/users/BulkDeleteModal';
 import {
   getTagsConfig,
   saveTagsConfig,
@@ -332,6 +333,7 @@ export function EnhancedUsersListPage() {
   const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
   const [tagsConfig, setTagsConfig] = useState<TagConfig[]>([]);
   const [tagsManagerOpened, setTagsManagerOpened] = useState(false);
+  const [bulkDeleteModalOpened, setBulkDeleteModalOpened] = useState(false);
 
   const adminUserId = currentUser?.uid || 'system';
 
@@ -808,6 +810,14 @@ export function EnhancedUsersListPage() {
           >
             Gérer les tags
           </Button>
+          <Button
+            leftSection={<IconTrash size={16} />}
+            variant="light"
+            color="red"
+            onClick={() => setBulkDeleteModalOpened(true)}
+          >
+            Suppression en masse
+          </Button>
           <Button leftSection={<IconDownload size={16} />} variant="light" onClick={handleExport}>
             Exporter
           </Button>
@@ -1180,6 +1190,14 @@ export function EnhancedUsersListPage() {
         onClose={() => setTagsManagerOpened(false)}
         onSave={handleSaveTagsConfig}
         initialTags={tagsConfig}
+      />
+
+      {/* Modal de suppression en masse par emails */}
+      <BulkDeleteModal
+        opened={bulkDeleteModalOpened}
+        onClose={() => setBulkDeleteModalOpened(false)}
+        adminUserId={adminUserId}
+        onDeleteComplete={loadUsers}
       />
     </Container>
   );

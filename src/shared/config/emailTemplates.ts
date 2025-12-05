@@ -43,7 +43,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
           <!-- Logo -->
           <tr>
             <td align="center" style="padding: 50px 40px 30px 40px;">
-              <img src="https://ci3.googleusercontent.com/meips/ADKq_Nb47eM3sgbzBIsiYwMtvce15y5GqowlAFLIiyb4PA5acbc5lzsUaaDxqLnrk_-PjDlobUQq7bwWntdXwlznYR0hGXBweQZwqANrQMukdCyriXU=s0-d-e1-ft#https://www.fornap.fr/assets/logo-etendu-fornap-CnmtvHyt.png" alt="FOR+NAP" style="width: 280px; height: auto; display: block; margin: 0 auto;" />
+              <img src="https://www.fornap.fr/assets/logo-etendu-fornap-CnmtvHyt.png" alt="FOR+NAP" style="width: 280px; height: auto; display: block; margin: 0 auto;" />
             </td>
           </tr>
 
@@ -196,7 +196,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
           <!-- Logo -->
           <tr>
             <td align="center" style="padding: 50px 40px 30px 40px;">
-              <img src="https://ci3.googleusercontent.com/meips/ADKq_Nb47eM3sgbzBIsiYwMtvce15y5GqowlAFLIiyb4PA5acbc5lzsUaaDxqLnrk_-PjDlobUQq7bwWntdXwlznYR0hGXBweQZwqANrQMukdCyriXU=s0-d-e1-ft#https://www.fornap.fr/assets/logo-etendu-fornap-CnmtvHyt.png" alt="FOR+NAP" style="width: 280px; height: auto; display: block; margin: 0 auto;" />
+              <img src="https://www.fornap.fr/assets/logo-etendu-fornap-CnmtvHyt.png" alt="FOR+NAP" style="width: 280px; height: auto; display: block; margin: 0 auto;" />
             </td>
           </tr>
 

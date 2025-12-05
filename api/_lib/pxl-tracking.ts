@@ -278,8 +278,54 @@ async function updateCampaignStats(campaignId: string): Promise<void> {
 }
 
 /**
+ * Ajoute le pixel de tracking pour les ouvertures
+ */
+function addOpenTrackingPixel(html: string, campaignId: string, recipientId: string): string {
+  const baseUrl = getBaseUrl();
+  const trackingPixelUrl = `${baseUrl}/api/campaigns/pxl/open?pxl=${recipientId}&campaign=${campaignId}`;
+  const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" alt="" style="display:none" />`;
+
+  // Insérer avant la balise de fermeture </body> si elle existe
+  if (html.includes('</body>')) {
+    return html.replace('</body>', `${trackingPixel}</body>`);
+  }
+
+  // Sinon, ajouter à la fin
+  return html + trackingPixel;
+}
+
+/**
+ * Transforme les liens <a href="..."> pour le tracking des clics
+ * NE touche PAS aux images <img src="...">
+ */
+function addClickTracking(html: string, campaignId: string, recipientId: string): string {
+  const baseUrl = getBaseUrl();
+
+  // Remplacer uniquement les href dans les balises <a>
+  // Cette regex match <a ...href="url"...> mais pas <img src="url">
+  return html.replace(
+    /<a\s+([^>]*?)href=["']([^"']+)["']([^>]*?)>/gi,
+    (match, before, url, after) => {
+      // Ne pas tracker les ancres locales ou les liens mailto/tel
+      if (url.startsWith('#') || url.startsWith('mailto:') || url.startsWith('tel:')) {
+        return match;
+      }
+
+      // Encoder l'URL originale
+      const encodedUrl = encodeURIComponent(url);
+
+      // Créer l'URL de tracking
+      const trackingUrl = `${baseUrl}/api/campaigns/pxl/click?l=${encodedUrl}&pxl=${recipientId}&campaign=${campaignId}`;
+
+      return `<a ${before}href="${trackingUrl}"${after}>`;
+    }
+  );
+}
+
+/**
  * Prépare un email pour le tracking
- * Injecte le pixel de tracking et transforme les liens
+ * Injecte le pixel de tracking et transforme les liens <a href> uniquement
+ * NE transforme PAS les images <img src>
  *
  * @param html - HTML de l'email
  * @param campaignId - ID de la campagne
@@ -294,12 +340,13 @@ export async function prepareEmailWithTracking(
   try {
     console.log(`🔧 [PXL] Préparation email avec tracking - Campaign: ${campaignId}, Recipient: ${recipientId}`);
 
-    // PXL transforme automatiquement le HTML en ajoutant:
-    // - Le pixel de tracking pour les ouvertures
-    // - La transformation des liens pour les clics
-    const trackedHtml = await pxl.addTracking(html, recipientId, campaignId);
+    // 1. Ajouter le tracking des clics (seulement sur les liens <a href>)
+    let trackedHtml = addClickTracking(html, campaignId, recipientId);
 
-    console.log('✅ [PXL] Email préparé avec tracking');
+    // 2. Ajouter le pixel de tracking des ouvertures
+    trackedHtml = addOpenTrackingPixel(trackedHtml, campaignId, recipientId);
+
+    console.log('✅ [PXL] Email préparé avec tracking (liens uniquement, pas les images)');
     return trackedHtml;
   } catch (error) {
     console.error('❌ [PXL] Erreur lors de la préparation du tracking:', error);

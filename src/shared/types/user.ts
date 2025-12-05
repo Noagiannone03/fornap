@@ -8,7 +8,7 @@ import type { ScanMode, ScanResultStatus } from './scan';
 export type MembershipType = 'monthly' | 'annual' | 'lifetime';
 export type MembershipStatus = 'active' | 'expired' | 'pending' | 'cancelled';
 export type PaymentStatus = 'paid' | 'pending' | 'failed';
-export type RegistrationSource = 'platform' | 'admin' | 'transfer' | 'crowdfunding';
+export type RegistrationSource = 'platform' | 'admin' | 'transfer' | 'crowdfunding' | 'adhesion_web';
 export type ProfessionalStatus = 'salaried' | 'independent' | 'student' | 'retired' | 'unemployed';
 export type PreferredContact = 'email' | 'sms' | 'social' | 'app';
 export type PublicProfileLevel = 'none' | 'all' | 'friends_only';
@@ -565,6 +565,7 @@ export const REGISTRATION_SOURCE_LABELS: Record<RegistrationSource, string> = {
   admin: 'Ajout Admin',
   transfer: 'Transfert',
   crowdfunding: 'Crowdfunding',
+  adhesion_web: 'Adhésion Web',
 };
 
 export const ACTION_TYPE_LABELS: Record<ActionType, string> = {

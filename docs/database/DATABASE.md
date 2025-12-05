@@ -75,7 +75,7 @@ The Fornap application primarily uses a single top-level collection named `users
 
 ## Registration Sources
 
-Les utilisateurs peuvent être créés via **4 sources différentes** :
+Les utilisateurs peuvent être créés via **5 sources différentes** :
 
 ### 1. `platform` - Inscription normale
 - **Description** : Utilisateur inscrit via le formulaire d'inscription du site web FORNAP
@@ -100,9 +100,15 @@ Les utilisateurs peuvent être créés via **4 sources différentes** :
 
 **Note** : Seuls les forfaits avec membership créent un compte utilisateur. Les dons libres sont enregistrés uniquement dans la collection `contributions`.
 
-## Registration Sources
+### 5. `adhesion_web` - Adhésion via mini-site
+- **Description** : Utilisateur créé suite à une adhésion directe via le mini-site d'adhésion (`/src/adhesion/`)
+- **Processus** : Mini-site adhésion → Paiement Square ou chèque → Création compte
+- **Champs spécifiques** : `adhesionContributionId` (lien vers la contribution), `ipAddress`, `userAgent`
+- **Tags automatiques** : `['ADHESION', 'NEW_MEMBER']` (+ `['PENDING_PAYMENT']` si paiement par chèque)
 
-Les utilisateurs peuvent être créés via **4 sources différentes**, identifiées par le champ `registration.source` :
+## Champ `registration.source` - Documentation Détaillée
+
+Les utilisateurs peuvent être créés via **5 sources différentes**, identifiées par le champ `registration.source` :
 
 ### 1. `platform` - Inscription Plateforme Web
 
@@ -132,7 +138,7 @@ Les utilisateurs peuvent être créés via **4 sources différentes**, identifi�
     *   `registration.legacyTicketType` : Type de ticket original (ex: "Adhésion annuelle")
 *   **Tags automatiques** : `['MIGRATED_FROM_LEGACY']`
 
-### 4. `crowdfunding` - Contribution Crowdfunding ⭐ NOUVEAU
+### 4. `crowdfunding` - Contribution Crowdfunding
 
 *   **Description** : Utilisateur créé automatiquement suite à une contribution sur la plateforme crowdfunding
 *   **Processus** : Page crowdfunding → Choix forfait → Paiement Square → Création automatique si membership
@@ -141,6 +147,20 @@ Les utilisateurs peuvent être créés via **4 sources différentes**, identifi�
     *   `registration.crowdfundingContributionId` : ID de la contribution dans la collection `contributions`
 *   **Tags automatiques** : `['CROWDFUNDING', 'NEW_MEMBER']`
 *   **Note importante** : Seuls les forfaits avec membership créent un compte. Les dons libres sont enregistrés uniquement dans `contributions`.
+
+### 5. `adhesion_web` - Adhésion via Mini-site ⭐ NOUVEAU
+
+*   **Description** : Utilisateur créé suite à une adhésion directe via le mini-site d'adhésion (`/src/adhesion/`)
+*   **Processus** : Mini-site adhésion → Formulaire complet → Paiement Square ou chèque → Création compte
+*   **Champs spécifiques** :
+    *   `registration.source: 'adhesion_web'`
+    *   `registration.adhesionContributionId` : ID de la contribution dans la collection `contributions`
+    *   `registration.ipAddress` : Adresse IP de l'inscription
+    *   `registration.userAgent` : User agent du navigateur
+*   **Tags automatiques** :
+    *   Paiement CB : `['ADHESION', 'NEW_MEMBER']`
+    *   Paiement chèque : `['ADHESION', 'NEW_MEMBER', 'PENDING_PAYMENT']`
+*   **Particularité** : Contrairement au crowdfunding, le mini-site est dédié exclusivement aux adhésions (mensuelle 2€ ou annuelle 12€)
 
 ### Affichage dans l'admin
 
@@ -152,6 +172,7 @@ Dans la liste des utilisateurs (`EnhancedUsersListPage`), chaque source a une co
 | `admin` | Ajout Admin | 🟣 Violet |
 | `transfer` | Transfert | 🟠 Orange |
 | `crowdfunding` | Crowdfunding | 💗 Rose |
+| `adhesion_web` | Adhésion Web | 🟢 Vert |
 
 ## Data Flow and Operations
 

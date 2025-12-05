@@ -202,6 +202,8 @@ function UserTableRow({
               ? 'violet'
               : user.registrationSource === 'crowdfunding'
               ? 'pink'
+              : user.registrationSource === 'adhesion_web'
+              ? 'green'
               : 'orange'
           }
         >

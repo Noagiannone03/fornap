@@ -18,6 +18,8 @@ import {
   Pagination,
   LoadingOverlay,
   Divider,
+  Textarea,
+  Alert,
 } from '@mantine/core';
 import {
   IconUsers,
@@ -29,6 +31,7 @@ import {
   IconStar,
   IconBriefcase,
   IconSettings,
+  IconMail,
 } from '@tabler/icons-react';
 import type { TargetingMode, TargetingFilters } from '../../../../shared/types/campaign';
 import type { User, MembershipType, MembershipStatus, RegistrationSource } from '../../../../shared/types/user';
@@ -512,6 +515,63 @@ export function UserTargetingSelector({
                       }
                       clearable
                     />
+                  </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
+
+              {/* Filtre par liste d'emails */}
+              <Accordion.Item value="emailWhitelist">
+                <Accordion.Control>
+                  <Group>
+                    <IconMail size={18} />
+                    <Text fw={500}>Filtre par liste d'emails</Text>
+                    {filters.emailWhitelist && filters.emailWhitelist.length > 0 && (
+                      <Badge size="sm">{filters.emailWhitelist.length} emails</Badge>
+                    )}
+                  </Group>
+                </Accordion.Control>
+                <Accordion.Panel>
+                  <Stack gap="md">
+                    <Textarea
+                      label="Liste d'emails autorisés"
+                      description="Entrez une liste d'emails (un par ligne ou séparés par des virgules). Seuls les utilisateurs dont l'email figure dans cette liste seront inclus dans la sélection déjà filtrée."
+                      placeholder="exemple1@gmail.com&#10;exemple2@gmail.com&#10;exemple3@orange.fr"
+                      value={filters.emailWhitelist?.join('\n') || ''}
+                      onChange={(e) => {
+                        const rawText = e.currentTarget.value;
+                        if (!rawText.trim()) {
+                          onFiltersChange({ ...filters, emailWhitelist: undefined });
+                          return;
+                        }
+
+                        // Accepter les emails séparés par des virgules ou des retours à la ligne
+                        const emails = rawText
+                          .split(/[\n,]/) // Split par nouvelle ligne ou virgule
+                          .map((email) => email.trim().toLowerCase()) // Trim et lowercase
+                          .filter((email) => {
+                            // Validation basique d'email
+                            return email.length > 0 && email.includes('@');
+                          });
+
+                        onFiltersChange({
+                          ...filters,
+                          emailWhitelist: emails.length > 0 ? emails : undefined
+                        });
+                      }}
+                      minRows={8}
+                      autosize
+                      maxRows={15}
+                    />
+                    {filters.emailWhitelist && filters.emailWhitelist.length > 0 && (
+                      <Alert color="blue" variant="light">
+                        <Text size="sm">
+                          <strong>{filters.emailWhitelist.length}</strong> email{filters.emailWhitelist.length > 1 ? 's' : ''} dans la liste de filtrage
+                        </Text>
+                        <Text size="xs" mt="xs" c="dimmed">
+                          Seuls les utilisateurs dont l'email apparaît dans cette liste seront inclus (après application des autres filtres).
+                        </Text>
+                      </Alert>
+                    )}
                   </Stack>
                 </Accordion.Panel>
               </Accordion.Item>

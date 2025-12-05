@@ -74,6 +74,9 @@ export interface TargetingFilters {
 
   // Exclusion manuelle d'utilisateurs spécifiques
   excludedUserIds?: string[]; // IDs des utilisateurs à exclure manuellement
+
+  // Filtre par liste d'emails (whitelist)
+  emailWhitelist?: string[]; // Liste d'emails autorisés - ne garde que les users dont l'email est dans cette liste
 }
 
 /**

@@ -340,6 +340,18 @@ function userMatchesFilters(user: User, filters: TargetingFilters): boolean {
     }
   }
 
+  // Filtre par liste d'emails (whitelist)
+  // Si une whitelist est définie, on ne garde que les users dont l'email est dans la liste
+  if (filters.emailWhitelist && filters.emailWhitelist.length > 0) {
+    const userEmailLower = user.email.toLowerCase().trim();
+    const isInWhitelist = filters.emailWhitelist.some(
+      whitelistedEmail => whitelistedEmail.toLowerCase().trim() === userEmailLower
+    );
+    if (!isInWhitelist) {
+      return false;
+    }
+  }
+
   return true;
 }
 

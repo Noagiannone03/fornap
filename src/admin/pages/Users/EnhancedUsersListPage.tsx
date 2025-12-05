@@ -363,6 +363,34 @@ export function EnhancedUsersListPage() {
     try {
       setLoading(true);
       const data = await getAllUsersForListSeparated();
+
+      // Logs pour debug - afficher les données brutes récupérées
+      console.log('=== DONNÉES BRUTES RÉCUPÉRÉES ===');
+      console.log('Nombre de legacy members:', data.legacyMembers.length);
+      console.log('Nombre d\'utilisateurs:', data.users.length);
+
+      // Afficher les 5 premiers utilisateurs s'ils existent (avec tous leurs champs)
+      const usersToLog = Math.min(5, data.users.length);
+      if (usersToLog > 0) {
+        console.log(`\n=== ${usersToLog} PREMIERS UTILISATEURS (données brutes) ===`);
+        for (let i = 0; i < usersToLog; i++) {
+          console.log(`\n--- Utilisateur ${i + 1}/${usersToLog} ---`);
+          console.log(JSON.stringify(data.users[i], null, 2));
+          console.log('Champs disponibles:', Object.keys(data.users[i]));
+        }
+      }
+
+      // Afficher les 5 premiers legacy members s'ils existent
+      const legacyToLog = Math.min(5, data.legacyMembers.length);
+      if (legacyToLog > 0) {
+        console.log(`\n=== ${legacyToLog} PREMIERS LEGACY MEMBERS (données brutes) ===`);
+        for (let i = 0; i < legacyToLog; i++) {
+          console.log(`\n--- Legacy Member ${i + 1}/${legacyToLog} ---`);
+          console.log(JSON.stringify(data.legacyMembers[i], null, 2));
+          console.log('Champs disponibles:', Object.keys(data.legacyMembers[i]));
+        }
+      }
+
       setLegacyMembers(data.legacyMembers);
       setUsers(data.users);
       setFilteredLegacyMembers(data.legacyMembers);
@@ -455,10 +483,18 @@ export function EnhancedUsersListPage() {
           });
           break;
         case 'date_desc':
+          console.log('\n=== TRI PAR DATE (PLUS RÉCENT EN HAUT) ===');
           sorted.sort((a, b) => {
             const dateA = a.createdAt?.toDate?.() || new Date(0);
             const dateB = b.createdAt?.toDate?.() || new Date(0);
             return dateB.getTime() - dateA.getTime();
+          });
+          // Afficher les 10 premiers utilisateurs triés avec leurs dates
+          console.log('10 premiers utilisateurs après tri par date (desc):');
+          sorted.slice(0, 10).forEach((user, index) => {
+            const date = user.createdAt?.toDate?.() || new Date(0);
+            console.log(`${index + 1}. ${user.firstName} ${user.lastName} - Date: ${date.toLocaleString('fr-FR')} - Timestamp: ${date.getTime()}`);
+            console.log(`   createdAt brut:`, user.createdAt);
           });
           break;
         case 'points_asc':

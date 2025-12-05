@@ -2,19 +2,14 @@ import { db } from '../../shared/config/firebase';
 import { doc, setDoc, Timestamp, collection } from 'firebase/firestore';
 
 export interface CsvRow {
-  horodateur?: string;
-  initiateur?: string;
+  // Champs du fichier XLSX
+  inscription: string; // Date d'inscription (ex: "12/12/2024 17:05:37")
   nom: string;
   prenom: string;
-  dateNaissance?: string;
+  dateNaissance?: string; // Date de naissance (ex: "10/12/1998")
   codePostal?: string;
   email: string;
   telephone?: string;
-  engagements?: string;
-  envoiBilleterie?: string;
-  regle?: string;
-  homme?: string;
-  femme?: string;
 }
 
 export interface ImportResult {
@@ -34,7 +29,8 @@ export interface ImportResult {
 }
 
 /**
- * Parse une ligne CSV et mappe les colonnes aux champs attendus
+ * Parse une ligne CSV/XLSX et mappe les colonnes aux champs attendus
+ * Champs du fichier XLSX: INSCRIPTION, NOM, PRENOM, DATE DE NAISSANCE, CODE POSTAL, ADRESSE EMAIL, NUMERO DE TELEPHONE
  * IMPORTANT: Ne pas écraser une valeur déjà trouvée (priorité à la première occurrence)
  */
 function parseCsvRow(headers: string[], values: string[], isFirstRow: boolean = false): CsvRow | null {
@@ -44,45 +40,36 @@ function parseCsvRow(headers: string[], values: string[], isFirstRow: boolean = 
     const value = values[index]?.trim();
     const lowerHeader = header.toLowerCase();
 
-    // Mapping des colonnes - NE PAS ÉCRASER si déjà trouvé
-    if (!row.nom && lowerHeader.includes('nom') && !lowerHeader.includes('prénom') && lowerHeader.includes('?')) {
+    // Mapping des colonnes selon le format XLSX fourni
+    if (!row.inscription && lowerHeader.includes('inscription')) {
+      row.inscription = value;
+      if (isFirstRow) console.log(`✓ Inscription trouvée dans colonne "${header}"`);
+    } else if (!row.nom && lowerHeader.includes('nom') && !lowerHeader.includes('prenom') && !lowerHeader.includes('prénom')) {
       row.nom = value;
       if (isFirstRow) console.log(`✓ Nom trouvé dans colonne "${header}"`);
-    } else if (!row.prenom && lowerHeader.includes('prénom') && lowerHeader.includes('?')) {
+    } else if (!row.prenom && (lowerHeader.includes('prenom') || lowerHeader.includes('prénom'))) {
       row.prenom = value;
       if (isFirstRow) console.log(`✓ Prénom trouvé dans colonne "${header}"`);
-    } else if (!row.email && (lowerHeader.includes('adresse') || lowerHeader.includes('e-mail')) && lowerHeader.includes('?')) {
-      // Priorité aux colonnes avec "Adresse email ?" (avec ?)
-      row.email = value;
-      if (isFirstRow) console.log(`✓ Email trouvé dans colonne "${header}"`);
-    } else if (!row.telephone && (lowerHeader.includes('téléphone') || lowerHeader.includes('telephone') || lowerHeader.includes('phone') || lowerHeader.includes('numéro')) && lowerHeader.includes('?')) {
-      row.telephone = value;
-      if (isFirstRow) console.log(`✓ Téléphone trouvé dans colonne "${header}"`);
-    } else if (!row.dateNaissance && lowerHeader.includes('naissance') && lowerHeader.includes('?')) {
+    } else if (!row.dateNaissance && lowerHeader.includes('naissance')) {
       row.dateNaissance = value;
       if (isFirstRow) console.log(`✓ Date de naissance trouvée dans colonne "${header}"`);
-    } else if (!row.codePostal && (lowerHeader.includes('code postal') || lowerHeader.includes('postal')) && lowerHeader.includes('?')) {
+    } else if (!row.codePostal && (lowerHeader.includes('code postal') || lowerHeader.includes('postal'))) {
       row.codePostal = value;
       if (isFirstRow) console.log(`✓ Code postal trouvé dans colonne "${header}"`);
-    } else if (!row.horodateur && (lowerHeader.includes('horodateur') || lowerHeader === 'horodateur')) {
-      row.horodateur = value;
-      if (isFirstRow) console.log(`✓ Horodateur trouvé dans colonne "${header}"`);
-    } else if (!row.initiateur && lowerHeader.includes('initié')) {
-      row.initiateur = value;
-      if (isFirstRow) console.log(`✓ Initiateur trouvé dans colonne "${header}"`);
-    } else if (!row.homme && lowerHeader === 'homme') {
-      row.homme = value;
-      if (isFirstRow) console.log(`✓ Homme trouvé dans colonne "${header}"`);
-    } else if (!row.femme && lowerHeader === 'femme') {
-      row.femme = value;
-      if (isFirstRow) console.log(`✓ Femme trouvé dans colonne "${header}"`);
+    } else if (!row.email && (lowerHeader.includes('email') || lowerHeader.includes('e-mail') || lowerHeader.includes('adresse email'))) {
+      row.email = value;
+      if (isFirstRow) console.log(`✓ Email trouvé dans colonne "${header}"`);
+    } else if (!row.telephone && (lowerHeader.includes('telephone') || lowerHeader.includes('téléphone') || lowerHeader.includes('numero'))) {
+      row.telephone = value;
+      if (isFirstRow) console.log(`✓ Téléphone trouvé dans colonne "${header}"`);
     }
   });
 
-  // Validation minimale: nom, prénom et email sont requis
-  if (!row.nom || !row.prenom || !row.email) {
+  // Validation minimale: inscription, nom, prénom et email sont requis
+  if (!row.inscription || !row.nom || !row.prenom || !row.email) {
     if (isFirstRow) {
       console.log('❌ Ligne rejetée - Champs manquants:', {
+        inscription: row.inscription ? '✓' : '✗',
         nom: row.nom ? '✓' : '✗',
         prenom: row.prenom ? '✓' : '✗',
         email: row.email ? '✓' : '✗',
@@ -116,15 +103,15 @@ function parseFrenchDate(dateStr: string): string | undefined {
 }
 
 /**
- * Parse l'horodateur au format américain (MM/DD/YYYY HH:MM:SS)
- * Exemple: "12/29/2024 4:15:12"
+ * Parse la date d'inscription au format américain (MM/DD/YYYY HH:MM:SS)
+ * Exemple: "12/12/2024 17:05:37"
  */
-function parseHorodateur(horodateurStr: string): Timestamp | null {
-  if (!horodateurStr) return null;
+function parseInscriptionDate(inscriptionStr: string): Timestamp | null {
+  if (!inscriptionStr) return null;
 
   try {
     // Format: MM/DD/YYYY HH:MM:SS
-    const [datePart, timePart] = horodateurStr.split(' ');
+    const [datePart, timePart] = inscriptionStr.split(' ');
 
     if (!datePart) return null;
 
@@ -149,14 +136,15 @@ function parseHorodateur(horodateurStr: string): Timestamp | null {
 
     return Timestamp.fromDate(date);
   } catch (e) {
-    console.error('Error parsing horodateur:', horodateurStr, e);
+    console.error('Error parsing inscription date:', inscriptionStr, e);
     return null;
   }
 }
 
 /**
- * Crée un document utilisateur dans Firestore depuis les données CSV
- * L'utilisateur devra créer son compte Authentication lui-même
+ * Crée un document utilisateur dans Firestore depuis les données XLSX
+ * IMPORTANT: Tous les utilisateurs ont un abonnement ANNUAL à 12€
+ * IMPORTANT: La date d'expiration est TOUJOURS calculée (1 an après l'inscription)
  */
 async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void> {
   const email = row.email.toLowerCase().trim();
@@ -164,51 +152,58 @@ async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void
   // Générer un UID unique avec Firestore (au lieu d'utiliser Firebase Auth)
   const uid = doc(collection(db, 'users')).id;
 
-  // Préparer les données utilisateur
-  // Utiliser l'horodateur du CSV s'il existe, sinon utiliser la date actuelle
-  const creationTimestamp = row.horodateur ? parseHorodateur(row.horodateur) : null;
-  const createdAt = creationTimestamp || Timestamp.now();
+  // Parser la date d'inscription depuis le champ INSCRIPTION
+  const inscriptionTimestamp = parseInscriptionDate(row.inscription);
+  const createdAt = inscriptionTimestamp || Timestamp.now();
 
-  const dateOfBirth = row.dateNaissance ? parseFrenchDate(row.dateNaissance) : undefined;
+  // Parser la date de naissance (format français: DD/MM/YYYY ou D/M/YYYY)
+  const birthDateString = row.dateNaissance ? parseFrenchDate(row.dateNaissance) : undefined;
+  const birthDate = birthDateString ? Timestamp.fromDate(new Date(birthDateString)) : undefined;
 
-  // Calculer la date de fin d'adhésion (1 an à partir de la date de création)
+  // ⚠️ IMPORTANT: Calculer la date d'expiration (1 an après l'inscription)
   const startDate = createdAt;
-  const endDate = createdAt.toDate();
-  endDate.setFullYear(endDate.getFullYear() + 1);
+  const expiryDate = new Date(createdAt.toDate());
+  expiryDate.setFullYear(expiryDate.getFullYear() + 1);
 
+  // ⚠️ IMPORTANT: Tous les utilisateurs ont un abonnement ANNUAL à 12€
   const userData = {
     uid,
     email,
     firstName: row.prenom.trim(),
     lastName: row.nom.trim(),
-    dateOfBirth,
-    phone: row.telephone || undefined,
-    postalCode: row.codePostal || undefined,
+    postalCode: row.codePostal || '',
+    birthDate: birthDate || Timestamp.now(), // Si pas de date de naissance, mettre date actuelle
+    phone: row.telephone || '',
 
-    // Membership
+    // Statut et métadonnées
+    status: {
+      tags: ['XLSX_IMPORT', 'NEW_MEMBER'],
+      isAccountBlocked: false,
+      isCardBlocked: false,
+    },
+
+    // Origine du compte
+    registration: {
+      source: 'admin' as const,
+      createdBy: adminUserId,
+      createdAt: createdAt,
+    },
+
+    // ⚠️ Abonnement actuel - ANNUAL, 12€, expiration calculée
     currentMembership: {
-      type: 'annual',
-      status: 'active',
+      planId: 'adhesion_annual_12eur',
+      planName: 'Adhésion annuelle 12€',
+      planType: 'annual' as const,
+      status: 'active' as const,
+      paymentStatus: 'paid' as const,
       startDate: startDate,
-      endDate: Timestamp.fromDate(endDate),
+      expiryDate: Timestamp.fromDate(expiryDate), // ⚠️ NE JAMAIS mettre null pour annual
+      price: 12, // ⚠️ Prix: 12€
       autoRenew: false,
     },
 
-    // Loyalty
-    loyalty: {
-      points: 0,
-      tier: 'bronze',
-      lifetimePoints: 0,
-    },
-
-    // Status
-    status: {
-      tags: ['CSV_IMPORT', 'NEW_MEMBER'],
-      isAccountBlocked: false,
-      isCardBlocked: false,
-      accountBlockedReason: null,
-      cardBlockedReason: null,
-    },
+    // Points de fidélité
+    loyaltyPoints: 0,
 
     // Email Status - PAS encore envoyée
     emailStatus: {
@@ -217,20 +212,11 @@ async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void
       membershipCardSentAt: null,
     },
 
-    // Registration info
-    registration: {
-      source: 'admin',
-      createdBy: adminUserId,
-      createdAt: createdAt,
-      ipAddress: null,
-      userAgent: null,
-    },
-
     // QR Code
     qrCode: `FORNAP-MEMBER:${uid}`,
 
     // Timestamps
-    createdAt: createdAt,
+    createdAt: createdAt, // Date d'inscription originale
     updatedAt: Timestamp.now(), // Date actuelle de l'import
   };
 
@@ -240,25 +226,26 @@ async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void
   // Créer les sous-collections
   // 1. membershipHistory
   await setDoc(doc(db, 'users', uid, 'membershipHistory', createdAt.toMillis().toString()), {
-    type: 'annual',
+    id: createdAt.toMillis().toString(),
+    planId: 'adhesion_annual_12eur',
+    planName: 'Adhésion annuelle 12€',
+    planType: 'annual',
     status: 'active',
     startDate: startDate,
-    endDate: Timestamp.fromDate(endDate),
-    createdAt: createdAt,
-    createdBy: adminUserId,
-    reason: 'Import CSV - Adhésion initiale',
+    endDate: Timestamp.fromDate(expiryDate),
+    price: 12,
+    isRenewal: false,
   });
 
   // 2. actionHistory
   await setDoc(doc(db, 'users', uid, 'actionHistory', createdAt.toMillis().toString()), {
-    type: 'account_created',
-    performedBy: adminUserId,
-    timestamp: createdAt,
+    id: createdAt.toMillis().toString(),
+    actionType: 'membership_created',
     details: {
-      source: 'csv_import',
-      reason: 'Compte créé via import CSV',
-      originalHorodateur: row.horodateur || 'Non disponible',
+      reason: 'Import XLSX - Adhésion annuelle 12€',
+      originalInscriptionDate: row.inscription,
     },
+    timestamp: createdAt,
   });
 }
 

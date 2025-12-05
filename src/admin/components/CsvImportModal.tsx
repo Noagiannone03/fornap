@@ -22,6 +22,7 @@ import {
 } from '@tabler/icons-react';
 import { importUsersFromCsv } from '../services/csvImportService';
 import type { ImportResult } from '../services/csvImportService';
+import * as XLSX from 'xlsx';
 
 interface CsvImportModalProps {
   opened: boolean;
@@ -52,7 +53,27 @@ export function CsvImportModal({
     setResult(null);
 
     try {
-      const csvContent = await file.text();
+      let csvContent: string;
+
+      // Vérifier si c'est un fichier XLSX ou CSV
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+      if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        // Parser le fichier XLSX
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+
+        // Prendre la première feuille
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        // Convertir en CSV avec tabulation comme séparateur
+        csvContent = XLSX.utils.sheet_to_csv(worksheet, { FS: '\t' });
+      } else {
+        // C'est un fichier CSV classique
+        csvContent = await file.text();
+      }
+
       const importResult = await importUsersFromCsv(csvContent, adminUserId);
       setResult(importResult);
 
@@ -87,13 +108,37 @@ export function CsvImportModal({
       <Stack gap="md">
         <Alert icon={<IconAlertCircle size={16} />} color="blue" variant="light">
           <Text size="sm">
-            <strong>Format attendu:</strong> Fichier CSV (le séparateur est détecté automatiquement)
+            <strong>Format attendu:</strong> Fichier CSV ou XLSX (le séparateur est détecté automatiquement)
           </Text>
-          <Text size="xs" mt="xs">
-            Colonnes requises: Nom, Prénom, Email
+          <Text size="xs" mt="xs" fw={600}>
+            Colonnes requises:
           </Text>
-          <Text size="xs">
-            Colonnes optionnelles: Téléphone, Date de naissance, Code postal, Horodateur
+          <Text size="xs" ml="md">
+            • INSCRIPTION (date d'inscription, format: MM/DD/YYYY HH:MM:SS)
+          </Text>
+          <Text size="xs" ml="md">
+            • NOM
+          </Text>
+          <Text size="xs" ml="md">
+            • PRENOM
+          </Text>
+          <Text size="xs" ml="md">
+            • ADRESSE EMAIL
+          </Text>
+          <Text size="xs" mt="xs" fw={600}>
+            Colonnes optionnelles:
+          </Text>
+          <Text size="xs" ml="md">
+            • DATE DE NAISSANCE (format: DD/MM/YYYY)
+          </Text>
+          <Text size="xs" ml="md">
+            • CODE POSTAL
+          </Text>
+          <Text size="xs" ml="md">
+            • NUMERO DE TELEPHONE
+          </Text>
+          <Text size="xs" mt="xs" c="orange" fw={500}>
+            ⚠️ Tous les utilisateurs importés auront un abonnement ANNUAL à 12€, valable 1 an à partir de leur date d'inscription.
           </Text>
         </Alert>
 
@@ -116,10 +161,10 @@ export function CsvImportModal({
                 </Group>
 
                 <Group justify="space-between">
-                  <FileButton onChange={handleFileSelect} accept=".csv,.tsv,text/csv,text/tab-separated-values">
+                  <FileButton onChange={handleFileSelect} accept=".csv,.tsv,.xlsx,.xls,text/csv,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
                     {(props) => (
                       <Button {...props} leftSection={<IconUpload size={16} />} variant="light">
-                        Choisir un fichier
+                        Choisir un fichier CSV/XLSX
                       </Button>
                     )}
                   </FileButton>

@@ -63,16 +63,16 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
             position: 'relative',
             right: opened ? '0' : '-10px',
             background: 'linear-gradient(135deg, var(--mantine-color-indigo-6), var(--mantine-color-violet-6))',
-            borderRadius: '12px 0 0 12px',
-            padding: isMobile ? '20px 10px' : '24px 12px',
+            borderRadius: '8px 0 0 8px',
+            padding: isMobile ? '16px 8px' : '18px 10px',
             cursor: 'pointer',
             boxShadow: '-4px 4px 20px rgba(99, 102, 241, 0.4)',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '8px',
-            minHeight: '140px',
+            gap: '6px',
+            minHeight: isMobile ? '100px' : '110px',
             justifyContent: 'center',
           }}
         >
@@ -83,7 +83,7 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
               transform: opened ? 'rotate(180deg)' : 'rotate(0deg)',
             }}
           >
-            <IconBrain size={isMobile ? 24 : 28} color="white" stroke={2} />
+            <IconBrain size={isMobile ? 20 : 22} color="white" stroke={2} />
           </div>
 
           {/* Texte vertical */}
@@ -92,14 +92,14 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
               writingMode: 'vertical-rl',
               textOrientation: 'mixed',
               color: 'white',
-              fontWeight: 700,
-              fontSize: isMobile ? '12px' : '14px',
-              letterSpacing: '1.5px',
+              fontWeight: 600,
+              fontSize: isMobile ? '10px' : '11px',
+              letterSpacing: '1.2px',
               textTransform: 'uppercase',
-              marginTop: '4px',
+              marginTop: '2px',
             }}
           >
-            {opened ? 'Fermer' : 'Assistant IA'}
+            {opened ? 'Fermer' : 'IA'}
           </div>
 
           {/* Pulse animation */}

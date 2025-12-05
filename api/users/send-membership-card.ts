@@ -412,6 +412,20 @@ async function markEmailAsSent(userId: string, isResend: boolean): Promise<void>
  * Handler principal de l'API
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Gérer les requêtes CORS preflight (OPTIONS)
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Max-Age', '86400'); // 24 heures
+    return res.status(200).end();
+  }
+
+  // Ajouter les headers CORS pour toutes les requêtes
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   // Méthode autorisée: POST uniquement
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });

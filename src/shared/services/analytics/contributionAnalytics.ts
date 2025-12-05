@@ -415,6 +415,37 @@ export async function getRecentContributions(limitCount: number = 10): Promise<R
 }
 
 /**
+ * Récupère les dernières contributions récentes avec toutes les données
+ */
+export async function getRecentContributionsFullData(limitCount: number = 10): Promise<Contribution[]> {
+  try {
+    const contributionsRef = collection(db, CONTRIBUTIONS_COLLECTION);
+    const q = query(
+      contributionsRef,
+      where('paymentStatus', '==', 'completed'),
+      orderBy('paidAt', 'desc'),
+      limit(limitCount)
+    );
+
+    const snapshot = await getDocs(q);
+
+    const contributions: Contribution[] = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      contributions.push({
+        id: doc.id,
+        ...data,
+      } as Contribution);
+    });
+
+    return contributions;
+  } catch (error) {
+    console.error('Error getting recent contributions with full data:', error);
+    throw error;
+  }
+}
+
+/**
  * Exporte les contributions au format CSV
  */
 export async function exportContributionsCSV(

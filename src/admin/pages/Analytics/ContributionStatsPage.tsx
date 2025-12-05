@@ -28,6 +28,7 @@ import {
   IconGift,
   IconCreditCard,
   IconRefresh,
+  IconEye,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { KPICard } from '../../components/analytics/stats/KPICard';
@@ -41,6 +42,7 @@ import {
   getContributionGeographicData,
   getContributorDemographics,
   getRecentContributions,
+  getRecentContributionsFullData,
   exportContributionsCSV,
 } from '../../../shared/services/analytics/contributionAnalytics';
 import type {
@@ -50,7 +52,9 @@ import type {
   ContributionGeographicData,
   ContributorDemographics,
   RecentContribution,
+  Contribution,
 } from '../../../shared/types/contribution';
+import { ContributorDetailModal } from './ContributorDetailModal';
 
 export function ContributionStatsPage() {
   const [loading, setLoading] = useState(true);
@@ -60,8 +64,10 @@ export function ContributionStatsPage() {
   const [itemStats, setItemStats] = useState<ItemStatistics[]>([]);
   const [geoData, setGeoData] = useState<ContributionGeographicData | null>(null);
   const [demographics, setDemographics] = useState<ContributorDemographics | null>(null);
-  const [recentContributions, setRecentContributions] = useState<RecentContribution[]>([]);
+  const [recentContributions, setRecentContributions] = useState<Contribution[]>([]);
   const [exportLoading, setExportLoading] = useState(false);
+  const [modalOpened, setModalOpened] = useState(false);
+  const [selectedContribution, setSelectedContribution] = useState<Contribution | null>(null);
 
   useEffect(() => {
     loadData();
@@ -84,7 +90,7 @@ export function ContributionStatsPage() {
         getItemStatistics(),
         getContributionGeographicData(),
         getContributorDemographics(),
-        getRecentContributions(10),
+        getRecentContributionsFullData(10),
       ]);
 
       setKpis(kpisData);
@@ -144,6 +150,11 @@ export function ContributionStatsPage() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const handleViewDetails = (contribution: Contribution) => {
+    setSelectedContribution(contribution);
+    setModalOpened(true);
   };
 
   // Préparer les données pour les graphiques
@@ -394,13 +405,14 @@ export function ContributionStatsPage() {
         <Stack gap="sm">
           {recentContributions.map((contrib) => {
             const isDonation = contrib.type === 'donation';
+            const contributorName = `${contrib.contributor?.prenom || ''} ${contrib.contributor?.nom || ''}`.trim();
             return (
               <Card key={contrib.id} withBorder shadow="xs">
-                <Group justify="space-between">
-                  <div>
+                <Group justify="space-between" wrap="nowrap">
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <Group gap="xs">
                       <Text fw={500} size="sm">
-                        {contrib.contributorPseudo}
+                        {contrib.contributor.pseudo}
                       </Text>
                       <Badge
                         size="xs"
@@ -416,20 +428,32 @@ export function ContributionStatsPage() {
                       )}
                     </Group>
                     <Text size="xs" c="dimmed">
-                      {contrib.contributorName} • {contrib.contributorEmail}
+                      {contributorName} • {contrib.contributor.email}
                     </Text>
                     <Text size="xs" c="dimmed" fw={500}>
                       {contrib.itemName}
                     </Text>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <Text fw={700} size="lg" c="green">
-                      {contrib.amount.toFixed(2)}€
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {formatDate(contrib.paidAt)}
-                    </Text>
-                  </div>
+                  <Group gap="xs" wrap="nowrap">
+                    <div style={{ textAlign: 'right' }}>
+                      <Text fw={700} size="lg" c="green">
+                        {contrib.amount.toFixed(2)}€
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {formatDate(contrib.paidAt)}
+                      </Text>
+                    </div>
+                    <Tooltip label="Voir tous les détails">
+                      <ActionIcon
+                        variant="light"
+                        color="blue"
+                        size="lg"
+                        onClick={() => handleViewDetails(contrib)}
+                      >
+                        <IconEye size={18} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
                 </Group>
               </Card>
             );
@@ -437,6 +461,12 @@ export function ContributionStatsPage() {
         </Stack>
       </Paper>
 
+      {/* Modal pour voir les détails d'une contribution */}
+      <ContributorDetailModal
+        opened={modalOpened}
+        onClose={() => setModalOpened(false)}
+        contribution={selectedContribution}
+      />
     </Container>
   );
 }

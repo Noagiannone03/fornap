@@ -46,6 +46,8 @@ import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 import { Timestamp } from 'firebase/firestore';
 import { UserTargetingSelector, EmailEditorModal } from './components';
 import type { EmailEditorModalHandle } from './components';
+import { EMAIL_TEMPLATES } from '../../../shared/config/emailTemplates';
+import type { EmailTemplate } from '../../../shared/config/emailTemplates';
 
 export function CampaignEditPage() {
   const { campaignId } = useParams<{ campaignId: string }>();
@@ -76,7 +78,8 @@ export function CampaignEditPage() {
   const [estimatedCount, setEstimatedCount] = useState(0);
 
   // Étape 3: Contenu email
-  const [emailType, setEmailType] = useState<'html' | 'design'>('design');
+  const [emailType, setEmailType] = useState<'template' | 'html' | 'design'>('template');
+  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [emailDesign, setEmailDesign] = useState<any>(null);
   const [emailHtml, setEmailHtml] = useState('');
   const [emailBody, setEmailBody] = useState('');
@@ -137,8 +140,16 @@ export function CampaignEditPage() {
       setEmailDesign(campaign.content.design);
       setEmailHtml(campaign.content.html);
 
-      // Détecter si c'est un email simple ou design
-      if (!campaign.content.design && campaign.content.html) {
+      // Détecter si c'est un template
+      if (campaign.content.templateId) {
+        const template = EMAIL_TEMPLATES.find(t => t.id === campaign.content.templateId);
+        if (template) {
+          setEmailType('template');
+          setSelectedTemplate(template);
+        } else {
+          setEmailType('design');
+        }
+      } else if (!campaign.content.design && campaign.content.html) {
         // Essayer d'extraire le corps simple si c'est un email basique
         const match = campaign.content.html.match(/<div[^>]*>([\s\S]*?)<\/div>/);
         if (match) {

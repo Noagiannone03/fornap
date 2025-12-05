@@ -41,7 +41,6 @@ import {
   getItemStatistics,
   getContributionGeographicData,
   getContributorDemographics,
-  getRecentContributions,
   getRecentContributionsFullData,
   exportContributionsCSV,
 } from '../../../shared/services/analytics/contributionAnalytics';
@@ -51,7 +50,6 @@ import type {
   ItemStatistics,
   ContributionGeographicData,
   ContributorDemographics,
-  RecentContribution,
   Contribution,
 } from '../../../shared/types/contribution';
 import { ContributorDetailModal } from './ContributorDetailModal';

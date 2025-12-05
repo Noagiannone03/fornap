@@ -78,8 +78,7 @@ export function CampaignEditPage() {
   const [estimatedCount, setEstimatedCount] = useState(0);
 
   // Étape 3: Contenu email
-  const [emailType, setEmailType] = useState<'template' | 'html' | 'design'>('template');
-  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+  const [emailType, setEmailType] = useState<'template' | 'html' | 'design'>('design');
   const [emailDesign, setEmailDesign] = useState<any>(null);
   const [emailHtml, setEmailHtml] = useState('');
   const [emailBody, setEmailBody] = useState('');
@@ -140,16 +139,8 @@ export function CampaignEditPage() {
       setEmailDesign(campaign.content.design);
       setEmailHtml(campaign.content.html);
 
-      // Détecter si c'est un template
-      if (campaign.content.templateId) {
-        const template = EMAIL_TEMPLATES.find(t => t.id === campaign.content.templateId);
-        if (template) {
-          setEmailType('template');
-          setSelectedTemplate(template);
-        } else {
-          setEmailType('design');
-        }
-      } else if (!campaign.content.design && campaign.content.html) {
+      // Détecter le type d'email
+      if (!campaign.content.design && campaign.content.html) {
         // Essayer d'extraire le corps simple si c'est un email basique
         const match = campaign.content.html.match(/<div[^>]*>([\s\S]*?)<\/div>/);
         if (match) {

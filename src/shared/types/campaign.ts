@@ -102,6 +102,9 @@ export interface EmailContent {
   subject: string;
   preheader?: string; // Texte de prévisualisation
 
+  // Template prédéfini (optionnel)
+  templateId?: string; // ID du template utilisé (ex: 'membership_card', 'error_invalid_card')
+
   // Design Unlayer
   design?: any; // JSON du design Unlayer (optionnel pour les emails HTML simples)
   html: string; // HTML généré

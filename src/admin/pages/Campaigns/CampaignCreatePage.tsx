@@ -39,6 +39,8 @@ import { createCampaign } from '../../../shared/services/campaignService';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 import { UserTargetingSelector, EmailEditorModal } from './components';
 import type { EmailEditorModalHandle } from './components';
+import { EMAIL_TEMPLATES } from '../../../shared/config/emailTemplates';
+import type { EmailTemplate } from '../../../shared/config/emailTemplates';
 
 export function CampaignCreatePage() {
   const navigate = useNavigate();
@@ -64,7 +66,8 @@ export function CampaignCreatePage() {
   const [estimatedCount, setEstimatedCount] = useState(0);
 
   // Étape 3: Contenu email
-  const [emailType, setEmailType] = useState<'html' | 'design'>('design');
+  const [emailType, setEmailType] = useState<'template' | 'html' | 'design'>('template');
+  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [emailDesign, setEmailDesign] = useState<any>(null);
   const [emailHtml, setEmailHtml] = useState('');
   const [emailBody, setEmailBody] = useState('');
@@ -102,7 +105,16 @@ export function CampaignCreatePage() {
         return;
       }
     } else if (active === 2) {
-      if (emailType === 'html') {
+      if (emailType === 'template') {
+        if (!selectedTemplate) {
+          notifications.show({
+            title: 'Erreur',
+            message: 'Veuillez sélectionner un template d\'email.',
+            color: 'red',
+          });
+          return;
+        }
+      } else if (emailType === 'html') {
         if (!subject.trim() || !emailBody.trim()) {
           notifications.show({
             title: 'Erreur',
@@ -158,9 +170,17 @@ export function CampaignCreatePage() {
     try {
       setLoading(true);
 
-      // Générer le HTML pour l'email simple si nécessaire
+      // Générer le HTML pour l'email
       let finalHtml = emailHtml;
-      if (emailType === 'html' && emailBody) {
+      let finalSubject = subject;
+      let finalPreheader = preheader;
+
+      if (emailType === 'template' && selectedTemplate) {
+        // Utiliser le template sélectionné
+        finalHtml = selectedTemplate.html;
+        finalSubject = selectedTemplate.subject;
+        finalPreheader = selectedTemplate.preheader || '';
+      } else if (emailType === 'html' && emailBody) {
         // Convertir le texte simple en HTML basique
         const bodyWithBreaks = emailBody.replace(/\n/g, '<br>');
         finalHtml = `
@@ -182,7 +202,7 @@ export function CampaignCreatePage() {
       // Note: fromName, fromEmail et replyTo sont maintenant gérés automatiquement par l'API
       // (toujours no-reply@fornap.fr)
       const content: any = {
-        subject,
+        subject: finalSubject,
         html: finalHtml,
         fromName: 'FOR+NAP Social Club',
         fromEmail: 'no-reply@fornap.fr',
@@ -190,8 +210,13 @@ export function CampaignCreatePage() {
       };
 
       // Ajouter preheader seulement s'il est défini
-      if (preheader && preheader.trim()) {
-        content.preheader = preheader;
+      if (finalPreheader && finalPreheader.trim()) {
+        content.preheader = finalPreheader;
+      }
+
+      // Ajouter le template ID si un template est utilisé
+      if (emailType === 'template' && selectedTemplate) {
+        content.templateId = selectedTemplate.id;
       }
 
       // ⚠️ Ne PAS sauvegarder le design dans Firestore car il contient des entités imbriquées complexes
@@ -454,13 +479,36 @@ export function CampaignCreatePage() {
             </Text>
           </div>
 
-          {(emailType === 'html' && !emailBody) || (emailType === 'design' && !emailHtml) ? (
+          {(emailType === 'template' && !selectedTemplate) || (emailType === 'html' && !emailBody) || (emailType === 'design' && !emailHtml) ? (
             <Card withBorder p="lg">
               <Stack gap="md">
                 <Text fw={600}>Choisissez le type d'email</Text>
 
                 <Grid>
-                  <Grid.Col span={6}>
+                  <Grid.Col span={4}>
+                    <Card
+                      withBorder
+                      p="lg"
+                      style={{
+                        cursor: 'pointer',
+                        border: emailType === 'template' ? '2px solid var(--mantine-color-green-6)' : undefined,
+                        backgroundColor: emailType === 'template' ? 'var(--mantine-color-green-0)' : undefined,
+                      }}
+                      onClick={() => setEmailType('template')}
+                    >
+                      <Stack gap="md" align="center">
+                        <ThemeIcon size={48} radius="xl" variant="light" color="green">
+                          <IconFileText size={24} />
+                        </ThemeIcon>
+                        <Text fw={600} ta="center">Template prédéfini</Text>
+                        <Text size="sm" c="dimmed" ta="center">
+                          Utilisez un template FOR+NAP prêt à l'emploi
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+
+                  <Grid.Col span={4}>
                     <Card
                       withBorder
                       p="lg"
@@ -483,19 +531,19 @@ export function CampaignCreatePage() {
                     </Card>
                   </Grid.Col>
 
-                  <Grid.Col span={6}>
+                  <Grid.Col span={4}>
                     <Card
                       withBorder
                       p="lg"
                       style={{
                         cursor: 'pointer',
-                        border: emailType === 'design' ? '2px solid var(--mantine-color-green-6)' : undefined,
-                        backgroundColor: emailType === 'design' ? 'var(--mantine-color-green-0)' : undefined,
+                        border: emailType === 'design' ? '2px solid var(--mantine-color-orange-6)' : undefined,
+                        backgroundColor: emailType === 'design' ? 'var(--mantine-color-orange-0)' : undefined,
                       }}
                       onClick={() => setEmailType('design')}
                     >
                       <Stack gap="md" align="center">
-                        <ThemeIcon size={48} radius="xl" variant="light" color="green">
+                        <ThemeIcon size={48} radius="xl" variant="light" color="orange">
                           <IconPalette size={24} />
                         </ThemeIcon>
                         <Text fw={600} ta="center">Éditeur visuel</Text>
@@ -506,6 +554,57 @@ export function CampaignCreatePage() {
                     </Card>
                   </Grid.Col>
                 </Grid>
+
+                {emailType === 'template' && (
+                  <Stack gap="md" mt="lg">
+                    <Text fw={600}>Sélectionnez un template</Text>
+                    <Grid>
+                      {EMAIL_TEMPLATES.map((template) => (
+                        <Grid.Col key={template.id} span={6}>
+                          <Card
+                            withBorder
+                            p="md"
+                            style={{
+                              cursor: 'pointer',
+                              border: selectedTemplate?.id === template.id ? '2px solid var(--mantine-color-green-6)' : undefined,
+                              backgroundColor: selectedTemplate?.id === template.id ? 'var(--mantine-color-green-0)' : undefined,
+                            }}
+                            onClick={() => setSelectedTemplate(template)}
+                          >
+                            <Stack gap="xs">
+                              <Group justify="space-between">
+                                <Badge
+                                  color={
+                                    template.category === 'membership' ? 'blue' :
+                                    template.category === 'error' ? 'red' :
+                                    template.category === 'event' ? 'orange' :
+                                    'gray'
+                                  }
+                                  size="sm"
+                                >
+                                  {template.category}
+                                </Badge>
+                                {selectedTemplate?.id === template.id && (
+                                  <ThemeIcon size="sm" color="green" variant="light">
+                                    <IconCheck size={14} />
+                                  </ThemeIcon>
+                                )}
+                              </Group>
+                              <Text fw={600} size="sm">{template.name}</Text>
+                              <Text size="xs" c="dimmed" lineClamp={2}>
+                                {template.description}
+                              </Text>
+                              <Divider my="xs" />
+                              <Text size="xs" c="dimmed" lineClamp={1}>
+                                <strong>Sujet:</strong> {template.subject}
+                              </Text>
+                            </Stack>
+                          </Card>
+                        </Grid.Col>
+                      ))}
+                    </Grid>
+                  </Stack>
+                )}
 
                 {emailType === 'html' ? (
                   <Stack gap="md">
@@ -539,6 +638,32 @@ export function CampaignCreatePage() {
                     </Button>
                   </Box>
                 )}
+              </Stack>
+            </Card>
+          ) : emailType === 'template' && selectedTemplate ? (
+            <Card withBorder p="xl">
+              <Stack gap="md" align="center">
+                <ThemeIcon size={60} radius="xl" variant="light" color="green">
+                  <IconCheck size={32} />
+                </ThemeIcon>
+                <Text fw={600} size="lg">
+                  Template sélectionné
+                </Text>
+                <Text size="sm" c="dimmed" ta="center">
+                  {selectedTemplate.name} - {selectedTemplate.description}
+                </Text>
+                <Group>
+                  <Button
+                    variant="light"
+                    leftSection={<IconFileText size={18} />}
+                    onClick={() => {
+                      setSelectedTemplate(null);
+                    }}
+                    size="lg"
+                  >
+                    Changer de template
+                  </Button>
+                </Group>
               </Stack>
             </Card>
           ) : emailType === 'html' && emailBody ? (
@@ -615,6 +740,47 @@ export function CampaignCreatePage() {
             </Card>
           )}
 
+          {emailType === 'template' && selectedTemplate && (
+            <Card withBorder>
+              <Stack gap="xs">
+                <Text fw={600} size="sm">
+                  Aperçu du template
+                </Text>
+                <Box
+                  style={{
+                    maxHeight: 500,
+                    overflow: 'auto',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: 4,
+                    backgroundColor: '#f5f5f5',
+                  }}
+                >
+                  <div dangerouslySetInnerHTML={{ __html: selectedTemplate.html }} />
+                </Box>
+                <Box p="md" bg="gray.0" style={{ borderRadius: 8 }}>
+                  <Stack gap="xs">
+                    <Group gap="xs">
+                      <Text size="xs" fw={600} c="dimmed">Sujet:</Text>
+                      <Text size="xs">{selectedTemplate.subject}</Text>
+                    </Group>
+                    {selectedTemplate.preheader && (
+                      <Group gap="xs">
+                        <Text size="xs" fw={600} c="dimmed">Préheader:</Text>
+                        <Text size="xs">{selectedTemplate.preheader}</Text>
+                      </Group>
+                    )}
+                    {selectedTemplate.variables && selectedTemplate.variables.length > 0 && (
+                      <Group gap="xs">
+                        <Text size="xs" fw={600} c="dimmed">Variables:</Text>
+                        <Text size="xs">{selectedTemplate.variables.join(', ')}</Text>
+                      </Group>
+                    )}
+                  </Stack>
+                </Box>
+              </Stack>
+            </Card>
+          )}
+
           {emailType === 'html' && emailBody && (
             <Card withBorder>
               <Stack gap="xs">
@@ -671,10 +837,25 @@ export function CampaignCreatePage() {
               <ThemeIcon size="lg" variant="light" color="yellow">
                 <IconBulb size={20} />
               </ThemeIcon>
-              <Text fw={600}>Deux options disponibles</Text>
+              <Text fw={600}>Trois options disponibles</Text>
             </Group>
 
             <Stack gap="md">
+              <div>
+                <Group gap="xs" mb="xs">
+                  <IconFileText size={18} />
+                  <Text fw={600} size="sm">Templates FOR+NAP</Text>
+                </Group>
+                <List spacing="xs" size="xs">
+                  <List.Item>Design professionnel</List.Item>
+                  <List.Item>Prêt à l'emploi</List.Item>
+                  <List.Item>Cohérence de marque</List.Item>
+                  <List.Item>Gain de temps</List.Item>
+                </List>
+              </div>
+
+              <Divider />
+
               <div>
                 <Group gap="xs" mb="xs">
                   <IconCode size={18} />

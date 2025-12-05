@@ -368,9 +368,6 @@ export function UserDetailPage() {
             <Paper withBorder p="md" radius="md">
               <Group justify="space-between" mb="md">
                 <Title order={3}>QR Code Membre</Title>
-                <Badge leftSection={<IconQrcode size={14} />} size="lg" color="indigo">
-                  FORNAP-MEMBER
-                </Badge>
               </Group>
 
               <Center mb="md">
@@ -388,9 +385,9 @@ export function UserDetailPage() {
 
               <Grid gutter="xs">
                 <Grid.Col span={12}>
-                  <Text size="xs" c="dimmed">UID</Text>
+                  <Text size="xs" c="dimmed">Code de l'utilisateur</Text>
                   <Text size="sm" fw={500} ff="monospace" style={{ wordBreak: 'break-all' }}>
-                    {user.uid}
+                    {user.uid.substring(0, 7)}
                   </Text>
                 </Grid.Col>
                 <Grid.Col span={6}>

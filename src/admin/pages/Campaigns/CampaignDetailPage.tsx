@@ -39,10 +39,10 @@ import {
   cancelCampaign,
   deleteCampaign,
   estimateRecipients,
-  retryFailedEmails,
 } from '../../../shared/services/campaignService';
 import { Timestamp } from 'firebase/firestore';
 import { SendCampaignModal } from '../../components/campaigns/SendCampaignModal';
+import { RetryCampaignModal } from '../../components/campaigns/RetryCampaignModal';
 
 export function CampaignDetailPage() {
   const { campaignId } = useParams<{ campaignId: string }>();
@@ -52,8 +52,8 @@ export function CampaignDetailPage() {
   const [recipients, setRecipients] = useState<CampaignRecipient[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [retrying, setRetrying] = useState(false);
   const [sendModalOpened, setSendModalOpened] = useState(false);
+  const [retryModalOpened, setRetryModalOpened] = useState(false);
   const [estimatedRecipients, setEstimatedRecipients] = useState(0);
 
   useEffect(() => {
@@ -139,8 +139,8 @@ export function CampaignDetailPage() {
     }
   };
 
-  const handleRetryFailed = async () => {
-    if (!campaignId || !campaign) return;
+  const handleRetryFailed = () => {
+    if (!campaign) return;
 
     const failedCount = campaign.stats.failed;
 
@@ -153,44 +153,13 @@ export function CampaignDetailPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Voulez-vous réessayer d'envoyer les ${failedCount} email(s) en échec ?`
-    );
+    // Ouvrir le modal de retry avec progression
+    setRetryModalOpened(true);
+  };
 
-    if (!confirmed) return;
-
-    setRetrying(true);
-    try {
-      const result = await retryFailedEmails(campaignId);
-
-      if (result.success && result.results) {
-        notifications.show({
-          title: 'Retry terminé',
-          message: `${result.results.success} succès, ${result.results.failed} échecs sur ${result.results.total} emails`,
-          color: result.results.failed === 0 ? 'green' : 'orange',
-          autoClose: 5000,
-        });
-
-        // Afficher les erreurs s'il y en a
-        if (result.errors && result.errors.length > 0) {
-          console.error('Erreurs de retry:', result.errors);
-        }
-
-        // Rafraîchir les données
-        await Promise.all([loadCampaign(), loadRecipients()]);
-      } else {
-        throw new Error(result.error || 'Erreur lors du retry');
-      }
-    } catch (error: any) {
-      console.error('Error retrying failed emails:', error);
-      notifications.show({
-        title: 'Erreur',
-        message: 'Impossible de renvoyer les emails en échec',
-        color: 'red',
-      });
-    } finally {
-      setRetrying(false);
-    }
+  const handleRetryComplete = async () => {
+    // Rafraîchir les données après le retry
+    await Promise.all([loadCampaign(), loadRecipients()]);
   };
 
   const handleCancel = async () => {
@@ -344,7 +313,6 @@ export function CampaignDetailPage() {
                     color="orange"
                     leftSection={<IconMail size={18} />}
                     onClick={handleRetryFailed}
-                    loading={retrying}
                   >
                     Renvoyer les échecs ({campaign.stats.failed})
                   </Button>
@@ -643,6 +611,18 @@ export function CampaignDetailPage() {
           campaignId={campaignId}
           campaignName={campaign.name}
           totalRecipients={estimatedRecipients}
+        />
+      )}
+
+      {/* Modal de retry des emails en échec */}
+      {campaign && campaignId && (
+        <RetryCampaignModal
+          opened={retryModalOpened}
+          onClose={() => setRetryModalOpened(false)}
+          onComplete={handleRetryComplete}
+          campaignId={campaignId}
+          campaignName={campaign.name}
+          totalFailed={campaign.stats.failed}
         />
       )}
     </div>

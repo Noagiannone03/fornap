@@ -1016,7 +1016,8 @@ async function sendCampaignEmail(
 }
 
 /**
- * Réessaye l'envoi aux destinataires en échec
+ * Réessaye l'envoi aux destinataires en échec (SANS progression)
+ * @deprecated Utiliser retryFailedEmailsWithProgress pour avoir la progression en temps réel
  *
  * @param campaignId - ID de la campagne
  * @returns Résultat du retry avec statistiques
@@ -1061,6 +1062,120 @@ export async function retryFailedEmails(
       success: false,
       error: error.message,
     };
+  }
+}
+
+/**
+ * Réessaye l'envoi aux destinataires en échec AVEC progression en temps réel
+ * Similaire à sendCampaignEmails mais uniquement pour les recipients en 'failed'
+ *
+ * @param campaignId - ID de la campagne
+ * @param onProgress - Callback appelé à chaque progression
+ * @returns Résultat détaillé du retry
+ */
+export async function retryFailedEmailsWithProgress(
+  campaignId: string,
+  onProgress?: SendCampaignProgressCallback
+): Promise<{
+  success: number;
+  errors: number;
+  total: number;
+  errorDetails: Array<{ email: string; error: string }>;
+}> {
+  try {
+    // 1. Récupérer la campagne
+    const campaign = await getCampaignById(campaignId);
+    if (!campaign) {
+      throw new Error('Campaign not found');
+    }
+
+    // 2. Récupérer tous les recipients en échec
+    const allRecipients = await getCampaignRecipients(campaignId);
+    const failedRecipients = allRecipients.filter((r) => r.status === 'failed');
+
+    if (failedRecipients.length === 0) {
+      return {
+        success: 0,
+        errors: 0,
+        total: 0,
+        errorDetails: [],
+      };
+    }
+
+    console.log(`🔄 Retry de ${failedRecipients.length} emails en échec pour la campagne ${campaignId}`);
+
+    const results = {
+      success: 0,
+      errors: 0,
+      total: failedRecipients.length,
+      errorDetails: [] as Array<{ email: string; error: string }>,
+    };
+
+    let current = 0;
+
+    // 3. Parcourir tous les recipients en échec
+    for (const recipient of failedRecipients) {
+      current++;
+      const recipientName = `${recipient.firstName} ${recipient.lastName}`.trim() || recipient.email;
+
+      // Appeler le callback de progression
+      if (onProgress) {
+        onProgress({
+          current,
+          total: results.total,
+          currentRecipient: recipientName,
+          success: results.success,
+          errors: results.errors,
+        });
+      }
+
+      try {
+        // Renvoyer l'email via l'API send-email (qui gère le tracking automatiquement)
+        const apiUrl = `${import.meta.env.VITE_API_URL || ''}/api/campaigns/send-email`;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            campaignId,
+            userId: recipient.userId,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          results.success++;
+          console.log(`✅ Retry réussi pour ${recipient.email}`);
+        } else {
+          results.errors++;
+          results.errorDetails.push({
+            email: recipient.email,
+            error: data.error || 'Unknown error',
+          });
+          console.error(`❌ Retry échoué pour ${recipient.email}:`, data.error);
+        }
+      } catch (error: any) {
+        results.errors++;
+        results.errorDetails.push({
+          email: recipient.email,
+          error: error.message || 'Unknown error',
+        });
+        console.error(`❌ Retry échoué pour ${recipient.email}:`, error);
+      }
+
+      // Petite pause pour ne pas surcharger l'API
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    console.log(`🔄 Retry terminé: ${results.success} succès, ${results.errors} échecs sur ${results.total}`);
+
+    return results;
+  } catch (error: any) {
+    console.error('Error retrying failed emails with progress:', error);
+    throw error;
   }
 }
 

@@ -4,9 +4,9 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Affix, ActionIcon, rem, Text, Paper, Box, CloseButton } from '@mantine/core';
+import { Text, Paper, Box, CloseButton } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconBrain, IconX } from '@tabler/icons-react';
+import { IconBrain } from '@tabler/icons-react';
 import { AIAssistantPanel } from './AIAssistantPanel';
 
 interface AIAssistantDrawerProps {
@@ -29,131 +29,150 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
     return () => clearTimeout(timer);
   }, [opened]);
 
-  const handleOpen = () => {
-    onOpenChange(true);
-    setShowHelpBubble(false);
-  };
-
   const handleClose = () => {
     onOpenChange(false);
   };
 
   return (
     <>
-      {/* Bouton flottant en bas à droite */}
-      <Affix 
-        position={{ 
-          bottom: rem(isMobile ? 16 : 20), 
-          right: opened ? (isMobile ? rem(20) : isTablet ? rem(370) : rem(470)) : rem(isMobile ? 16 : 20) 
-        }} 
-        zIndex={100}
+      {/* Languette sur le côté droit */}
+      <div
+        style={{
+          position: 'fixed',
+          right: opened ? (isMobile ? '0' : isTablet ? '350px' : '450px') : '0',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 101,
+          transition: 'right 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
       >
+        {/* Languette principale */}
         <div
+          onClick={() => onOpenChange(!opened)}
+          onMouseEnter={(e) => {
+            if (!isMobile) {
+              e.currentTarget.style.transform = 'translateX(-10px)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isMobile) {
+              e.currentTarget.style.transform = 'translateX(0)';
+            }
+          }}
           style={{
             position: 'relative',
-            transition: 'right 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            right: opened ? '0' : '-10px',
+            background: 'linear-gradient(135deg, var(--mantine-color-indigo-6), var(--mantine-color-violet-6))',
+            borderRadius: '12px 0 0 12px',
+            padding: isMobile ? '20px 10px' : '24px 12px',
+            cursor: 'pointer',
+            boxShadow: '-4px 4px 20px rgba(99, 102, 241, 0.4)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '8px',
+            minHeight: '140px',
+            justifyContent: 'center',
           }}
         >
-          {/* Bulle d'aide animée */}
-          {showHelpBubble && !opened && !isMobile && (
-            <Paper
-              shadow="lg"
-              p="md"
-              radius="md"
-              style={{
-                position: 'absolute',
-                bottom: '70px',
-                right: 0,
-                backgroundColor: 'white',
-                minWidth: '220px',
-                animation: 'bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
-                cursor: 'pointer',
-                border: '2px solid var(--mantine-color-indigo-1)',
-              }}
-              onClick={handleOpen}
-            >
-              <Text size="sm" fw={500} c="dark">
-                👋 Que puis-je faire pour vous ?
-              </Text>
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: '-10px',
-                  right: '20px',
-                  width: 0,
-                  height: 0,
-                  borderLeft: '10px solid transparent',
-                  borderRight: '10px solid transparent',
-                  borderTop: '10px solid white',
-                }}
-              />
-            </Paper>
-          )}
-
-          <ActionIcon
-            size={isMobile ? 50 : 60}
-            radius="xl"
-            variant="gradient"
-            gradient={{ from: 'indigo', to: 'violet', deg: 135 }}
-            onClick={() => onOpenChange(!opened)}
+          {/* Icône */}
+          <div
             style={{
-              boxShadow: '0 8px 24px rgba(99, 102, 241, 0.35)',
-              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              position: 'relative',
-            }}
-            onMouseEnter={(e) => {
-              if (!isMobile) {
-                e.currentTarget.style.transform = 'scale(1.1) rotate(5deg)';
-                e.currentTarget.style.boxShadow = '0 12px 32px rgba(99, 102, 241, 0.5)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isMobile) {
-                e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-                e.currentTarget.style.boxShadow = '0 8px 24px rgba(99, 102, 241, 0.35)';
-              }
+              transition: 'all 0.3s ease',
+              transform: opened ? 'rotate(180deg)' : 'rotate(0deg)',
             }}
           >
-            {/* Icône qui change selon l'état ouvert/fermé */}
+            <IconBrain size={isMobile ? 24 : 28} color="white" stroke={2} />
+          </div>
+
+          {/* Texte vertical */}
+          <div
+            style={{
+              writingMode: 'vertical-rl',
+              textOrientation: 'mixed',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: isMobile ? '12px' : '14px',
+              letterSpacing: '1.5px',
+              textTransform: 'uppercase',
+              marginTop: '4px',
+            }}
+          >
+            {opened ? 'Fermer' : 'Assistant IA'}
+          </div>
+
+          {/* Pulse animation */}
+          {!opened && (
             <div
               style={{
                 position: 'absolute',
-                transition: 'all 0.3s ease',
-                opacity: opened ? 0 : 1,
-                transform: opened ? 'rotate(-180deg) scale(0.5)' : 'rotate(0deg) scale(1)',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '100%',
+                height: '100%',
+                borderRadius: '12px 0 0 12px',
+                background: 'rgba(255, 255, 255, 0.2)',
+                animation: 'pulseTab 2s infinite',
+                pointerEvents: 'none',
               }}
-            >
-              <IconBrain size={isMobile ? 26 : 32} stroke={2} />
-            </div>
+            />
+          )}
+
+          {/* Indicateur de notification */}
+          {showHelpBubble && !opened && (
             <div
               style={{
                 position: 'absolute',
-                transition: 'all 0.3s ease',
-                opacity: opened ? 1 : 0,
-                transform: opened ? 'rotate(0deg) scale(1)' : 'rotate(180deg) scale(0.5)',
+                top: '12px',
+                left: '12px',
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                backgroundColor: '#f03e3e',
+                border: '2px solid white',
+                animation: 'blink 1.5s infinite',
               }}
-            >
-              <IconX size={isMobile ? 26 : 32} stroke={2} />
-            </div>
-            {/* Pulse animation */}
-            {!opened && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  borderRadius: '50%',
-                  background: 'rgba(99, 102, 241, 0.4)',
-                  animation: 'pulse 2s infinite',
-                  pointerEvents: 'none',
-                }}
-              />
-            )}
-          </ActionIcon>
+            />
+          )}
         </div>
-      </Affix>
+
+        {/* Tooltip au hover (seulement sur desktop) */}
+        {!isMobile && !opened && (
+          <div
+            style={{
+              position: 'absolute',
+              right: '100%',
+              top: '50%',
+              transform: 'translateY(-50%) translateX(-8px)',
+              marginRight: '8px',
+              opacity: 0,
+              pointerEvents: 'none',
+              transition: 'opacity 0.3s ease',
+            }}
+            className="ai-tab-tooltip"
+          >
+            <Paper
+              shadow="lg"
+              p="sm"
+              radius="md"
+              style={{
+                backgroundColor: 'white',
+                minWidth: '180px',
+                border: '2px solid var(--mantine-color-indigo-2)',
+              }}
+            >
+              <Text size="sm" fw={500} c="dark">
+                👋 Besoin d'aide ?
+              </Text>
+              <Text size="xs" c="dimmed" mt={4}>
+                Cliquez pour ouvrir l'assistant
+              </Text>
+            </Paper>
+          </div>
+        )}
+      </div>
 
       {/* Sidebar custom qui slide depuis la droite */}
       <Box
@@ -248,36 +267,32 @@ export function AIAssistantDrawer({ opened, onOpenChange }: AIAssistantDrawerPro
 
       {/* Animations CSS */}
       <style>{`
-        @keyframes pulse {
+        @keyframes pulseTab {
           0% {
-            transform: scale(1);
-            opacity: 1;
+            opacity: 0.5;
           }
           50% {
-            transform: scale(1.4);
             opacity: 0;
           }
           100% {
-            transform: scale(1);
-            opacity: 0;
+            opacity: 0.5;
           }
         }
 
-        @keyframes bounceIn {
-          0% {
-            opacity: 0;
-            transform: scale(0.5) translateY(30px);
-          }
-          60% {
+        @keyframes blink {
+          0%, 100% {
             opacity: 1;
-            transform: scale(1.1) translateY(-5px);
           }
-          80% {
-            transform: scale(0.95) translateY(2px);
+          50% {
+            opacity: 0.3;
           }
-          100% {
-            transform: scale(1) translateY(0);
-          }
+        }
+
+        /* Afficher le tooltip au hover de la languette */
+        [style*="position: fixed"] > div:hover + .ai-tab-tooltip,
+        .ai-tab-tooltip:hover {
+          opacity: 1 !important;
+          pointer-events: auto !important;
         }
       `}</style>
     </>

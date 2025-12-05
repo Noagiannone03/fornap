@@ -1,0 +1,65 @@
+/* Languette IA sur le côté droit */
+.aiTab {
+  position: relative;
+  background: linear-gradient(135deg, var(--mantine-color-indigo-6), var(--mantine-color-violet-6));
+  border-radius: 12px 0 0 12px;
+  cursor: pointer;
+  box-shadow: -4px 4px 20px rgba(99, 102, 241, 0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 140px;
+  justify-content: center;
+}
+
+.aiTab:hover {
+  transform: translateX(-10px);
+  box-shadow: -6px 6px 28px rgba(99, 102, 241, 0.5);
+}
+
+.aiTabContainer {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 101;
+  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.aiTabTooltip {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(-8px);
+  margin-right: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.aiTab:hover + .aiTabTooltip {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@keyframes pulseTab {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

@@ -1899,27 +1899,57 @@ export async function migrateLegacyMember(
       throw new Error('This member has already been migrated');
     }
 
-    // Déterminer le type d'abonnement
+    // ✅ CORRECTION: Détecter le type ET le prix de manière cohérente
     const membershipType = determineLegacyMembershipType(legacyData);
+
+    // 🔍 LOG DÉTAILLÉ: Afficher les données brutes pour debugging
+    console.log(`[MIGRATION ${legacyUid}] Données legacy:`, {
+      email: legacyData.email,
+      ticketType: legacyData.ticketType,
+      'member-type': legacyData['member-type'],
+      'end-member': legacyData['end-member'] ? 'Présent' : 'Absent',
+      createdAt: legacyData.createdAt ? 'Présent' : 'Absent',
+      détecté: membershipType,
+    });
+
+    // Déterminer le prix et le nom du plan en fonction du type détecté
+    let price = 0;
+    let planName = legacyData.ticketType?.trim() || 'Abonnement migré'; // trim() pour éviter espaces
+
+    // Prix basé sur le type d'adhésion détecté
+    if (membershipType === 'monthly') {
+      price = 2; // Adhésion mensuelle = 2€
+      planName = legacyData.ticketType?.trim() || 'Adhésion Mensuelle';
+    } else if (membershipType === 'annual') {
+      price = 12; // Adhésion annuelle = 12€
+      planName = legacyData.ticketType?.trim() || 'Adhésion Annuelle';
+    } else if (membershipType === 'lifetime') {
+      price = 0; // Membre d'honneur = gratuit
+      planName = legacyData.ticketType?.trim() || 'Membre d\'honneur';
+    }
+
+    console.log(`[MIGRATION ${legacyUid}] Type: ${membershipType}, Prix: ${price}€, Nom: ${planName}`);
 
     // Trouver ou créer un plan approprié
     let planId = defaultPlanId;
-    let planName = legacyData.ticketType || 'Abonnement migré';
-    let price = 0; // Prix inconnu pour les anciens membres
 
     // Si pas de plan par défaut fourni, utiliser un ID basé sur le type
     if (!planId) {
       planId = membershipType; // 'monthly', 'annual', ou 'lifetime'
 
-      // Essayer de récupérer le plan
+      // Essayer de récupérer le plan depuis la DB
       try {
         const plan = await getMembershipPlanById(planId);
         if (plan) {
+          // Utiliser le nom du plan depuis la DB si disponible
           planName = plan.name;
-          price = plan.price;
+          // Utiliser le prix du plan si disponible (plus fiable que notre détection)
+          if (plan.price > 0) {
+            price = plan.price;
+          }
         }
       } catch (e) {
-        console.warn(`Plan ${planId} not found, using legacy data`);
+        console.warn(`Plan ${planId} not found in DB, using detected price: ${price}€`);
       }
     }
 

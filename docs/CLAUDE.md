@@ -194,6 +194,51 @@ currentMembership: {
 
 ## Historique des Modifications
 
+### 05/12/2025 - Corrections Migration Legacy Members
+- **Problèmes identifiés** :
+  1. Prix affiché à 0€ après migration au lieu du prix réel (2€ ou 12€)
+  2. Date d'inscription incorrecte (affichait date de migration au lieu de la date originale)
+  3. Type d'adhésion mal détecté (toujours annual par défaut)
+  4. Tri par date ne fonctionnait pas correctement pour les nouveaux utilisateurs
+
+- **Fichiers modifiés** :
+  - `src/shared/services/userService.ts` (fonction `migrateLegacyMember`)
+  - `src/admin/pages/Users/EnhancedUsersListPage.tsx` (logs de debugging)
+
+- **Corrections appliquées** :
+  1. **Détection automatique du prix** :
+     - Analyse du `ticketType` et `member-type` pour détecter "mensuel" → 2€
+     - Analyse pour détecter "annuel" → 12€
+     - Membre d'honneur → 0€
+
+  2. **Conservation de la date originale** :
+     - Utilisation de `legacyData.createdAt` comme date de création
+     - Parsing correct des timestamps Firestore
+     - Fallback sur `Timestamp.now()` uniquement si pas de date disponible
+
+  3. **Conservation de la date d'expiration** :
+     - Utilisation de `legacyData['end-member']` comme `expiryDate`
+     - Calcul automatique seulement si `end-member` absent
+     - Pour lifetime : `expiryDate = null` (illimité)
+
+  4. **Amélioration des logs** :
+     - Ajout de logs détaillés pour identifier les utilisateurs créés aujourd'hui
+     - Affichage des timestamps et dates lisibles
+     - Affichage de la source d'inscription pour chaque user
+
+- **Logique de migration améliorée** :
+  ```typescript
+  // AVANT (BUGUÉ)
+  price = 0; // Prix inconnu
+
+  // APRÈS (CORRIGÉ)
+  if (ticketTypeLower.includes('mensuel')) {
+    price = 2;
+  } else if (ticketTypeLower.includes('annuel')) {
+    price = 12;
+  }
+  ```
+
 ### 04/12/2025 - Correction Bug Expiration Illimitée
 - **Problème** : Users avec adhésion mensuelle 2€ ayant `expiryDate: null`
 - **Fichiers modifiés** :

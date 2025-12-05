@@ -369,25 +369,31 @@ export function EnhancedUsersListPage() {
       console.log('Nombre de legacy members:', data.legacyMembers.length);
       console.log('Nombre d\'utilisateurs:', data.users.length);
 
-      // Afficher les 5 premiers utilisateurs s'ils existent (avec tous leurs champs)
-      const usersToLog = Math.min(5, data.users.length);
-      if (usersToLog > 0) {
-        console.log(`\n=== ${usersToLog} PREMIERS UTILISATEURS (données brutes) ===`);
-        for (let i = 0; i < usersToLog; i++) {
-          console.log(`\n--- Utilisateur ${i + 1}/${usersToLog} ---`);
-          console.log(JSON.stringify(data.users[i], null, 2));
-          console.log('Champs disponibles:', Object.keys(data.users[i]));
-        }
+      // Afficher TOUS les utilisateurs créés AUJOURD'HUI (5 décembre 2025)
+      const todayStart = new Date('2025-12-05T00:00:00').getTime();
+      const todayEnd = new Date('2025-12-05T23:59:59').getTime();
+
+      const todayUsers = data.users.filter(u => {
+        const timestamp = u.createdAt?.seconds ? u.createdAt.seconds * 1000 : 0;
+        return timestamp >= todayStart && timestamp <= todayEnd;
+      });
+
+      if (todayUsers.length > 0) {
+        console.log(`\n=== ${todayUsers.length} UTILISATEURS CRÉÉS AUJOURD'HUI (05/12/2025) ===`);
+        todayUsers.forEach((user, i) => {
+          const date = user.createdAt?.seconds ? new Date(user.createdAt.seconds * 1000) : new Date(0);
+          console.log(`${i + 1}. ${user.firstName} ${user.lastName} - Timestamp: ${user.createdAt?.seconds || 0} - Date: ${date.toLocaleString('fr-FR')} - Source: ${user.registrationSource}`);
+        });
       }
 
-      // Afficher les 5 premiers legacy members s'ils existent
-      const legacyToLog = Math.min(5, data.legacyMembers.length);
-      if (legacyToLog > 0) {
-        console.log(`\n=== ${legacyToLog} PREMIERS LEGACY MEMBERS (données brutes) ===`);
-        for (let i = 0; i < legacyToLog; i++) {
-          console.log(`\n--- Legacy Member ${i + 1}/${legacyToLog} ---`);
-          console.log(JSON.stringify(data.legacyMembers[i], null, 2));
-          console.log('Champs disponibles:', Object.keys(data.legacyMembers[i]));
+      // Afficher les 10 premiers utilisateurs (peu importe la date)
+      const usersToLog = Math.min(10, data.users.length);
+      if (usersToLog > 0) {
+        console.log(`\n=== ${usersToLog} PREMIERS UTILISATEURS (ordre brut de Firestore) ===`);
+        for (let i = 0; i < usersToLog; i++) {
+          const user = data.users[i];
+          const date = user.createdAt?.seconds ? new Date(user.createdAt.seconds * 1000) : new Date(0);
+          console.log(`${i + 1}. ${user.firstName} ${user.lastName} - Timestamp: ${user.createdAt?.seconds || 0} - Date: ${date.toLocaleString('fr-FR')}`);
         }
       }
 

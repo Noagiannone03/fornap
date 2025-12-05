@@ -210,35 +210,35 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
               </p>
 
               <!-- Message d'erreur principal -->
-              <div style="background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%); border-left: 4px solid #ff4757; padding: 24px; margin: 30px 0; border-radius: 8px;">
-                <p style="font-size: 16px; line-height: 1.8; color: #1a1a1a; margin: 0 0 16px 0; text-align: center;">
+              <div style="background: linear-gradient(135deg, #fff8f8 0%, #fff0f0 100%); border-left: 4px solid #ff4757; padding: 28px; margin: 30px 0; border-radius: 12px; box-shadow: 0 2px 8px rgba(255, 71, 87, 0.1);">
+                <p style="font-size: 16px; line-height: 1.8; color: #2c2c2c; margin: 0 0 16px 0; text-align: center;">
                   Nous sommes en train de faire des essais avec notre base de données.
                 </p>
 
-                <p style="font-size: 16px; line-height: 1.8; color: #1a1a1a; margin: 0 0 16px 0; text-align: center;">
-                  <strong>Vous avez reçu par erreur un mail</strong> vous attribuant une carte avec un QR code d'accès au fort.
+                <p style="font-size: 16px; line-height: 1.8; color: #2c2c2c; margin: 0 0 16px 0; text-align: center;">
+                  <strong style="color: #ff4757;">Vous avez reçu par erreur un mail</strong> vous attribuant une carte avec un QR code d'accès au fort.
                 </p>
 
-                <p style="font-size: 16px; line-height: 1.8; color: #d63031; margin: 0; text-align: center; font-weight: 600;">
-                  Toutes les cartes éditées dans ce mail ont été désactivées.
+                <p style="font-size: 17px; line-height: 1.8; color: #e74c3c; margin: 0; text-align: center; font-weight: 700;">
+                  ⚠️ Toutes les cartes éditées dans ce mail ont été désactivées.
                 </p>
               </div>
 
               <!-- Pas de panique -->
-              <div style="background-color: #e8f5e9; padding: 24px; border-radius: 8px; margin: 30px 0;">
-                <p style="font-size: 18px; line-height: 1.8; color: #1a1a1a; margin: 0 0 20px 0; text-align: center; font-weight: 600;">
-                  Pas de panique,
+              <div style="background: linear-gradient(135deg, #f0f9f4 0%, #e8f5ed 100%); border-left: 4px solid #27ae60; padding: 28px; border-radius: 12px; margin: 30px 0; box-shadow: 0 2px 8px rgba(39, 174, 96, 0.1);">
+                <p style="font-size: 20px; line-height: 1.8; color: #1a1a1a; margin: 0 0 20px 0; text-align: center; font-weight: 700;">
+                  Pas de panique 👌
                 </p>
 
-                <p style="font-size: 16px; line-height: 1.8; color: #333; margin: 0 0 16px 0; text-align: center;">
+                <p style="font-size: 16px; line-height: 1.8; color: #2c2c2c; margin: 0 0 16px 0; text-align: center;">
                   Si vous avez bien renseigné vos coordonnées lors de l'événement <strong>EXORDE du 31 Décembre 2024</strong> au Fort Napoléon à la Seyne sur Mer,
                 </p>
 
-                <p style="font-size: 16px; line-height: 1.8; color: #2d8659; margin: 0 0 16px 0; text-align: center; font-weight: 600;">
-                  vous allez recevoir un nouvel email avec votre carte d'adhésion et le bon QR CODE.
+                <p style="font-size: 17px; line-height: 1.8; color: #27ae60; margin: 0 0 16px 0; text-align: center; font-weight: 700;">
+                  ✅ vous allez recevoir un nouvel email avec votre carte d'adhésion et le bon QR CODE.
                 </p>
 
-                <p style="font-size: 16px; line-height: 1.8; color: #333; margin: 0; text-align: center;">
+                <p style="font-size: 15px; line-height: 1.8; color: #555; margin: 0; text-align: center; font-style: italic;">
                   Cette nouvelle carte doit remplacer celle envoyée par erreur.
                 </p>
               </div>
@@ -252,8 +252,8 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
                 voici un numéro pour nous joindre :
               </p>
 
-              <div style="background-color: #fafafa; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-                <p style="font-size: 20px; line-height: 1.8; color: #1a1a1a; margin: 0; font-weight: 600;">
+              <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 2px solid #dee2e6; padding: 24px; border-radius: 12px; margin: 20px 0; text-align: center;">
+                <p style="font-size: 22px; line-height: 1.8; color: #1a1a1a; margin: 0; font-weight: 700;">
                   📞 <a href="tel:0627611910" style="color: #ff4757; text-decoration: none;">06 27 61 19 10</a>
                 </p>
               </div>

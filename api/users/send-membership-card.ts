@@ -235,7 +235,22 @@ async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer):
                   <!-- Contenu principal -->
                   <tr>
                     <td style="padding: 20px 50px 40px 50px;">
-                      
+
+                      <!-- Message intro EXORDE -->
+                      <div style="background-color: #fafafa; border-left: 4px solid #ff4757; padding: 20px; margin: 0 0 32px 0; border-radius: 8px;">
+                        <p style="font-size: 15px; line-height: 1.7; color: #1a1a1a; margin: 0 0 12px 0; text-align: center;">
+                          <strong>Bonjour,</strong>
+                        </p>
+                        <p style="font-size: 15px; line-height: 1.7; color: #333; margin: 0 0 12px 0; text-align: center;">
+                          Si tu reçois ce mail, c'est que tu es venu.e à <strong style="color: #ff4757;">EXORDE</strong><br/>
+                          le <strong>31 Décembre 2024</strong> au Fort Napoléon à la Seyne sur Mer.
+                        </p>
+                        <p style="font-size: 15px; line-height: 1.7; color: #333; margin: 0; text-align: center;">
+                          Nous avons enfin édité la carte d'adhésion<br/>
+                          pour le lieu que nous nous apprêtons à ouvrir.
+                        </p>
+                      </div>
+
                       <!-- Salutation -->
                       <p style="font-size: 18px; line-height: 1.6; color: #1a1a1a; margin: 0 0 24px 0; text-align: center;">
                         Hello <strong style="color: #000;">${userData.firstName}</strong>,

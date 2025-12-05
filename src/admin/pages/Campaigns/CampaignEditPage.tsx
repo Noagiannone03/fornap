@@ -46,8 +46,6 @@ import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 import { Timestamp } from 'firebase/firestore';
 import { UserTargetingSelector, EmailEditorModal } from './components';
 import type { EmailEditorModalHandle } from './components';
-import { EMAIL_TEMPLATES } from '../../../shared/config/emailTemplates';
-import type { EmailTemplate } from '../../../shared/config/emailTemplates';
 
 export function CampaignEditPage() {
   const { campaignId } = useParams<{ campaignId: string }>();

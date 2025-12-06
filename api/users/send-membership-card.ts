@@ -91,11 +91,12 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     const backgroundImagePath = join(__dirname, 'base-image.png');
     const backgroundImage = await loadImage(backgroundImagePath);
 
-    // Générer le QR code
+    // Générer le QR code en haute résolution
     const qrCodeData = `FORNAP-MEMBER:${userData.uid}`;
     const qrDataUrl = await QRCode.toDataURL(qrCodeData, {
-      width: 190,
+      width: 380, // Double résolution pour meilleure qualité
       margin: 1,
+      errorCorrectionLevel: 'H', // Niveau de correction d'erreur élevé
       color: {
         dark: '#000000',
         light: '#FFFFFF',
@@ -151,6 +152,12 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     const canvas = createCanvas(450, 800);
     const ctx = canvas.getContext('2d');
 
+    // Activer l'antialiasing pour un meilleur rendu
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.textDrawingMode = 'glyph';
+    ctx.quality = 'best';
+
     // Dessiner l'image de fond
     ctx.drawImage(backgroundImage, 0, 0, 450, 800);
 
@@ -187,10 +194,10 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
     ctx.font = '700 19px "AcherusFeral-Bold"';
     ctx.fillText(fullName, 225, 700);
 
-    // Convertir en buffer JPEG
-    const buffer = canvas.toBuffer('image/jpeg', 0.9);
+    // Convertir en buffer PNG (sans perte, meilleure qualité)
+    const buffer = canvas.toBuffer('image/png');
 
-    console.log('✅ Card generated successfully with @napi-rs/canvas');
+    console.log('✅ Card generated successfully with @napi-rs/canvas (PNG format)');
     return buffer;
   } catch (error) {
     console.error('❌ Error generating membership card image:', error);
@@ -375,9 +382,9 @@ async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer, 
       `,
       attachments: [
         {
-          filename: `FOR+NAP-Carte-Membre-${userData.firstName}-${userData.lastName}.jpg`,
+          filename: `FOR+NAP-Carte-Membre-${userData.firstName}-${userData.lastName}.png`,
           content: cardImageBuffer,
-          contentType: 'image/jpeg',
+          contentType: 'image/png',
         },
       ],
     };

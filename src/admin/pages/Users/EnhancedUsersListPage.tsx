@@ -503,7 +503,8 @@ export function EnhancedUsersListPage() {
           (user) =>
             user.firstName.toLowerCase().includes(searchLower) ||
             user.lastName.toLowerCase().includes(searchLower) ||
-            user.email.toLowerCase().includes(searchLower)
+            user.email.toLowerCase().includes(searchLower) ||
+            user.uid.toLowerCase().includes(searchLower)
         );
       }
 
@@ -1105,7 +1106,7 @@ export function EnhancedUsersListPage() {
       <Paper withBorder p="md" mb="xl" radius="md">
         <Stack gap="md">
           <TextInput
-            placeholder="Rechercher par nom, email..."
+            placeholder="Rechercher par nom, email, UID..."
             leftSection={<IconSearch size={16} />}
             value={search}
             onChange={(e) => setSearch(e.currentTarget.value)}

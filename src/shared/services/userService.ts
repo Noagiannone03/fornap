@@ -1473,8 +1473,8 @@ export async function sendMembershipCardsToAdminUsersWithoutCard(
       }
 
       try {
-        // Envoyer la carte d'adhérent (sans force resend)
-        const result = await sendMembershipCard(userId, false);
+        // Envoyer la carte d'adhérent avec l'entête EXORDE pour les users admin
+        const result = await sendMembershipCard(userId, false, true);
 
         if (result.success) {
           results.success++;

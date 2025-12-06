@@ -124,6 +124,9 @@ export function SendAdminUsersCardsModal({
                   <Text size="xs">N'ont pas encore reçu leur carte d'adhérent</Text>
                 </li>
               </ul>
+              <Text size="xs" mt="xs" fw={600} c="grape">
+                ⚡ Les cartes seront envoyées avec l'entête EXORDE (soirée du 31 décembre 2024)
+              </Text>
               <Text size="xs" mt="xs" fw={600}>
                 Nombre d'utilisateurs concernés : {totalUsers}
               </Text>
@@ -268,7 +271,7 @@ export function SendAdminUsersCardsModal({
                       {result.success > 1 ? 's' : ''} avec succès aux utilisateurs admin !
                     </Text>
                     <Text size="xs" mt="xs">
-                      Les utilisateurs recevront leur carte d'adhérent par email avec leur QR code unique.
+                      Les utilisateurs recevront leur carte d'adhérent par email avec leur QR code unique et l'entête mentionnant la soirée EXORDE du 31 décembre 2024.
                     </Text>
                   </Alert>
                 )}

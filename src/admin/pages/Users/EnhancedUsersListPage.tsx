@@ -53,6 +53,7 @@ import {
   migrateLegacyMember,
   sendMembershipCard,
   getAllUniqueTags,
+  sendMembershipCardsToAdminUsersWithoutCard,
 } from '../../../shared/services/userService';
 import type {
   UserListItem,
@@ -67,8 +68,10 @@ import {
 } from '../../../shared/types/user';
 import { CsvImportModal } from '../../components/CsvImportModal';
 import { SendMassiveCardsModal } from '../../components/SendMassiveCardsModal';
+import { SendAdminUsersCardsModal } from '../../components/SendAdminUsersCardsModal';
 import { TagsManagerModal, type TagConfig } from '../../components/TagsManagerModal';
 import { BulkDeleteModal } from '../../components/users/BulkDeleteModal';
+import { QuickAddUserModal } from '../../components/QuickAddUserModal';
 import {
   getTagsConfig,
   saveTagsConfig,
@@ -327,7 +330,9 @@ export function EnhancedUsersListPage() {
   const [filteredUsers, setFilteredUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [csvImportModalOpened, setCsvImportModalOpened] = useState(false);
+  const [quickAddModalOpened, setQuickAddModalOpened] = useState(false);
   const [sendMassiveCardsModalOpened, setSendMassiveCardsModalOpened] = useState(false);
+  const [sendAdminUsersCardsModalOpened, setSendAdminUsersCardsModalOpened] = useState(false);
   const [forceResend, setForceResend] = useState(false);
   const [onlyUnsent, setOnlyUnsent] = useState(false);
   const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
@@ -796,12 +801,7 @@ export function EnhancedUsersListPage() {
   };
 
   const handleSendCardsToAdminUsersWithoutCard = () => {
-    const adminUsersWithoutCard = users.filter(
-      u => u.registrationSource === 'admin' &&
-      (!u.emailStatus || !u.emailStatus.membershipCardSent)
-    );
-
-    if (adminUsersWithoutCard.length === 0) {
+    if (adminUsersWithoutCardCount === 0) {
       notifications.show({
         title: 'Information',
         message: 'Aucun utilisateur avec source "admin" sans carte trouvé',
@@ -810,77 +810,7 @@ export function EnhancedUsersListPage() {
       return;
     }
 
-    modals.openConfirmModal({
-      title: 'Envoyer les cartes d\'adhésion',
-      centered: true,
-      children: (
-        <Stack gap="md">
-          <Text size="sm">
-            Envoyer les cartes d'adhésion à <strong>{adminUsersWithoutCard.length} utilisateur(s)</strong> créé(s) par admin qui n'ont pas encore reçu leur carte ?
-          </Text>
-          <Text size="sm" c="blue" fw={500}>
-            📧 Les utilisateurs recevront un email avec :
-          </Text>
-          <div style={{ paddingLeft: '20px' }}>
-            <Text size="sm">• Leur carte d'adhérent personnalisée</Text>
-            <Text size="sm">• Leur QR code unique</Text>
-            <Text size="sm">• Les informations sur leur abonnement</Text>
-          </div>
-          <div style={{ maxHeight: '200px', overflowY: 'auto', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-            {adminUsersWithoutCard.map((user, index) => (
-              <Text key={user.uid} size="sm">
-                {index + 1}. {user.firstName} {user.lastName} ({user.email})
-              </Text>
-            ))}
-          </div>
-        </Stack>
-      ),
-      labels: { confirm: `Envoyer ${adminUsersWithoutCard.length} carte(s)`, cancel: 'Annuler' },
-      confirmProps: { color: 'green' },
-      onConfirm: async () => {
-        let successCount = 0;
-        let errorCount = 0;
-        const errors: string[] = [];
-
-        for (const user of adminUsersWithoutCard) {
-          try {
-            const result = await sendMembershipCard(user.uid, false);
-            if (result.success) {
-              successCount++;
-            } else {
-              errorCount++;
-              errors.push(`${user.firstName} ${user.lastName}: ${result.error}`);
-            }
-          } catch (error: any) {
-            console.error(`Erreur lors de l'envoi à ${user.email}:`, error);
-            errorCount++;
-            errors.push(`${user.firstName} ${user.lastName}: ${error.message || 'Erreur inconnue'}`);
-          }
-        }
-
-        if (successCount > 0) {
-          notifications.show({
-            title: 'Succès',
-            message: `${successCount} carte(s) envoyée(s) avec succès${errorCount > 0 ? ` (${errorCount} erreur(s))` : ''}`,
-            color: errorCount > 0 ? 'orange' : 'green',
-          });
-        }
-
-        if (errorCount > 0 && successCount === 0) {
-          notifications.show({
-            title: 'Erreur',
-            message: `Impossible d'envoyer les cartes (${errorCount} erreur(s))`,
-            color: 'red',
-          });
-        }
-
-        if (errors.length > 0 && errors.length <= 5) {
-          console.error('Détails des erreurs:', errors);
-        }
-
-        loadUsers();
-      },
-    });
+    setSendAdminUsersCardsModalOpened(true);
   };
 
   const handleDeleteAllAdminUsers = () => {
@@ -1008,6 +938,14 @@ export function EnhancedUsersListPage() {
             onClick={() => setCsvImportModalOpened(true)}
           >
             Importer CSV
+          </Button>
+          <Button
+            leftSection={<IconPlus size={16} />}
+            variant="light"
+            color="cyan"
+            onClick={() => setQuickAddModalOpened(true)}
+          >
+            Ajout rapide
           </Button>
           <Menu shadow="md" width={300}>
             <Menu.Target>
@@ -1354,6 +1292,14 @@ export function EnhancedUsersListPage() {
         onImportComplete={loadUsers}
       />
 
+      {/* Modal d'ajout rapide */}
+      <QuickAddUserModal
+        opened={quickAddModalOpened}
+        onClose={() => setQuickAddModalOpened(false)}
+        adminUserId={adminUserId}
+        onAddComplete={loadUsers}
+      />
+
       {/* Modal d'envoi massif des cartes */}
       <SendMassiveCardsModal
         opened={sendMassiveCardsModalOpened}
@@ -1362,6 +1308,14 @@ export function EnhancedUsersListPage() {
         totalUsers={onlyUnsent ? unsentUsersCount : users.length}
         forceResend={forceResend}
         onlyUnsent={onlyUnsent}
+      />
+
+      {/* Modal d'envoi des cartes aux users admin sans carte */}
+      <SendAdminUsersCardsModal
+        opened={sendAdminUsersCardsModalOpened}
+        onClose={() => setSendAdminUsersCardsModalOpened(false)}
+        onComplete={loadUsers}
+        totalUsers={adminUsersWithoutCardCount}
       />
 
       {/* Modal de gestion des tags */}

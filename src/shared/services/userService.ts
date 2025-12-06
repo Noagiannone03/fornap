@@ -1409,6 +1409,101 @@ export async function sendMembershipCardsToUnsent(
 }
 
 /**
+ * Envoie les cartes d'adhérent aux utilisateurs créés par admin qui n'ont pas encore reçu leur carte
+ * @param onProgress Callback optionnel pour suivre la progression
+ * @returns Résultat de l'envoi avec compteurs et détails des erreurs
+ */
+export async function sendMembershipCardsToAdminUsersWithoutCard(
+  onProgress?: SendMassiveCardsProgressCallback
+): Promise<{
+  success: number;
+  errors: number;
+  total: number;
+  skipped: number;
+  errorDetails: Array<{ userId: string; userName: string; error: string }>;
+}> {
+  try {
+    // Récupérer tous les utilisateurs
+    const usersRef = collection(db, USERS_COLLECTION);
+    const querySnapshot = await getDocs(usersRef);
+
+    // Filtrer les utilisateurs qui:
+    // 1. Ont pour source "admin"
+    // 2. N'ont pas reçu leur email de carte d'adhérent
+    const targetUsers = querySnapshot.docs.filter(userDoc => {
+      const userData = userDoc.data();
+      const registrationSource = userData.registration?.source || userData.registrationSource;
+      const emailStatus = userData.emailStatus;
+
+      return (
+        registrationSource === 'admin' &&
+        (!emailStatus || !emailStatus.membershipCardSent)
+      );
+    });
+
+    const results = {
+      success: 0,
+      errors: 0,
+      total: targetUsers.length,
+      skipped: querySnapshot.size - targetUsers.length,
+      errorDetails: [] as Array<{ userId: string; userName: string; error: string }>,
+    };
+
+    let current = 0;
+
+    // Parcourir uniquement les utilisateurs ciblés
+    for (const userDoc of targetUsers) {
+      current++;
+      const userData = userDoc.data();
+      const userId = userDoc.id;
+      const userName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || userData.email;
+
+      // Appeler le callback de progression
+      if (onProgress) {
+        onProgress({
+          current,
+          total: results.total,
+          currentUser: userName,
+          success: results.success,
+          errors: results.errors,
+        });
+      }
+
+      try {
+        // Envoyer la carte d'adhérent (sans force resend)
+        const result = await sendMembershipCard(userId, false);
+
+        if (result.success) {
+          results.success++;
+        } else {
+          results.errors++;
+          results.errorDetails.push({
+            userId,
+            userName,
+            error: result.error || 'Unknown error',
+          });
+        }
+      } catch (error: any) {
+        results.errors++;
+        results.errorDetails.push({
+          userId,
+          userName,
+          error: error.message || 'Unknown error',
+        });
+      }
+
+      // Petite pause pour ne pas surcharger l'API
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    return results;
+  } catch (error: any) {
+    console.error('Error sending membership cards to admin users without card:', error);
+    throw error;
+  }
+}
+
+/**
  * Récupère le statut d'envoi de l'email pour un utilisateur
  */
 export async function getEmailStatus(userId: string): Promise<{

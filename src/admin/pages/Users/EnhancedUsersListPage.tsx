@@ -342,6 +342,12 @@ export function EnhancedUsersListPage() {
     (u) => !u.emailStatus || !u.emailStatus.membershipCardSent
   ).length;
 
+  // Calculer le nombre d'utilisateurs admin sans carte
+  const adminUsersWithoutCardCount = users.filter(
+    (u) => u.registrationSource === 'admin' &&
+    (!u.emailStatus || !u.emailStatus.membershipCardSent)
+  ).length;
+
   // Filtres
   const [search, setSearch] = useState('');
   const [membershipType, setMembershipType] = useState<MembershipType | null>(null);
@@ -789,6 +795,94 @@ export function EnhancedUsersListPage() {
     });
   };
 
+  const handleSendCardsToAdminUsersWithoutCard = () => {
+    const adminUsersWithoutCard = users.filter(
+      u => u.registrationSource === 'admin' &&
+      (!u.emailStatus || !u.emailStatus.membershipCardSent)
+    );
+
+    if (adminUsersWithoutCard.length === 0) {
+      notifications.show({
+        title: 'Information',
+        message: 'Aucun utilisateur avec source "admin" sans carte trouvé',
+        color: 'blue',
+      });
+      return;
+    }
+
+    modals.openConfirmModal({
+      title: 'Envoyer les cartes d\'adhésion',
+      centered: true,
+      children: (
+        <Stack gap="md">
+          <Text size="sm">
+            Envoyer les cartes d'adhésion à <strong>{adminUsersWithoutCard.length} utilisateur(s)</strong> créé(s) par admin qui n'ont pas encore reçu leur carte ?
+          </Text>
+          <Text size="sm" c="blue" fw={500}>
+            📧 Les utilisateurs recevront un email avec :
+          </Text>
+          <div style={{ paddingLeft: '20px' }}>
+            <Text size="sm">• Leur carte d'adhérent personnalisée</Text>
+            <Text size="sm">• Leur QR code unique</Text>
+            <Text size="sm">• Les informations sur leur abonnement</Text>
+          </div>
+          <div style={{ maxHeight: '200px', overflowY: 'auto', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+            {adminUsersWithoutCard.map((user, index) => (
+              <Text key={user.uid} size="sm">
+                {index + 1}. {user.firstName} {user.lastName} ({user.email})
+              </Text>
+            ))}
+          </div>
+        </Stack>
+      ),
+      labels: { confirm: `Envoyer ${adminUsersWithoutCard.length} carte(s)`, cancel: 'Annuler' },
+      confirmProps: { color: 'green' },
+      onConfirm: async () => {
+        let successCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+
+        for (const user of adminUsersWithoutCard) {
+          try {
+            const result = await sendMembershipCard(user.uid, false);
+            if (result.success) {
+              successCount++;
+            } else {
+              errorCount++;
+              errors.push(`${user.firstName} ${user.lastName}: ${result.error}`);
+            }
+          } catch (error: any) {
+            console.error(`Erreur lors de l'envoi à ${user.email}:`, error);
+            errorCount++;
+            errors.push(`${user.firstName} ${user.lastName}: ${error.message || 'Erreur inconnue'}`);
+          }
+        }
+
+        if (successCount > 0) {
+          notifications.show({
+            title: 'Succès',
+            message: `${successCount} carte(s) envoyée(s) avec succès${errorCount > 0 ? ` (${errorCount} erreur(s))` : ''}`,
+            color: errorCount > 0 ? 'orange' : 'green',
+          });
+        }
+
+        if (errorCount > 0 && successCount === 0) {
+          notifications.show({
+            title: 'Erreur',
+            message: `Impossible d'envoyer les cartes (${errorCount} erreur(s))`,
+            color: 'red',
+          });
+        }
+
+        if (errors.length > 0 && errors.length <= 5) {
+          console.error('Détails des erreurs:', errors);
+        }
+
+        loadUsers();
+      },
+    });
+  };
+
   const handleDeleteAllAdminUsers = () => {
     const adminUsers = users.filter(u => u.registrationSource === 'admin');
 
@@ -886,6 +980,15 @@ export function EnhancedUsersListPage() {
             onClick={() => setBulkDeleteModalOpened(true)}
           >
             Suppression en masse
+          </Button>
+          <Button
+            leftSection={<IconSend size={16} />}
+            variant="light"
+            color="teal"
+            onClick={handleSendCardsToAdminUsersWithoutCard}
+            disabled={adminUsersWithoutCardCount === 0}
+          >
+            Envoyer cartes users "admin" ({adminUsersWithoutCardCount})
           </Button>
           <Button
             leftSection={<IconTrash size={16} />}

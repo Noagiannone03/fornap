@@ -18,7 +18,8 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { db } from '../../shared/config/firebase';
-import { doc, setDoc, Timestamp, collection } from 'firebase/firestore';
+import { doc, setDoc, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { getUserByEmail } from '../../shared/services/userService';
 
 interface QuickAddUserModalProps {
   opened: boolean;
@@ -135,9 +136,17 @@ function parseUserLine(line: string): ParsedUser | null {
 
 /**
  * Crée un utilisateur dans Firestore
+ * Lance une erreur si l'email existe déjà
  */
 async function createUserFromLine(user: ParsedUser, adminUserId: string): Promise<void> {
   const email = user.email.toLowerCase().trim();
+
+  // ✅ Vérifier si un utilisateur avec cet email existe déjà
+  const existingUser = await getUserByEmail(email);
+  if (existingUser) {
+    throw new Error(`Un utilisateur avec l'email ${email} existe déjà (${existingUser.firstName} ${existingUser.lastName})`);
+  }
+
   const uid = doc(collection(db, 'users')).id;
 
   const inscriptionTimestamp = parseInscriptionDate(user.inscription);
@@ -273,13 +282,26 @@ export function QuickAddUserModal({
       handleClose();
     } catch (err: any) {
       console.error('Error creating user:', err);
-      setError(err.message || 'Une erreur est survenue lors de la création de l\'utilisateur');
-      notifications.show({
-        title: 'Erreur',
-        message: 'Impossible de créer l\'utilisateur',
-        color: 'red',
-        icon: <IconX size={16} />,
-      });
+      const errorMessage = err.message || 'Une erreur est survenue lors de la création de l\'utilisateur';
+
+      setError(errorMessage);
+
+      // Message différent si c'est un doublon d'email
+      if (errorMessage.includes('existe déjà')) {
+        notifications.show({
+          title: 'Utilisateur déjà existant',
+          message: errorMessage,
+          color: 'orange',
+          icon: <IconAlertCircle size={16} />,
+        });
+      } else {
+        notifications.show({
+          title: 'Erreur',
+          message: errorMessage,
+          color: 'red',
+          icon: <IconX size={16} />,
+        });
+      }
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 import { db } from '../../shared/config/firebase';
 import { doc, setDoc, Timestamp, collection } from 'firebase/firestore';
+import { getUserByEmail } from '../../shared/services/userService';
 
 export interface CsvRow {
   // Champs du fichier XLSX
@@ -145,9 +146,16 @@ function parseInscriptionDate(inscriptionStr: string): Timestamp | null {
  * Crée un document utilisateur dans Firestore depuis les données XLSX
  * IMPORTANT: Tous les utilisateurs ont un abonnement ANNUAL à 12€
  * IMPORTANT: La date d'expiration est TOUJOURS calculée (1 an après l'inscription)
+ * Lance une erreur si l'email existe déjà
  */
 async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void> {
   const email = row.email.toLowerCase().trim();
+
+  // ✅ Vérifier si un utilisateur avec cet email existe déjà
+  const existingUser = await getUserByEmail(email);
+  if (existingUser) {
+    throw new Error(`Email déjà utilisé par ${existingUser.firstName} ${existingUser.lastName}`);
+  }
 
   // Générer un UID unique avec Firestore (au lieu d'utiliser Firebase Auth)
   const uid = doc(collection(db, 'users')).id;

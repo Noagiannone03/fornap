@@ -53,7 +53,6 @@ import {
   migrateLegacyMember,
   sendMembershipCard,
   getAllUniqueTags,
-  sendMembershipCardsToAdminUsersWithoutCard,
 } from '../../../shared/services/userService';
 import type {
   UserListItem,

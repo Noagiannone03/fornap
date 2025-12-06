@@ -18,7 +18,7 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { db } from '../../shared/config/firebase';
-import { doc, setDoc, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, Timestamp, collection } from 'firebase/firestore';
 import { getUserByEmail } from '../../shared/services/userService';
 
 interface QuickAddUserModalProps {

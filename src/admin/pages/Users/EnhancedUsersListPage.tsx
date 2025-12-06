@@ -91,6 +91,44 @@ const membershipStatusColors: Record<MembershipStatus, string> = {
   cancelled: 'gray',
 };
 
+// Fonction pour parser la date de création (gère tous les formats Firestore)
+function parseCreatedAtDate(createdAt: any): Date {
+  if (!createdAt) return new Date(0);
+
+  try {
+    // Si c'est un Timestamp Firestore avec toDate()
+    if (typeof createdAt.toDate === 'function') {
+      return createdAt.toDate();
+    }
+
+    // Si c'est un objet avec seconds (format Firestore serialized)
+    if (typeof createdAt === 'object' && ('seconds' in createdAt || '_seconds' in createdAt)) {
+      const seconds = createdAt.seconds || createdAt._seconds || 0;
+      return new Date(seconds * 1000);
+    }
+
+    // Si c'est déjà un objet Date
+    if (createdAt instanceof Date) {
+      return createdAt;
+    }
+
+    // Si c'est un timestamp en millisecondes
+    if (typeof createdAt === 'number') {
+      return new Date(createdAt);
+    }
+
+    // Si c'est une string
+    if (typeof createdAt === 'string') {
+      return new Date(createdAt);
+    }
+
+    return new Date(0);
+  } catch (e) {
+    console.error('Error parsing createdAt:', e, createdAt);
+    return new Date(0);
+  }
+}
+
 // Composant pour rendre une ligne de tableau
 function UserTableRow({
   user,
@@ -219,11 +257,8 @@ function UserTableRow({
         <Text size="sm" c="dimmed">
           {(() => {
             try {
-              if (!user.createdAt) return 'Date inconnue';
-              const date =
-                typeof user.createdAt.toDate === 'function'
-                  ? user.createdAt.toDate()
-                  : new Date((user.createdAt.seconds || 0) * 1000);
+              const date = parseCreatedAtDate(user.createdAt);
+              if (date.getTime() === 0) return 'Date inconnue';
               return date.toLocaleDateString('fr-FR');
             } catch (e) {
               return 'Date invalide';
@@ -495,22 +530,22 @@ export function EnhancedUsersListPage() {
           break;
         case 'date_asc':
           sorted.sort((a, b) => {
-            const dateA = a.createdAt?.toDate?.() || new Date(0);
-            const dateB = b.createdAt?.toDate?.() || new Date(0);
+            const dateA = parseCreatedAtDate(a.createdAt);
+            const dateB = parseCreatedAtDate(b.createdAt);
             return dateA.getTime() - dateB.getTime();
           });
           break;
         case 'date_desc':
           console.log('\n=== TRI PAR DATE (PLUS RÉCENT EN HAUT) ===');
           sorted.sort((a, b) => {
-            const dateA = a.createdAt?.toDate?.() || new Date(0);
-            const dateB = b.createdAt?.toDate?.() || new Date(0);
+            const dateA = parseCreatedAtDate(a.createdAt);
+            const dateB = parseCreatedAtDate(b.createdAt);
             return dateB.getTime() - dateA.getTime();
           });
           // Afficher les 10 premiers utilisateurs triés avec leurs dates
           console.log('10 premiers utilisateurs après tri par date (desc):');
           sorted.slice(0, 10).forEach((user, index) => {
-            const date = user.createdAt?.toDate?.() || new Date(0);
+            const date = parseCreatedAtDate(user.createdAt);
             console.log(`${index + 1}. ${user.firstName} ${user.lastName} - Date: ${date.toLocaleString('fr-FR')} - Timestamp: ${date.getTime()}`);
             console.log(`   createdAt brut:`, user.createdAt);
           });

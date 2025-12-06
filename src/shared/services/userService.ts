@@ -1207,6 +1207,7 @@ export async function sendMembershipCard(
       body: JSON.stringify({
         userId,
         forceResend,
+        includeExordeHeader,
       }),
     });
 

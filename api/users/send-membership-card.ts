@@ -201,9 +201,27 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
 /**
  * Envoie l'email avec la carte d'adhérent
  */
-async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer): Promise<void> {
+async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer, includeExordeHeader: boolean = false): Promise<void> {
   try {
     const transporter = createEmailTransporter();
+
+    // Générer le contenu de l'entête EXORDE si nécessaire
+    const exordeHeaderHtml = includeExordeHeader ? `
+      <!-- Message intro EXORDE -->
+      <div style="background-color: #fafafa; border-left: 4px solid #ff4757; padding: 20px; margin: 0 0 32px 0; border-radius: 8px;">
+        <p style="font-size: 15px; line-height: 1.7; color: #1a1a1a; margin: 0 0 12px 0; text-align: center;">
+          <strong>Bonjour,</strong>
+        </p>
+        <p style="font-size: 15px; line-height: 1.7; color: #333; margin: 0 0 12px 0; text-align: center;">
+          Si tu reçois ce mail, c'est que tu es venu.e à <strong style="color: #ff4757;">EXORDE</strong><br/>
+          le <strong>31 Décembre 2024</strong> au Fort Napoléon à la Seyne sur Mer.
+        </p>
+        <p style="font-size: 15px; line-height: 1.7; color: #333; margin: 0; text-align: center;">
+          Nous avons enfin édité la carte d'adhésion<br/>
+          pour le lieu que nous nous apprêtons à ouvrir.
+        </p>
+      </div>
+    ` : '';
 
     const mailOptions = {
       from: '"team fornap" <no-reply@fornap.fr>',
@@ -218,39 +236,26 @@ async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer):
           <title>Carte d'adhésion FOR+NAP</title>
         </head>
         <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-          
+
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
             <tr>
               <td align="center">
-                
+
                 <!-- Container principal -->
                 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); overflow: hidden; max-width: 600px;">
-                  
+
                   <!-- Logo -->
                   <tr>
                     <td align="center" style="padding: 50px 40px 30px 40px;">
                       <img src="https://www.fornap.fr/assets/logo-etendu-fornap-CnmtvHyt.png" alt="FOR+NAP" style="width: 280px; height: auto; display: block; margin: 0 auto;" />
                     </td>
                   </tr>
-                  
+
                   <!-- Contenu principal -->
                   <tr>
                     <td style="padding: 20px 50px 40px 50px;">
 
-                      <!-- Message intro EXORDE -->
-                      <div style="background-color: #fafafa; border-left: 4px solid #ff4757; padding: 20px; margin: 0 0 32px 0; border-radius: 8px;">
-                        <p style="font-size: 15px; line-height: 1.7; color: #1a1a1a; margin: 0 0 12px 0; text-align: center;">
-                          <strong>Bonjour,</strong>
-                        </p>
-                        <p style="font-size: 15px; line-height: 1.7; color: #333; margin: 0 0 12px 0; text-align: center;">
-                          Si tu reçois ce mail, c'est que tu es venu.e à <strong style="color: #ff4757;">EXORDE</strong><br/>
-                          le <strong>31 Décembre 2024</strong> au Fort Napoléon à la Seyne sur Mer.
-                        </p>
-                        <p style="font-size: 15px; line-height: 1.7; color: #333; margin: 0; text-align: center;">
-                          Nous avons enfin édité la carte d'adhésion<br/>
-                          pour le lieu que nous nous apprêtons à ouvrir.
-                        </p>
-                      </div>
+                      ${exordeHeaderHtml}
 
                       <!-- Salutation -->
                       <p style="font-size: 18px; line-height: 1.6; color: #1a1a1a; margin: 0 0 24px 0; text-align: center;">
@@ -452,7 +457,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const db = getFirestore();
 
     // Valider le body
-    const { userId, forceResend = false } = req.body as MembershipCardEmailData;
+    const { userId, forceResend = false, includeExordeHeader = false } = req.body as MembershipCardEmailData;
 
     if (!userId) {
       return res.status(400).json({ 
@@ -499,7 +504,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Envoyer l'email
     console.log(`📧 Sending email to ${userData.email}...`);
-    await sendMembershipEmail(userData, cardImageBuffer);
+    await sendMembershipEmail(userData, cardImageBuffer, includeExordeHeader);
 
     // Marquer comme envoyé dans la base de données
     await markEmailAsSent(userId, forceResend);

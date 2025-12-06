@@ -1187,11 +1187,13 @@ export async function searchUsers(searchQuery: string): Promise<UserListItem[]> 
  * Envoie la carte d'adhérent par email à un utilisateur
  * @param userId - ID de l'utilisateur
  * @param forceResend - Force le renvoi même si déjà envoyé
+ * @param includeExordeHeader - Inclure l'entête EXORDE dans l'email
  * @returns Résultat de l'envoi
  */
 export async function sendMembershipCard(
   userId: string,
-  forceResend: boolean = false
+  forceResend: boolean = false,
+  includeExordeHeader: boolean = false
 ): Promise<{ success: boolean; message: string; error?: string }> {
   try {
     // Appeler l'API Vercel serverless

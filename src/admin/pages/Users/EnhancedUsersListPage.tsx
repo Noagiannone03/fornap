@@ -666,6 +666,47 @@ export function EnhancedUsersListPage() {
   // est maintenant basé directement sur l'UID de l'utilisateur, qui ne change jamais.
 
   const handleSendMembershipCard = (uid: string, userName: string, isResend: boolean) => {
+    // Étape 1: Modal de choix du type d'email
+    modals.open({
+      title: 'Choisissez le type d\'email',
+      centered: true,
+      children: (
+        <Stack gap="md">
+          <Text size="sm">
+            Sélectionnez le type de carte d'adhérent à envoyer à <strong>{userName}</strong> :
+          </Text>
+          <Group grow>
+            <Button
+              variant="light"
+              color="blue"
+              onClick={() => {
+                modals.closeAll();
+                confirmAndSendCard(uid, userName, isResend, false);
+              }}
+            >
+              Carte classique
+            </Button>
+            <Button
+              variant="light"
+              color="grape"
+              onClick={() => {
+                modals.closeAll();
+                confirmAndSendCard(uid, userName, isResend, true);
+              }}
+            >
+              Carte avec entête EXORDE
+            </Button>
+          </Group>
+          <Text size="xs" c="dimmed" ta="center">
+            L'entête EXORDE mentionne la soirée du 31 décembre 2024
+          </Text>
+        </Stack>
+      ),
+    });
+  };
+
+  // Fonction de confirmation et d'envoi
+  const confirmAndSendCard = (uid: string, userName: string, isResend: boolean, includeExordeHeader: boolean) => {
     modals.openConfirmModal({
       title: isResend ? 'Renvoyer la carte d\'adhérent' : 'Envoyer la carte d\'adhérent',
       centered: true,
@@ -692,6 +733,7 @@ export function EnhancedUsersListPage() {
                 <Text size="sm">• Sa carte d'adhérent personnalisée</Text>
                 <Text size="sm">• Son QR code unique</Text>
                 <Text size="sm">• Les informations sur son abonnement</Text>
+                {includeExordeHeader && <Text size="sm" c="grape">• L'entête mentionnant la soirée EXORDE</Text>}
               </div>
             </>
           )}
@@ -701,8 +743,8 @@ export function EnhancedUsersListPage() {
       confirmProps: { color: isResend ? 'blue' : 'green', loading: false },
       onConfirm: async () => {
         try {
-          const result = await sendMembershipCard(uid, isResend);
-          
+          const result = await sendMembershipCard(uid, isResend, includeExordeHeader);
+
           if (result.success) {
             notifications.show({
               title: 'Succès',

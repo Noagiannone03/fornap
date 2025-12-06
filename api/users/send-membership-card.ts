@@ -30,6 +30,7 @@ const __dirname = dirname(__filename);
 interface MembershipCardEmailData {
   userId: string;
   forceResend?: boolean;
+  includeExordeHeader?: boolean;
 }
 
 interface UserData {

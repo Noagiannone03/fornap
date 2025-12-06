@@ -42,6 +42,7 @@ import {
   getContributionGeographicData,
   getContributorDemographics,
   getRecentContributionsFullData,
+  getAllCompletedContributionsFullData,
   exportContributionsCSV,
 } from '../../../shared/services/analytics/contributionAnalytics';
 import type {
@@ -66,6 +67,8 @@ export function ContributionStatsPage() {
   const [exportLoading, setExportLoading] = useState(false);
   const [modalOpened, setModalOpened] = useState(false);
   const [selectedContribution, setSelectedContribution] = useState<Contribution | null>(null);
+  const [showAllContributions, setShowAllContributions] = useState(false);
+  const [loadingAllContributions, setLoadingAllContributions] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -75,6 +78,7 @@ export function ContributionStatsPage() {
     try {
       setLoading(true);
       setError(null);
+      setShowAllContributions(false);
 
       // Charger toutes les données en parallèle
       const [
@@ -153,6 +157,24 @@ export function ContributionStatsPage() {
   const handleViewDetails = (contribution: Contribution) => {
     setSelectedContribution(contribution);
     setModalOpened(true);
+  };
+
+  const handleShowAllContributions = async () => {
+    try {
+      setLoadingAllContributions(true);
+      const allContributions = await getAllCompletedContributionsFullData();
+      setRecentContributions(allContributions);
+      setShowAllContributions(true);
+    } catch (err) {
+      console.error('Error loading all contributions:', err);
+      notifications.show({
+        title: 'Erreur',
+        message: 'Erreur lors du chargement de toutes les contributions',
+        color: 'red',
+      });
+    } finally {
+      setLoadingAllContributions(false);
+    }
   };
 
   // Préparer les données pour les graphiques
@@ -395,10 +417,12 @@ export function ContributionStatsPage() {
       {/* Dernières contributions */}
       <Paper shadow="sm" p="md" radius="md" withBorder mb="xl">
         <Title order={3} size="h4" mb="md">
-          Dernières Contributions
+          {showAllContributions ? 'Toutes les Contributions' : 'Dernières Contributions'}
         </Title>
         <Text size="sm" c="dimmed" mb="md">
-          Les 10 dernières contributions reçues (Pass et Dons)
+          {showAllContributions
+            ? `Toutes les contributions reçues (${recentContributions.length} contributions) - Pass et Dons`
+            : `Les 10 dernières contributions reçues (Pass et Dons)`}
         </Text>
         <Stack gap="sm">
           {recentContributions.map((contrib) => {
@@ -457,6 +481,17 @@ export function ContributionStatsPage() {
             );
           })}
         </Stack>
+        {!showAllContributions && (
+          <Group justify="center" mt="md">
+            <Button
+              variant="light"
+              onClick={handleShowAllContributions}
+              loading={loadingAllContributions}
+            >
+              Afficher tout
+            </Button>
+          </Group>
+        )}
       </Paper>
 
       {/* Modal pour voir les détails d'une contribution */}

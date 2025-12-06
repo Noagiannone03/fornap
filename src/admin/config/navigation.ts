@@ -67,7 +67,7 @@ export const navigationItems: NavItem[] = [
   },
   {
     icon: IconChartPie,
-    label: 'Crowdfunding',
+    label: 'Gestion Crowdfunding',
     path: '/admin/crowdfunding',
     requiredPermission: AdminPermission.ANALYTICS_VIEW, // Temporaire, créer une permission dédiée si nécessaire
   },
@@ -122,7 +122,7 @@ export const navigationItems: NavItem[] = [
       },
       {
         icon: IconShoppingCart,
-        label: 'Contributions',
+        label: 'Crowdfunding',
         path: '/admin/analytics/contributions',
         requiredPermission: AdminPermission.ANALYTICS_VIEW,
       },

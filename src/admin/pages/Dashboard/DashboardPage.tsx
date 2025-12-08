@@ -95,7 +95,6 @@ export function DashboardPage() {
     ? [
         { name: 'Mensuel', value: distribution.byType.monthly, color: '#339AF0' },
         { name: 'Annuel', value: distribution.byType.annual, color: '#51CF66' },
-        { name: 'Honoraire', value: distribution.byType.lifetime, color: '#CC5DE8' },
       ]
     : [];
 
@@ -201,7 +200,6 @@ export function DashboardPage() {
             series={[
               { dataKey: 'monthly', name: 'Mensuel', color: '#339AF0' },
               { dataKey: 'annual', name: 'Annuel', color: '#51CF66' },
-              { dataKey: 'lifetime', name: 'Honoraire', color: '#CC5DE8' },
               { dataKey: 'total', name: 'Total', color: '#000' },
             ]}
             height={350}

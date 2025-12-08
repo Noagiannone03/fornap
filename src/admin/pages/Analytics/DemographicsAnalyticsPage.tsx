@@ -149,7 +149,6 @@ export function DemographicsAnalyticsPage() {
                   <Table.Th>Pourcentage</Table.Th>
                   <Table.Th>Mensuel</Table.Th>
                   <Table.Th>Annuel</Table.Th>
-                  <Table.Th>Honoraire</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -166,7 +165,6 @@ export function DemographicsAnalyticsPage() {
                     </Table.Td>
                     <Table.Td>{item.byType.monthly}</Table.Td>
                     <Table.Td>{item.byType.annual}</Table.Td>
-                    <Table.Td>{item.byType.lifetime}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>

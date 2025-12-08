@@ -40,11 +40,11 @@ import type { MembershipPlanWithStats } from '../../../shared/types/membership';
 
 // Mock data pour les stats historiques (à remplacer par de vraies données)
 const subscriptionStats = [
-  { month: 'Jan', monthly: 220, annual: 165, honorary: 42 },
-  { month: 'Fév', monthly: 235, annual: 170, honorary: 43 },
-  { month: 'Mar', monthly: 240, annual: 175, honorary: 44 },
-  { month: 'Avr', monthly: 242, annual: 180, honorary: 45 },
-  { month: 'Mai', monthly: 245, annual: 182, honorary: 45 },
+  { month: 'Jan', monthly: 220, annual: 165 },
+  { month: 'Fév', monthly: 235, annual: 170 },
+  { month: 'Mar', monthly: 240, annual: 175 },
+  { month: 'Avr', monthly: 242, annual: 180 },
+  { month: 'Mai', monthly: 245, annual: 182 },
 ];
 
 export function MembershipsPage() {
@@ -155,7 +155,6 @@ export function MembershipsPage() {
             series={[
               { name: 'monthly', color: 'blue.6' },
               { name: 'annual', color: 'green.6' },
-              { name: 'honorary', color: 'grape.6' },
             ]}
             height={300}
           />

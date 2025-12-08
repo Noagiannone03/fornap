@@ -219,7 +219,6 @@ export function FinancialAnalyticsPage() {
             series={[
               { dataKey: 'monthly', name: 'Mensuel', color: '#339AF0' },
               { dataKey: 'annual', name: 'Annuel', color: '#51CF66' },
-              { dataKey: 'lifetime', name: 'Honoraire', color: '#CC5DE8' },
               { dataKey: 'totalRevenue', name: 'Total', color: '#000' },
             ]}
             height={400}

@@ -31,7 +31,6 @@ function normalizePlanType(planType: any): 'monthly' | 'annual' | 'lifetime' | n
   // Mapping des variations
   if (type === 'monthly' || type === 'month') return 'monthly';
   if (type === 'annual' || type === 'year' || type === 'yearly') return 'annual';
-  if (type === 'lifetime' || type === 'honoraire' || type === 'honorary') return 'lifetime';
 
   return null;
 }

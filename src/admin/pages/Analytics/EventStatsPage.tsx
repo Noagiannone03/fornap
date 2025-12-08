@@ -512,27 +512,6 @@ export function EventStatsPage() {
                         </Text>
                       </Group>
                     </Group>
-
-                    <Group justify="space-between">
-                      <Text size="sm">Honoraire</Text>
-                      <Group gap={8}>
-                        <Progress
-                          value={
-                            (attendeeProfile.membershipDistribution.lifetime /
-                              (attendeeProfile.membershipDistribution.monthly +
-                                attendeeProfile.membershipDistribution.annual +
-                                attendeeProfile.membershipDistribution.lifetime)) *
-                            100
-                          }
-                          size="md"
-                          color="grape"
-                          style={{ width: 120 }}
-                        />
-                        <Text size="sm" fw={600}>
-                          {attendeeProfile.membershipDistribution.lifetime}
-                        </Text>
-                      </Group>
-                    </Group>
                   </Stack>
 
                   <Title order={4} mt="xl" mb="md">

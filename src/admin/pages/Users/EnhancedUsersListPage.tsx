@@ -67,9 +67,7 @@ import {
 } from '../../../shared/types/user';
 import { CsvImportModal } from '../../components/CsvImportModal';
 import { SendMassiveCardsModal } from '../../components/SendMassiveCardsModal';
-import { SendAdminUsersCardsModal } from '../../components/SendAdminUsersCardsModal';
 import { TagsManagerModal, type TagConfig } from '../../components/TagsManagerModal';
-import { BulkDeleteModal } from '../../components/users/BulkDeleteModal';
 import { QuickAddUserModal } from '../../components/QuickAddUserModal';
 import {
   getTagsConfig,
@@ -366,25 +364,17 @@ export function EnhancedUsersListPage() {
   const [csvImportModalOpened, setCsvImportModalOpened] = useState(false);
   const [quickAddModalOpened, setQuickAddModalOpened] = useState(false);
   const [sendMassiveCardsModalOpened, setSendMassiveCardsModalOpened] = useState(false);
-  const [sendAdminUsersCardsModalOpened, setSendAdminUsersCardsModalOpened] = useState(false);
   const [forceResend, setForceResend] = useState(false);
   const [onlyUnsent, setOnlyUnsent] = useState(false);
   const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
   const [tagsConfig, setTagsConfig] = useState<TagConfig[]>([]);
   const [tagsManagerOpened, setTagsManagerOpened] = useState(false);
-  const [bulkDeleteModalOpened, setBulkDeleteModalOpened] = useState(false);
 
   const adminUserId = currentUser?.uid || 'system';
 
   // Calculer le nombre d'utilisateurs qui n'ont pas reçu leur email
   const unsentUsersCount = users.filter(
     (u) => !u.emailStatus || !u.emailStatus.membershipCardSent
-  ).length;
-
-  // Calculer le nombre d'utilisateurs admin sans carte
-  const adminUsersWithoutCardCount = users.filter(
-    (u) => u.registrationSource === 'admin' &&
-    (!u.emailStatus || !u.emailStatus.membershipCardSent)
   ).length;
 
   // Filtres
@@ -877,88 +867,6 @@ export function EnhancedUsersListPage() {
     });
   };
 
-  const handleSendCardsToAdminUsersWithoutCard = () => {
-    if (adminUsersWithoutCardCount === 0) {
-      notifications.show({
-        title: 'Information',
-        message: 'Aucun utilisateur avec source "admin" sans carte trouvé',
-        color: 'blue',
-      });
-      return;
-    }
-
-    setSendAdminUsersCardsModalOpened(true);
-  };
-
-  const handleDeleteAllAdminUsers = () => {
-    const adminUsers = users.filter(u => u.registrationSource === 'admin');
-
-    if (adminUsers.length === 0) {
-      notifications.show({
-        title: 'Information',
-        message: 'Aucun utilisateur avec source "admin" trouvé',
-        color: 'blue',
-      });
-      return;
-    }
-
-    modals.openConfirmModal({
-      title: 'Supprimer tous les utilisateurs créés par admin',
-      centered: true,
-      children: (
-        <Stack gap="md">
-          <Text size="sm">
-            Êtes-vous sûr de vouloir supprimer <strong>{adminUsers.length} utilisateur(s)</strong> dont la source est "admin" ?
-          </Text>
-          <Text size="sm" c="red" fw={700}>
-            ⚠️ Cette action est IRRÉVERSIBLE et supprimera définitivement :
-          </Text>
-          <div style={{ maxHeight: '200px', overflowY: 'auto', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-            {adminUsers.map((user, index) => (
-              <Text key={user.uid} size="sm">
-                {index + 1}. {user.firstName} {user.lastName} ({user.email})
-              </Text>
-            ))}
-          </div>
-        </Stack>
-      ),
-      labels: { confirm: `Supprimer ${adminUsers.length} utilisateur(s)`, cancel: 'Annuler' },
-      confirmProps: { color: 'red' },
-      onConfirm: async () => {
-        let successCount = 0;
-        let errorCount = 0;
-
-        for (const user of adminUsers) {
-          try {
-            await deleteUser(user.uid, adminUserId);
-            successCount++;
-          } catch (error) {
-            console.error(`Erreur lors de la suppression de ${user.email}:`, error);
-            errorCount++;
-          }
-        }
-
-        if (successCount > 0) {
-          notifications.show({
-            title: 'Succès',
-            message: `${successCount} utilisateur(s) supprimé(s) avec succès${errorCount > 0 ? ` (${errorCount} erreur(s))` : ''}`,
-            color: errorCount > 0 ? 'orange' : 'green',
-          });
-        }
-
-        if (errorCount > 0 && successCount === 0) {
-          notifications.show({
-            title: 'Erreur',
-            message: `Impossible de supprimer les utilisateurs (${errorCount} erreur(s))`,
-            color: 'red',
-          });
-        }
-
-        loadUsers();
-      },
-    });
-  };
-
   const handleOpenMassiveSendModal = (mode: 'all' | 'force' | 'unsent') => {
     setForceResend(mode === 'force');
     setOnlyUnsent(mode === 'unsent');
@@ -979,31 +887,6 @@ export function EnhancedUsersListPage() {
             onClick={() => setTagsManagerOpened(true)}
           >
             Gérer les tags
-          </Button>
-          <Button
-            leftSection={<IconTrash size={16} />}
-            variant="light"
-            color="red"
-            onClick={() => setBulkDeleteModalOpened(true)}
-          >
-            Suppression en masse
-          </Button>
-          <Button
-            leftSection={<IconSend size={16} />}
-            variant="light"
-            color="teal"
-            onClick={handleSendCardsToAdminUsersWithoutCard}
-            disabled={adminUsersWithoutCardCount === 0}
-          >
-            Envoyer cartes users "admin" ({adminUsersWithoutCardCount})
-          </Button>
-          <Button
-            leftSection={<IconTrash size={16} />}
-            variant="light"
-            color="orange"
-            onClick={handleDeleteAllAdminUsers}
-          >
-            Supprimer users "admin" ({users.filter(u => u.registrationSource === 'admin').length})
           </Button>
           <Button leftSection={<IconDownload size={16} />} variant="light" onClick={handleExport}>
             Exporter
@@ -1387,28 +1270,12 @@ export function EnhancedUsersListPage() {
         onlyUnsent={onlyUnsent}
       />
 
-      {/* Modal d'envoi des cartes aux users admin sans carte */}
-      <SendAdminUsersCardsModal
-        opened={sendAdminUsersCardsModalOpened}
-        onClose={() => setSendAdminUsersCardsModalOpened(false)}
-        onComplete={loadUsers}
-        totalUsers={adminUsersWithoutCardCount}
-      />
-
       {/* Modal de gestion des tags */}
       <TagsManagerModal
         opened={tagsManagerOpened}
         onClose={() => setTagsManagerOpened(false)}
         onSave={handleSaveTagsConfig}
         initialTags={tagsConfig}
-      />
-
-      {/* Modal de suppression en masse par emails */}
-      <BulkDeleteModal
-        opened={bulkDeleteModalOpened}
-        onClose={() => setBulkDeleteModalOpened(false)}
-        adminUserId={adminUserId}
-        onDeleteComplete={loadUsers}
       />
     </Container>
   );

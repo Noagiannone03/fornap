@@ -274,6 +274,7 @@ export function UserEditPage() {
         lastName,
         phone,
         postalCode,
+        email,
         birthDate: birthDate ? Timestamp.fromDate(birthDate) : undefined,
         status: {
           tags,
@@ -422,8 +423,7 @@ export function UserEditPage() {
                   placeholder="email@example.com"
                   type="email"
                   value={email}
-                  disabled
-                  description="L'email ne peut pas être modifié"
+                  onChange={(e) => setEmail(e.currentTarget.value)}
                 />
 
                 <Group grow>

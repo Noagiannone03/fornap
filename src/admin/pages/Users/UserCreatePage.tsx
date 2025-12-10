@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import styles from './UserCreatePage.module.css';
 import {
   Container,
   Title,
@@ -18,6 +19,10 @@ import {
   Text,
   Grid,
   Box,
+  Modal,
+  Progress,
+  ThemeIcon,
+  Alert,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -30,9 +35,13 @@ import {
   IconHeart,
   IconMessage,
   IconUsers,
+  IconMail,
+  IconAlertCircle,
+  IconLoader,
+  IconMailCheck,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { createUserByAdmin } from '../../../shared/services/userService';
+import { createUserByAdmin, sendMembershipCard } from '../../../shared/services/userService';
 import { getAllMembershipPlans } from '../../../shared/services/membershipService';
 import type {
   AdminCreateUserData,
@@ -49,6 +58,13 @@ export function UserCreatePage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
+
+  // États pour le modal de création + envoi d'email
+  const [progressModalOpened, setProgressModalOpened] = useState(false);
+  const [progressStep, setProgressStep] = useState<'creating' | 'sending' | 'success' | 'error'>('creating');
+  const [progressMessage, setProgressMessage] = useState('');
+  const [createdUserId, setCreatedUserId] = useState<string | null>(null);
+  const [emailResult, setEmailResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Form state - Informations de base
   const [firstName, setFirstName] = useState('');
@@ -139,7 +155,7 @@ export function UserCreatePage() {
     }
   };
 
-  const handleSave = async () => {
+  const validateForm = (): { isValid: boolean; userData?: AdminCreateUserData; birthDateObj?: Date; startDateObj?: Date } => {
     // Validation
     if (!firstName || !lastName || !email || !phone || !postalCode || !birthDate || !planId || !startDate) {
       notifications.show({
@@ -147,7 +163,7 @@ export function UserCreatePage() {
         message: 'Veuillez remplir tous les champs obligatoires',
         color: 'red',
       });
-      return;
+      return { isValid: false };
     }
 
     // Validation email
@@ -158,7 +174,7 @@ export function UserCreatePage() {
         message: 'Veuillez entrer une adresse email valide',
         color: 'red',
       });
-      return;
+      return { isValid: false };
     }
 
     // Vérifier que les dates sont valides (format YYYY-MM-DD)
@@ -171,7 +187,7 @@ export function UserCreatePage() {
         message: 'Date de naissance invalide',
         color: 'red',
       });
-      return;
+      return { isValid: false };
     }
 
     if (isNaN(startDateObj.getTime())) {
@@ -180,74 +196,80 @@ export function UserCreatePage() {
         message: 'Date de début invalide',
         color: 'red',
       });
-      return;
+      return { isValid: false };
     }
+
+    const userData: AdminCreateUserData = {
+      email,
+      firstName,
+      lastName,
+      postalCode,
+      birthDate: birthDateObj.toISOString(),
+      phone,
+      planId,
+      paymentStatus,
+      startDate: startDateObj.toISOString(),
+      autoRenew,
+      tags: tags as MemberTag[],
+      isAccountBlocked,
+      isCardBlocked,
+      adminNotes: adminNotes || undefined,
+    };
+
+    // Ajouter le profil étendu si abonnement annuel ou à vie
+    if (showExtendedProfile && professionalStatus && preferredContact) {
+      userData.extendedProfile = {
+        professional: {
+          profession,
+          activityDomain,
+          status: professionalStatus,
+          volunteerWork: isVolunteer ? {
+            isVolunteer: true,
+            domains: volunteerDomains,
+          } : undefined,
+          skills,
+        },
+        interests: {
+          eventTypes,
+          artisticDomains,
+          musicGenres: musicGenres.length > 0 ? musicGenres : undefined,
+          conferenceThemes,
+        },
+        communication: {
+          preferredContact,
+          socialMedia: (instagram || facebook || linkedin || tiktok || youtube || blog || website) ? {
+            instagram: instagram || undefined,
+            facebook: facebook || undefined,
+            linkedin: linkedin || undefined,
+            tiktok: tiktok || undefined,
+            youtube: youtube || undefined,
+            blog: blog || undefined,
+            website: website || undefined,
+          } : undefined,
+          publicProfileConsent,
+          publicProfileLevel,
+        },
+        engagement: {
+          howDidYouKnowUs,
+          suggestions: suggestions || undefined,
+          participationInterest: {
+            interested: participationInterested,
+            domains: participationDomains,
+          },
+        },
+      };
+    }
+
+    return { isValid: true, userData, birthDateObj, startDateObj };
+  };
+
+  const handleSave = async () => {
+    const validation = validateForm();
+    if (!validation.isValid || !validation.userData) return;
 
     try {
       setSaving(true);
-
-      const userData: AdminCreateUserData = {
-        email,
-        firstName,
-        lastName,
-        postalCode,
-        birthDate: birthDateObj.toISOString(),
-        phone,
-        planId,
-        paymentStatus,
-        startDate: startDateObj.toISOString(),
-        autoRenew,
-        tags: tags as MemberTag[],
-        isAccountBlocked,
-        isCardBlocked,
-        adminNotes: adminNotes || undefined,
-      };
-
-      // Ajouter le profil étendu si abonnement annuel ou à vie
-      if (showExtendedProfile && professionalStatus && preferredContact) {
-        userData.extendedProfile = {
-          professional: {
-            profession,
-            activityDomain,
-            status: professionalStatus,
-            volunteerWork: isVolunteer ? {
-              isVolunteer: true,
-              domains: volunteerDomains,
-            } : undefined,
-            skills,
-          },
-          interests: {
-            eventTypes,
-            artisticDomains,
-            musicGenres: musicGenres.length > 0 ? musicGenres : undefined,
-            conferenceThemes,
-          },
-          communication: {
-            preferredContact,
-            socialMedia: (instagram || facebook || linkedin || tiktok || youtube || blog || website) ? {
-              instagram: instagram || undefined,
-              facebook: facebook || undefined,
-              linkedin: linkedin || undefined,
-              tiktok: tiktok || undefined,
-              youtube: youtube || undefined,
-              blog: blog || undefined,
-              website: website || undefined,
-            } : undefined,
-            publicProfileConsent,
-            publicProfileLevel,
-          },
-          engagement: {
-            howDidYouKnowUs,
-            suggestions: suggestions || undefined,
-            participationInterest: {
-              interested: participationInterested,
-              domains: participationDomains,
-            },
-          },
-        };
-      }
-
-      const userId = await createUserByAdmin('current-admin-id', userData); // TODO: Utiliser l'ID de l'admin connecté
+      const userId = await createUserByAdmin('current-admin-id', validation.userData);
 
       notifications.show({
         title: 'Succès',
@@ -265,6 +287,56 @@ export function UserCreatePage() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveAndSendEmail = async () => {
+    const validation = validateForm();
+    if (!validation.isValid || !validation.userData) return;
+
+    // Ouvrir le modal de progression
+    setProgressModalOpened(true);
+    setProgressStep('creating');
+    setProgressMessage('Création de l\'utilisateur en cours...');
+    setCreatedUserId(null);
+    setEmailResult(null);
+
+    try {
+      // Étape 1: Créer l'utilisateur
+      const userId = await createUserByAdmin('current-admin-id', validation.userData);
+      setCreatedUserId(userId);
+
+      // Attendre un peu pour que la création soit bien finalisée
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Étape 2: Envoyer l'email
+      setProgressStep('sending');
+      setProgressMessage('Envoi de l\'email de bienvenue...');
+
+      const result = await sendMembershipCard(userId, false, false);
+      setEmailResult(result);
+
+      if (result.success) {
+        setProgressStep('success');
+        setProgressMessage('Utilisateur créé et email envoyé avec succès !');
+      } else {
+        setProgressStep('error');
+        setProgressMessage(`Utilisateur créé mais l'email n'a pas pu être envoyé: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error during user creation:', error);
+      setProgressStep('error');
+      setProgressMessage(error instanceof Error ? error.message : 'Une erreur est survenue');
+    }
+  };
+
+  const handleCloseProgressModal = () => {
+    setProgressModalOpened(false);
+    if (progressStep === 'success' && createdUserId) {
+      navigate(`/admin/users/${createdUserId}`);
+    } else if (progressStep === 'error' && createdUserId) {
+      // L'utilisateur a été créé mais l'email a échoué, rediriger quand même
+      navigate(`/admin/users/${createdUserId}`);
     }
   };
 
@@ -828,16 +900,171 @@ export function UserCreatePage() {
             >
               Annuler
             </Button>
-            <Button
-              leftSection={<IconCheck size={16} />}
-              onClick={handleSave}
-              loading={saving}
-              size="md"
-            >
-              Créer l'utilisateur
-            </Button>
+            <Group>
+              <Button
+                leftSection={<IconCheck size={16} />}
+                onClick={handleSave}
+                loading={saving}
+                size="md"
+                variant="light"
+              >
+                Créer l'utilisateur
+              </Button>
+              <Button
+                leftSection={<IconMailCheck size={16} />}
+                onClick={handleSaveAndSendEmail}
+                disabled={saving}
+                size="md"
+                color="green"
+                variant="gradient"
+                gradient={{ from: 'teal', to: 'green', deg: 90 }}
+              >
+                Créer et envoyer l'email
+              </Button>
+            </Group>
           </Group>
         </Paper>
+
+        {/* Modal de progression */}
+        <Modal
+          opened={progressModalOpened}
+          onClose={handleCloseProgressModal}
+          title={
+            <Group gap="sm">
+              {progressStep === 'creating' && <IconLoader size={24} className={styles.rotatingIcon} />}
+              {progressStep === 'sending' && <IconMail size={24} className={styles.rotatingIcon} />}
+              {progressStep === 'success' && <IconCheck size={24} color="green" />}
+              {progressStep === 'error' && <IconAlertCircle size={24} color="red" />}
+              <Text fw={600}>
+                {progressStep === 'creating' && 'Création en cours'}
+                {progressStep === 'sending' && 'Envoi de l\'email'}
+                {progressStep === 'success' && 'Succès'}
+                {progressStep === 'error' && 'Attention'}
+              </Text>
+            </Group>
+          }
+          centered
+          closeOnClickOutside={progressStep === 'success' || progressStep === 'error'}
+          closeOnEscape={progressStep === 'success' || progressStep === 'error'}
+          withCloseButton={progressStep === 'success' || progressStep === 'error'}
+          size="lg"
+        >
+          <Stack gap="lg">
+            {/* Barre de progression */}
+            {(progressStep === 'creating' || progressStep === 'sending') && (
+              <Progress
+                value={progressStep === 'creating' ? 50 : 100}
+                size="lg"
+                radius="xl"
+                animated
+                color={progressStep === 'creating' ? 'blue' : 'teal'}
+                striped
+              />
+            )}
+
+            {/* Message de progression */}
+            <Paper p="md" radius="md" bg={
+              progressStep === 'success' ? 'green.0' :
+              progressStep === 'error' ? 'red.0' :
+              'blue.0'
+            }>
+              <Group gap="md">
+                <ThemeIcon
+                  size="xl"
+                  radius="xl"
+                  variant="light"
+                  color={
+                    progressStep === 'success' ? 'green' :
+                    progressStep === 'error' ? 'red' :
+                    progressStep === 'sending' ? 'teal' : 'blue'
+                  }
+                >
+                  {progressStep === 'creating' && <IconUser size={24} />}
+                  {progressStep === 'sending' && <IconMail size={24} />}
+                  {progressStep === 'success' && <IconCheck size={24} />}
+                  {progressStep === 'error' && <IconAlertCircle size={24} />}
+                </ThemeIcon>
+                <div style={{ flex: 1 }}>
+                  <Text size="sm" fw={500}>
+                    {progressMessage}
+                  </Text>
+                  {progressStep === 'creating' && (
+                    <Text size="xs" c="dimmed" mt={4}>
+                      Enregistrement des informations...
+                    </Text>
+                  )}
+                  {progressStep === 'sending' && (
+                    <Text size="xs" c="dimmed" mt={4}>
+                      Envoi de la carte d'adhérent par email...
+                    </Text>
+                  )}
+                </div>
+              </Group>
+            </Paper>
+
+            {/* Détails de l'email (si succès ou erreur d'envoi) */}
+            {emailResult && (
+              <Alert
+                icon={emailResult.success ? <IconMailCheck size={16} /> : <IconAlertCircle size={16} />}
+                color={emailResult.success ? 'green' : 'orange'}
+                title={emailResult.success ? 'Email envoyé' : 'Problème d\'envoi'}
+              >
+                {emailResult.message}
+              </Alert>
+            )}
+
+            {/* Récapitulatif des étapes */}
+            <Stack gap="xs">
+              <Group gap="xs">
+                <ThemeIcon
+                  size="sm"
+                  radius="xl"
+                  color={progressStep !== 'creating' ? 'green' : 'blue'}
+                  variant={progressStep !== 'creating' ? 'filled' : 'light'}
+                >
+                  {progressStep !== 'creating' ? <IconCheck size={12} /> : '1'}
+                </ThemeIcon>
+                <Text size="sm" c={progressStep !== 'creating' ? 'green' : undefined}>
+                  Création de l'utilisateur
+                  {createdUserId && ` (ID: ${createdUserId.slice(0, 8)}...)`}
+                </Text>
+              </Group>
+              <Group gap="xs">
+                <ThemeIcon
+                  size="sm"
+                  radius="xl"
+                  color={
+                    progressStep === 'success' ? 'green' :
+                    progressStep === 'sending' ? 'teal' :
+                    progressStep === 'error' && emailResult ? 'orange' : 'gray'
+                  }
+                  variant={progressStep === 'success' ? 'filled' : 'light'}
+                >
+                  {progressStep === 'success' ? <IconCheck size={12} /> : '2'}
+                </ThemeIcon>
+                <Text size="sm" c={
+                  progressStep === 'success' ? 'green' :
+                  progressStep === 'sending' ? 'teal' : undefined
+                }>
+                  Envoi de l'email de bienvenue
+                </Text>
+              </Group>
+            </Stack>
+
+            {/* Bouton de fermeture */}
+            {(progressStep === 'success' || progressStep === 'error') && (
+              <Group justify="flex-end" mt="md">
+                <Button
+                  onClick={handleCloseProgressModal}
+                  color={progressStep === 'success' ? 'green' : 'blue'}
+                  leftSection={<IconCheck size={16} />}
+                >
+                  Voir le profil
+                </Button>
+              </Group>
+            )}
+          </Stack>
+        </Modal>
       </Stack>
     </Container>
   );

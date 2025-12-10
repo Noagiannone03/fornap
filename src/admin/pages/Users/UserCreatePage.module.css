@@ -1,12 +1,42 @@
-@keyframes rotate {
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes slide-in {
   from {
-    transform: rotate(0deg);
+    opacity: 0;
+    transform: translateX(-10px);
   }
   to {
-    transform: rotate(360deg);
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
 .rotatingIcon {
-  animation: rotate 2s linear infinite;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.bounceIcon {
+  animation: bounce 1.5s ease-in-out infinite;
+}
+
+.slideIn {
+  animation: slide-in 0.3s ease-out;
 }

@@ -37,7 +37,6 @@ import {
   IconUsers,
   IconMail,
   IconAlertCircle,
-  IconLoader,
   IconMailCheck,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
@@ -62,7 +61,6 @@ export function UserCreatePage() {
   // États pour le modal de création + envoi d'email
   const [progressModalOpened, setProgressModalOpened] = useState(false);
   const [progressStep, setProgressStep] = useState<'creating' | 'sending' | 'success' | 'error'>('creating');
-  const [progressMessage, setProgressMessage] = useState('');
   const [createdUserId, setCreatedUserId] = useState<string | null>(null);
   const [emailResult, setEmailResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -297,7 +295,6 @@ export function UserCreatePage() {
     // Ouvrir le modal de progression
     setProgressModalOpened(true);
     setProgressStep('creating');
-    setProgressMessage('Création de l\'utilisateur en cours...');
     setCreatedUserId(null);
     setEmailResult(null);
 
@@ -311,22 +308,22 @@ export function UserCreatePage() {
 
       // Étape 2: Envoyer l'email
       setProgressStep('sending');
-      setProgressMessage('Envoi de l\'email de bienvenue...');
 
       const result = await sendMembershipCard(userId, false, false);
       setEmailResult(result);
 
       if (result.success) {
         setProgressStep('success');
-        setProgressMessage('Utilisateur créé et email envoyé avec succès !');
       } else {
         setProgressStep('error');
-        setProgressMessage(`Utilisateur créé mais l'email n'a pas pu être envoyé: ${result.message}`);
       }
     } catch (error) {
       console.error('Error during user creation:', error);
       setProgressStep('error');
-      setProgressMessage(error instanceof Error ? error.message : 'Une erreur est survenue');
+      setEmailResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Une erreur est survenue lors de la création',
+      });
     }
   };
 
@@ -929,139 +926,171 @@ export function UserCreatePage() {
         <Modal
           opened={progressModalOpened}
           onClose={handleCloseProgressModal}
-          title={
-            <Group gap="sm">
-              {progressStep === 'creating' && <IconLoader size={24} className={styles.rotatingIcon} />}
-              {progressStep === 'sending' && <IconMail size={24} className={styles.rotatingIcon} />}
-              {progressStep === 'success' && <IconCheck size={24} color="green" />}
-              {progressStep === 'error' && <IconAlertCircle size={24} color="red" />}
-              <Text fw={600}>
-                {progressStep === 'creating' && 'Création en cours'}
-                {progressStep === 'sending' && 'Envoi de l\'email'}
-                {progressStep === 'success' && 'Succès'}
-                {progressStep === 'error' && 'Attention'}
-              </Text>
-            </Group>
-          }
+          title={null}
           centered
           closeOnClickOutside={progressStep === 'success' || progressStep === 'error'}
           closeOnEscape={progressStep === 'success' || progressStep === 'error'}
           withCloseButton={progressStep === 'success' || progressStep === 'error'}
-          size="lg"
+          size="sm"
+          padding="xl"
         >
-          <Stack gap="lg">
-            {/* Barre de progression */}
+          <Stack gap="xl">
+            {/* Affichage des étapes avec état */}
+            <Stack gap="md">
+              {/* Étape 1: Création */}
+              <Paper
+                p="md"
+                radius="md"
+                bg={progressStep === 'creating' ? 'blue.0' : 'gray.0'}
+                className={progressStep === 'creating' ? styles.slideIn : ''}
+              >
+                <Group gap="md">
+                  <ThemeIcon
+                    size="lg"
+                    radius="xl"
+                    color={progressStep !== 'creating' ? 'green' : 'blue'}
+                    variant={progressStep !== 'creating' ? 'filled' : 'light'}
+                  >
+                    {progressStep === 'creating' ? (
+                      <IconUser size={20} className={styles.rotatingIcon} />
+                    ) : (
+                      <IconCheck size={20} />
+                    )}
+                  </ThemeIcon>
+                  <div style={{ flex: 1 }}>
+                    <Text fw={500} size="sm">
+                      Création de l'utilisateur
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {progressStep === 'creating'
+                        ? 'Enregistrement des informations...'
+                        : createdUserId
+                        ? `Créé avec succès (${createdUserId.slice(0, 8)}...)`
+                        : 'En attente'}
+                    </Text>
+                  </div>
+                </Group>
+              </Paper>
+
+              {/* Étape 2: Envoi d'email */}
+              <Paper
+                p="md"
+                radius="md"
+                bg={
+                  progressStep === 'sending'
+                    ? 'orange.0'
+                    : progressStep === 'success'
+                    ? 'green.0'
+                    : progressStep === 'error' && emailResult
+                    ? emailResult.success
+                      ? 'green.0'
+                      : 'orange.0'
+                    : 'gray.0'
+                }
+                className={
+                  progressStep === 'sending' || progressStep === 'success' || progressStep === 'error'
+                    ? styles.slideIn
+                    : ''
+                }
+              >
+                <Group gap="md">
+                  <ThemeIcon
+                    size="lg"
+                    radius="xl"
+                    color={
+                      progressStep === 'sending'
+                        ? 'orange'
+                        : progressStep === 'success' ||
+                          (progressStep === 'error' && emailResult?.success)
+                        ? 'green'
+                        : progressStep === 'error' && emailResult && !emailResult.success
+                        ? 'orange'
+                        : 'gray'
+                    }
+                    variant={
+                      progressStep === 'success' ||
+                      (progressStep === 'error' && emailResult?.success)
+                        ? 'filled'
+                        : 'light'
+                    }
+                  >
+                    {progressStep === 'sending' ? (
+                      <IconMail size={20} className={styles.bounceIcon} />
+                    ) : progressStep === 'success' ||
+                      (progressStep === 'error' && emailResult?.success) ? (
+                      <IconMailCheck size={20} />
+                    ) : (
+                      '2'
+                    )}
+                  </ThemeIcon>
+                  <div style={{ flex: 1 }}>
+                    <Text fw={500} size="sm">
+                      Envoi de la carte d'adhérent
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {progressStep === 'creating'
+                        ? 'En attente...'
+                        : progressStep === 'sending'
+                        ? 'Envoi en cours...'
+                        : progressStep === 'success' ||
+                          (progressStep === 'error' && emailResult?.success)
+                        ? 'Email envoyé avec succès'
+                        : progressStep === 'error' && emailResult && !emailResult.success
+                        ? emailResult.message
+                        : 'En attente'}
+                    </Text>
+                  </div>
+                </Group>
+              </Paper>
+            </Stack>
+
+            {/* Barre de progression globale */}
             {(progressStep === 'creating' || progressStep === 'sending') && (
               <Progress
-                value={progressStep === 'creating' ? 50 : 100}
-                size="lg"
+                value={progressStep === 'creating' ? 40 : 100}
+                size="md"
                 radius="xl"
                 animated
-                color={progressStep === 'creating' ? 'blue' : 'teal'}
+                color={progressStep === 'creating' ? 'blue' : 'green'}
                 striped
               />
             )}
 
-            {/* Message de progression */}
-            <Paper p="md" radius="md" bg={
-              progressStep === 'success' ? 'green.0' :
-              progressStep === 'error' ? 'red.0' :
-              'blue.0'
-            }>
-              <Group gap="md">
-                <ThemeIcon
-                  size="xl"
-                  radius="xl"
-                  variant="light"
-                  color={
-                    progressStep === 'success' ? 'green' :
-                    progressStep === 'error' ? 'red' :
-                    progressStep === 'sending' ? 'teal' : 'blue'
-                  }
-                >
-                  {progressStep === 'creating' && <IconUser size={24} />}
-                  {progressStep === 'sending' && <IconMail size={24} />}
-                  {progressStep === 'success' && <IconCheck size={24} />}
-                  {progressStep === 'error' && <IconAlertCircle size={24} />}
-                </ThemeIcon>
-                <div style={{ flex: 1 }}>
-                  <Text size="sm" fw={500}>
-                    {progressMessage}
-                  </Text>
-                  {progressStep === 'creating' && (
-                    <Text size="xs" c="dimmed" mt={4}>
-                      Enregistrement des informations...
-                    </Text>
-                  )}
-                  {progressStep === 'sending' && (
-                    <Text size="xs" c="dimmed" mt={4}>
-                      Envoi de la carte d'adhérent par email...
-                    </Text>
-                  )}
-                </div>
-              </Group>
-            </Paper>
-
-            {/* Détails de l'email (si succès ou erreur d'envoi) */}
-            {emailResult && (
+            {/* Message de succès ou d'erreur */}
+            {(progressStep === 'success' || progressStep === 'error') && (
               <Alert
-                icon={emailResult.success ? <IconMailCheck size={16} /> : <IconAlertCircle size={16} />}
-                color={emailResult.success ? 'green' : 'orange'}
-                title={emailResult.success ? 'Email envoyé' : 'Problème d\'envoi'}
+                icon={
+                  progressStep === 'success' || emailResult?.success ? (
+                    <IconCheck size={16} />
+                  ) : (
+                    <IconAlertCircle size={16} />
+                  )
+                }
+                color={progressStep === 'success' || emailResult?.success ? 'green' : 'orange'}
+                title={
+                  progressStep === 'success' || emailResult?.success
+                    ? 'Utilisateur créé et email envoyé avec succès !'
+                    : 'Utilisateur créé mais problème lors de l\'envoi'
+                }
               >
-                {emailResult.message}
+                {progressStep === 'success'
+                  ? 'Toutes les informations ont été correctement enregistrées et l\'email a été envoyé.'
+                  : emailResult?.message}
               </Alert>
             )}
 
-            {/* Récapitulatif des étapes */}
-            <Stack gap="xs">
-              <Group gap="xs">
-                <ThemeIcon
-                  size="sm"
-                  radius="xl"
-                  color={progressStep !== 'creating' ? 'green' : 'blue'}
-                  variant={progressStep !== 'creating' ? 'filled' : 'light'}
-                >
-                  {progressStep !== 'creating' ? <IconCheck size={12} /> : '1'}
-                </ThemeIcon>
-                <Text size="sm" c={progressStep !== 'creating' ? 'green' : undefined}>
-                  Création de l'utilisateur
-                  {createdUserId && ` (ID: ${createdUserId.slice(0, 8)}...)`}
-                </Text>
-              </Group>
-              <Group gap="xs">
-                <ThemeIcon
-                  size="sm"
-                  radius="xl"
-                  color={
-                    progressStep === 'success' ? 'green' :
-                    progressStep === 'sending' ? 'teal' :
-                    progressStep === 'error' && emailResult ? 'orange' : 'gray'
-                  }
-                  variant={progressStep === 'success' ? 'filled' : 'light'}
-                >
-                  {progressStep === 'success' ? <IconCheck size={12} /> : '2'}
-                </ThemeIcon>
-                <Text size="sm" c={
-                  progressStep === 'success' ? 'green' :
-                  progressStep === 'sending' ? 'teal' : undefined
-                }>
-                  Envoi de l'email de bienvenue
-                </Text>
-              </Group>
-            </Stack>
-
             {/* Bouton de fermeture */}
             {(progressStep === 'success' || progressStep === 'error') && (
-              <Group justify="flex-end" mt="md">
-                <Button
-                  onClick={handleCloseProgressModal}
-                  color={progressStep === 'success' ? 'green' : 'blue'}
-                  leftSection={<IconCheck size={16} />}
-                >
-                  Voir le profil
-                </Button>
-              </Group>
+              <Button
+                onClick={handleCloseProgressModal}
+                size="md"
+                fullWidth
+                color={progressStep === 'success' ? 'green' : 'blue'}
+                leftSection={<IconCheck size={16} />}
+                variant={progressStep === 'success' ? 'filled' : 'light'}
+              >
+                Voir le profil
+              </Button>
             )}
           </Stack>
         </Modal>

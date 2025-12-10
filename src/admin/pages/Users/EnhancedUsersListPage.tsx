@@ -424,9 +424,13 @@ export function EnhancedUsersListPage() {
   const [bulkAddTagsModalOpened, setBulkAddTagsModalOpened] = useState(false);
   const [addingTags, setAddingTags] = useState(false);
 
-  // États pour le filtre par plage de dates (indépendant des autres filtres)
+  // États pour le filtre par plage de dates des NOUVEAUX utilisateurs
   const [dateRangeStart, setDateRangeStart] = useState<Date | null>(null);
   const [dateRangeEnd, setDateRangeEnd] = useState<Date | null>(null);
+
+  // États pour le filtre par plage de dates des LEGACY MEMBERS (indépendant)
+  const [legacyDateRangeStart, setLegacyDateRangeStart] = useState<Date | null>(null);
+  const [legacyDateRangeEnd, setLegacyDateRangeEnd] = useState<Date | null>(null);
 
   const adminUserId = currentUser?.uid || 'system';
 
@@ -542,7 +546,8 @@ export function EnhancedUsersListPage() {
 
   // Appliquer les filtres et le tri
   useEffect(() => {
-    const applyFilters = (userList: UserListItem[]) => {
+    // Filtres pour les NOUVEAUX UTILISATEURS (tous les filtres disponibles)
+    const applyUsersFilters = (userList: UserListItem[]) => {
       let filtered = [...userList];
 
       if (search) {
@@ -564,12 +569,11 @@ export function EnhancedUsersListPage() {
         filtered = filtered.filter((user) => user.membership.status === membershipStatus);
       }
 
-      // Filtre par plage de dates (indépendant des autres filtres)
+      // Filtre par plage de dates pour les nouveaux utilisateurs
       if (dateRangeStart || dateRangeEnd) {
         filtered = filtered.filter((user) => {
           const userDate = parseCreatedAtDate(user.createdAt);
 
-          // Si date de début définie, vérifier que l'utilisateur a été créé après
           if (dateRangeStart) {
             const startOfDay = new Date(dateRangeStart);
             startOfDay.setHours(0, 0, 0, 0);
@@ -578,9 +582,40 @@ export function EnhancedUsersListPage() {
             }
           }
 
-          // Si date de fin définie, vérifier que l'utilisateur a été créé avant
           if (dateRangeEnd) {
             const endOfDay = new Date(dateRangeEnd);
+            endOfDay.setHours(23, 59, 59, 999);
+            if (userDate > endOfDay) {
+              return false;
+            }
+          }
+
+          return true;
+        });
+      }
+
+      return filtered;
+    };
+
+    // Filtres pour les LEGACY MEMBERS (SEULEMENT le filtre par plage de dates)
+    const applyLegacyFilters = (userList: UserListItem[]) => {
+      let filtered = [...userList];
+
+      // SEULEMENT le filtre par plage de dates pour les legacy members
+      if (legacyDateRangeStart || legacyDateRangeEnd) {
+        filtered = filtered.filter((user) => {
+          const userDate = parseCreatedAtDate(user.createdAt);
+
+          if (legacyDateRangeStart) {
+            const startOfDay = new Date(legacyDateRangeStart);
+            startOfDay.setHours(0, 0, 0, 0);
+            if (userDate < startOfDay) {
+              return false;
+            }
+          }
+
+          if (legacyDateRangeEnd) {
+            const endOfDay = new Date(legacyDateRangeEnd);
             endOfDay.setHours(23, 59, 59, 999);
             if (userDate > endOfDay) {
               return false;
@@ -642,7 +677,8 @@ export function EnhancedUsersListPage() {
       return sorted;
     };
 
-    let filteredUsersData = applyFilters(users);
+    // Appliquer les filtres pour les NOUVEAUX UTILISATEURS
+    let filteredUsersData = applyUsersFilters(users);
 
     if (selectedTags.length > 0) {
       filteredUsersData = filteredUsersData.filter((user) =>
@@ -660,15 +696,19 @@ export function EnhancedUsersListPage() {
       );
     }
 
-    // Appliquer le tri
+    // Appliquer le tri pour les nouveaux utilisateurs
     filteredUsersData = applySorting(filteredUsersData);
-    const filteredLegacyData = applySorting(applyFilters(legacyMembers));
+
+    // Appliquer les filtres pour les LEGACY MEMBERS (SEULEMENT le filtre par date)
+    let filteredLegacyData = applyLegacyFilters(legacyMembers);
+    // Appliquer le tri pour les legacy members
+    filteredLegacyData = applySorting(filteredLegacyData);
 
     setFilteredLegacyMembers(filteredLegacyData);
     setFilteredUsers(filteredUsersData);
     setLegacyPage(1);
     setUsersPage(1);
-  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, sortBy, legacyMembers, users, dateRangeStart, dateRangeEnd]);
+  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, sortBy, legacyMembers, users, dateRangeStart, dateRangeEnd, legacyDateRangeStart, legacyDateRangeEnd]);
 
   // Pagination
   const legacyTotalPages = Math.ceil(filteredLegacyMembers.length / itemsPerPage);
@@ -1319,9 +1359,13 @@ export function EnhancedUsersListPage() {
         </Paper>
       </Group>
 
-      {/* Filtres */}
+      {/* Filtres pour les NOUVEAUX UTILISATEURS */}
       <Paper withBorder p="md" mb="xl" radius="md">
         <Stack gap="md">
+          <Group>
+            <Title order={3} size="h4">Filtres pour les utilisateurs</Title>
+            <Text size="sm" c="dimmed">(Ces filtres n'affectent que les nouveaux utilisateurs)</Text>
+          </Group>
           <TextInput
             placeholder="Rechercher par nom, email, UID..."
             leftSection={<IconSearch size={16} />}
@@ -1594,6 +1638,66 @@ export function EnhancedUsersListPage() {
       {/* SECTION 2: Anciens membres non migrés */}
       {filteredLegacyMembers.length > 0 && (
         <Stack gap="md">
+          {/* Filtre par date pour les anciens membres - INDÉPENDANT des filtres du haut */}
+          <Paper withBorder p="md" radius="md" bg="orange.1">
+            <Stack gap="md">
+              <Group>
+                <Title order={3} size="h4">Filtrer les anciens membres par date</Title>
+              </Group>
+              <Group>
+                <DatePickerInput
+                  label="Date de début"
+                  placeholder="Sélectionnez une date"
+                  value={legacyDateRangeStart}
+                  onChange={(value) => {
+                    if (typeof value === 'string') {
+                      setLegacyDateRangeStart(value ? new Date(value) : null);
+                    } else {
+                      setLegacyDateRangeStart(value);
+                    }
+                  }}
+                  clearable
+                  style={{ flex: 1 }}
+                  valueFormat="DD/MM/YYYY"
+                />
+                <DatePickerInput
+                  label="Date de fin"
+                  placeholder="Sélectionnez une date"
+                  value={legacyDateRangeEnd}
+                  onChange={(value) => {
+                    if (typeof value === 'string') {
+                      setLegacyDateRangeEnd(value ? new Date(value) : null);
+                    } else {
+                      setLegacyDateRangeEnd(value);
+                    }
+                  }}
+                  clearable
+                  style={{ flex: 1 }}
+                  valueFormat="DD/MM/YYYY"
+                  minDate={legacyDateRangeStart || undefined}
+                />
+                {(legacyDateRangeStart || legacyDateRangeEnd) && (
+                  <Button
+                    variant="subtle"
+                    size="xs"
+                    onClick={() => {
+                      setLegacyDateRangeStart(null);
+                      setLegacyDateRangeEnd(null);
+                    }}
+                    mt="xl"
+                  >
+                    Réinitialiser
+                  </Button>
+                )}
+              </Group>
+              {(legacyDateRangeStart || legacyDateRangeEnd) && (
+                <Text size="sm" c="dimmed">
+                  Période: {legacyDateRangeStart ? legacyDateRangeStart.toLocaleDateString('fr-FR') : '...'} - {legacyDateRangeEnd ? legacyDateRangeEnd.toLocaleDateString('fr-FR') : '...'}
+                </Text>
+              )}
+            </Stack>
+          </Paper>
+
           <Paper withBorder p="md" radius="md" bg="orange.0">
             <Group justify="space-between">
               <Group>

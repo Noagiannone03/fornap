@@ -18,6 +18,10 @@ import {
   TagsInput,
   LoadingOverlay,
   Tooltip,
+  Checkbox,
+  Progress,
+  Alert,
+  Modal,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -40,6 +44,8 @@ import {
   IconMailX,
   IconSend,
   IconTags,
+  IconCheck,
+  IconX,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -132,6 +138,8 @@ function UserTableRow({
   user,
   isLegacy,
   tagsConfig,
+  isSelected,
+  onSelect,
   onView,
   onEdit,
   onDelete,
@@ -144,6 +152,8 @@ function UserTableRow({
   user: UserListItem;
   isLegacy: boolean;
   tagsConfig: TagConfig[];
+  isSelected?: boolean;
+  onSelect?: (uid: string, checked: boolean) => void;
   onView?: (uid: string) => void;
   onEdit?: (uid: string) => void;
   onDelete?: (uid: string, name: string) => void;
@@ -159,6 +169,14 @@ function UserTableRow({
 
   return (
     <Table.Tr style={isLegacy ? { backgroundColor: 'rgba(255, 165, 0, 0.08)' } : undefined}>
+      {isLegacy && onSelect && (
+        <Table.Td>
+          <Checkbox
+            checked={isSelected || false}
+            onChange={(e) => onSelect(user.uid, e.currentTarget.checked)}
+          />
+        </Table.Td>
+      )}
       <Table.Td>
         <Group gap="sm">
           <Avatar color={isLegacy ? 'orange' : hasDataAnomaly ? 'red' : 'indigo'} radius="xl">
@@ -353,6 +371,14 @@ function UserTableRow({
   );
 }
 
+// Interface pour le suivi de la migration
+interface MigrationProgress {
+  uid: string;
+  name: string;
+  status: 'pending' | 'processing' | 'success' | 'error';
+  error?: string;
+}
+
 export function EnhancedUsersListPage() {
   const navigate = useNavigate();
   const { currentUser } = useAdminAuth();
@@ -369,6 +395,12 @@ export function EnhancedUsersListPage() {
   const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
   const [tagsConfig, setTagsConfig] = useState<TagConfig[]>([]);
   const [tagsManagerOpened, setTagsManagerOpened] = useState(false);
+
+  // États pour la migration multiple
+  const [selectedLegacyUsers, setSelectedLegacyUsers] = useState<Set<string>>(new Set());
+  const [bulkMigrationModalOpened, setBulkMigrationModalOpened] = useState(false);
+  const [migrationInProgress, setMigrationInProgress] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState<MigrationProgress[]>([]);
 
   const adminUserId = currentUser?.uid || 'system';
 
@@ -873,6 +905,135 @@ export function EnhancedUsersListPage() {
     setSendMassiveCardsModalOpened(true);
   };
 
+  // Gestion de la sélection multiple des legacy users
+  const handleSelectLegacyUser = (uid: string, checked: boolean) => {
+    setSelectedLegacyUsers((prev) => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(uid);
+      } else {
+        newSet.delete(uid);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllLegacyUsers = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(paginatedLegacyMembers.map((m) => m.uid));
+      setSelectedLegacyUsers(allIds);
+    } else {
+      setSelectedLegacyUsers(new Set());
+    }
+  };
+
+  const handleBulkMigration = () => {
+    if (selectedLegacyUsers.size === 0) return;
+
+    let selectedTags: string[] = [];
+
+    modals.open({
+      title: 'Migration groupée',
+      centered: true,
+      size: 'lg',
+      children: (
+        <Stack gap="md">
+          <Text size="sm">
+            Vous allez migrer <strong>{selectedLegacyUsers.size} utilisateur{selectedLegacyUsers.size > 1 ? 's' : ''}</strong> vers le nouveau système.
+          </Text>
+
+          <TagsInput
+            label="Tags à ajouter à tous les utilisateurs (optionnel)"
+            placeholder="Sélectionnez ou créez des tags"
+            data={allTags}
+            defaultValue={[]}
+            onChange={(value) => { selectedTags = value; }}
+            clearable
+            description="Des tags automatiques seront ajoutés (MIGRATED_FROM_LEGACY, etc.)"
+          />
+
+          <Group justify="flex-end" mt="md">
+            <Button variant="subtle" onClick={() => modals.closeAll()}>
+              Annuler
+            </Button>
+            <Button
+              color="blue"
+              leftSection={<IconArrowRight size={16} />}
+              onClick={() => {
+                modals.closeAll();
+                handleStartBulkMigration(selectedTags);
+              }}
+            >
+              Lancer la migration
+            </Button>
+          </Group>
+        </Stack>
+      ),
+    });
+  };
+
+  const handleStartBulkMigration = async (tags: string[]) => {
+    setBulkMigrationModalOpened(true);
+    setMigrationInProgress(true);
+    const selectedUsers = legacyMembers.filter((u) => selectedLegacyUsers.has(u.uid));
+
+    // Initialiser le tableau de progression
+    const progressArray: MigrationProgress[] = selectedUsers.map((user) => ({
+      uid: user.uid,
+      name: `${user.firstName} ${user.lastName}`,
+      status: 'pending' as const,
+    }));
+    setMigrationProgress(progressArray);
+
+    // Migrer chaque utilisateur un par un
+    for (let i = 0; i < selectedUsers.length; i++) {
+      const user = selectedUsers[i];
+
+      // Marquer comme "en cours"
+      setMigrationProgress((prev) =>
+        prev.map((item, idx) =>
+          idx === i ? { ...item, status: 'processing' as const } : item
+        )
+      );
+
+      try {
+        await migrateLegacyMember(user.uid, adminUserId, undefined, tags);
+
+        // Marquer comme "succès"
+        setMigrationProgress((prev) =>
+          prev.map((item, idx) =>
+            idx === i ? { ...item, status: 'success' as const } : item
+          )
+        );
+      } catch (error: any) {
+        // Marquer comme "erreur"
+        setMigrationProgress((prev) =>
+          prev.map((item, idx) =>
+            idx === i
+              ? {
+                  ...item,
+                  status: 'error' as const,
+                  error: error.message || 'Erreur inconnue',
+                }
+              : item
+          )
+        );
+      }
+
+      // Petit délai pour éviter de surcharger le serveur
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    // Migration terminée
+    setMigrationInProgress(false);
+
+    // Recharger les utilisateurs
+    await loadUsers();
+
+    // Réinitialiser la sélection
+    setSelectedLegacyUsers(new Set());
+  };
+
   return (
     <Container size="xl" pos="relative">
       <LoadingOverlay visible={loading} />
@@ -1176,17 +1337,33 @@ export function EnhancedUsersListPage() {
       {filteredLegacyMembers.length > 0 && (
         <Stack gap="md">
           <Paper withBorder p="md" radius="md" bg="orange.0">
-            <Group>
-              <IconAlertTriangle size={28} />
-              <div style={{ flex: 1 }}>
-                <Title order={2}>Membres à migrer</Title>
-                <Text size="sm" c="dimmed">
-                  Anciens membres non encore migrés vers le nouveau système
-                </Text>
-              </div>
-              <Badge size="lg" color="orange" variant="filled">
-                {filteredLegacyMembers.length}
-              </Badge>
+            <Group justify="space-between">
+              <Group>
+                <IconAlertTriangle size={28} />
+                <div>
+                  <Title order={2}>Membres à migrer</Title>
+                  <Text size="sm" c="dimmed">
+                    Anciens membres non encore migrés vers le nouveau système
+                  </Text>
+                </div>
+                <Badge size="lg" color="orange" variant="filled">
+                  {filteredLegacyMembers.length}
+                </Badge>
+              </Group>
+              {selectedLegacyUsers.size > 0 && (
+                <Group>
+                  <Badge size="lg" color="blue" variant="filled">
+                    {selectedLegacyUsers.size} sélectionné{selectedLegacyUsers.size > 1 ? 's' : ''}
+                  </Badge>
+                  <Button
+                    leftSection={<IconArrowRight size={16} />}
+                    color="blue"
+                    onClick={handleBulkMigration}
+                  >
+                    Migrer les utilisateurs sélectionnés
+                  </Button>
+                </Group>
+              )}
             </Group>
           </Paper>
 
@@ -1200,6 +1377,19 @@ export function EnhancedUsersListPage() {
               <Table striped highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
+                    <Table.Th>
+                      <Checkbox
+                        checked={
+                          paginatedLegacyMembers.length > 0 &&
+                          paginatedLegacyMembers.every((m) => selectedLegacyUsers.has(m.uid))
+                        }
+                        indeterminate={
+                          paginatedLegacyMembers.some((m) => selectedLegacyUsers.has(m.uid)) &&
+                          !paginatedLegacyMembers.every((m) => selectedLegacyUsers.has(m.uid))
+                        }
+                        onChange={(e) => handleSelectAllLegacyUsers(e.currentTarget.checked)}
+                      />
+                    </Table.Th>
                     <Table.Th>Membre</Table.Th>
                     <Table.Th>Email</Table.Th>
                     <Table.Th>Type</Table.Th>
@@ -1217,6 +1407,8 @@ export function EnhancedUsersListPage() {
                       user={member}
                       isLegacy={true}
                       tagsConfig={tagsConfig}
+                      isSelected={selectedLegacyUsers.has(member.uid)}
+                      onSelect={handleSelectLegacyUser}
                       onSendEmail={handleSendEmail}
                       onMigrate={handleMigrateLegacyMember}
                     />
@@ -1277,6 +1469,127 @@ export function EnhancedUsersListPage() {
         onSave={handleSaveTagsConfig}
         initialTags={tagsConfig}
       />
+
+      {/* Modal de migration en masse - Affichage de la progression */}
+      <Modal
+        opened={bulkMigrationModalOpened}
+        onClose={() => {
+          if (!migrationInProgress) {
+            setBulkMigrationModalOpened(false);
+            setMigrationProgress([]);
+          }
+        }}
+        title={migrationInProgress ? 'Migration en cours...' : 'Migration terminée'}
+        centered
+        size="lg"
+        closeOnClickOutside={!migrationInProgress}
+        closeOnEscape={!migrationInProgress}
+        withCloseButton={!migrationInProgress}
+      >
+        <Stack gap="md">
+          {/* Barre de progression globale */}
+          <div>
+            <Group justify="space-between" mb={8}>
+              <Text size="sm" fw={500}>
+                Progression globale
+              </Text>
+              <Text size="sm" c="dimmed">
+                {migrationProgress.filter((p) => p.status === 'success' || p.status === 'error').length} / {migrationProgress.length}
+              </Text>
+            </Group>
+            <Progress
+              value={
+                migrationProgress.length > 0
+                  ? (migrationProgress.filter((p) => p.status === 'success' || p.status === 'error').length /
+                      migrationProgress.length) *
+                    100
+                  : 0
+              }
+              size="lg"
+              animated={migrationInProgress}
+            />
+          </div>
+
+          {/* Liste des utilisateurs avec leur statut */}
+          <Stack gap="xs" mah={400} style={{ overflowY: 'auto' }}>
+            {migrationProgress.map((progress, index) => (
+              <Paper
+                key={progress.uid}
+                withBorder
+                p="sm"
+                radius="md"
+                bg={
+                  progress.status === 'success'
+                    ? 'green.0'
+                    : progress.status === 'error'
+                    ? 'red.0'
+                    : progress.status === 'processing'
+                    ? 'blue.0'
+                    : undefined
+                }
+              >
+                <Group justify="space-between">
+                  <Group gap="sm">
+                    <Text size="sm" fw={500}>
+                      {index + 1}. {progress.name}
+                    </Text>
+                  </Group>
+                  {progress.status === 'pending' && (
+                    <Badge variant="light" color="gray">
+                      En attente
+                    </Badge>
+                  )}
+                  {progress.status === 'processing' && (
+                    <Badge variant="light" color="blue">
+                      En cours...
+                    </Badge>
+                  )}
+                  {progress.status === 'success' && (
+                    <Badge variant="light" color="green" leftSection={<IconCheck size={12} />}>
+                      Migré
+                    </Badge>
+                  )}
+                  {progress.status === 'error' && (
+                    <Badge variant="light" color="red" leftSection={<IconX size={12} />}>
+                      Erreur
+                    </Badge>
+                  )}
+                </Group>
+                {progress.status === 'error' && progress.error && (
+                  <Alert color="red" mt="xs" p="xs">
+                    <Text size="xs">{progress.error}</Text>
+                  </Alert>
+                )}
+              </Paper>
+            ))}
+          </Stack>
+
+          {/* Résumé final */}
+          {!migrationInProgress && (
+            <Paper withBorder p="md" radius="md" bg="blue.0" mt="md">
+              <Group justify="space-between">
+                <div>
+                  <Text size="sm" fw={500}>
+                    Migration terminée
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {migrationProgress.filter((p) => p.status === 'success').length} réussies,{' '}
+                    {migrationProgress.filter((p) => p.status === 'error').length} erreurs
+                  </Text>
+                </div>
+                <Button
+                  onClick={() => {
+                    setBulkMigrationModalOpened(false);
+                    setMigrationProgress([]);
+                  }}
+                >
+                  Fermer
+                </Button>
+              </Group>
+            </Paper>
+          )}
+        </Stack>
+      </Modal>
     </Container>
   );
 }

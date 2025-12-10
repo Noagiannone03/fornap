@@ -1966,6 +1966,79 @@ export async function getAllUniqueTags(): Promise<string[]> {
 }
 
 /**
+ * Ajoute des tags à plusieurs utilisateurs en une seule opération
+ * @param userIds - Liste des UIDs des utilisateurs
+ * @param tagsToAdd - Tags à ajouter (sans doublons)
+ * @param adminUserId - ID de l'admin qui effectue l'opération
+ * @returns Résultat de l'opération avec nombre de succès et d'erreurs
+ */
+export async function bulkAddTagsToUsers(
+  userIds: string[],
+  tagsToAdd: string[],
+  adminUserId: string
+): Promise<{
+  success: number;
+  errors: number;
+  total: number;
+  errorDetails: Array<{ userId: string; error: string }>;
+}> {
+  const results = {
+    success: 0,
+    errors: 0,
+    total: userIds.length,
+    errorDetails: [] as Array<{ userId: string; error: string }>,
+  };
+
+  console.log(`[BULK ADD TAGS] Début de l'ajout de tags pour ${userIds.length} utilisateurs par admin ${adminUserId}`);
+  console.log(`[BULK ADD TAGS] Tags à ajouter:`, tagsToAdd);
+
+  for (const userId of userIds) {
+    try {
+      // Récupérer l'utilisateur actuel
+      const user = await getUserById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Fusionner les tags existants avec les nouveaux (sans doublons)
+      const currentTags = user.status?.tags || [];
+      const mergedTags = Array.from(new Set([...currentTags, ...tagsToAdd]));
+
+      // Mettre à jour les tags
+      const userRef = doc(db, USERS_COLLECTION, userId);
+      await updateDoc(userRef, {
+        'status.tags': mergedTags,
+        updatedAt: Timestamp.now(),
+      });
+
+      // Logger l'action
+      await addActionHistory(userId, {
+        actionType: 'profile_update',
+        details: {
+          description: `Tags ajoutés: ${tagsToAdd.join(', ')}`,
+          updatedBy: adminUserId,
+        },
+        deviceType: 'web',
+        notes: `Ajout de tags en masse via interface admin`,
+      });
+
+      results.success++;
+      console.log(`[BULK ADD TAGS] Succès pour ${userId}`);
+    } catch (error: any) {
+      results.errors++;
+      results.errorDetails.push({
+        userId,
+        error: error.message || 'Unknown error',
+      });
+      console.error(`[BULK ADD TAGS] Erreur pour ${userId}:`, error);
+    }
+  }
+
+  console.log(`[BULK ADD TAGS] Terminé. Succès: ${results.success}, Erreurs: ${results.errors}`);
+  return results;
+}
+
+/**
  * Migre un ancien membre vers le nouveau système
  */
 export async function migrateLegacyMember(

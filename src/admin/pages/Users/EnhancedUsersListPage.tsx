@@ -23,6 +23,7 @@ import {
   Alert,
   Modal,
 } from '@mantine/core';
+import { DatePickerInput } from '@mantine/dates';
 import {
   IconSearch,
   IconDownload,
@@ -59,6 +60,7 @@ import {
   migrateLegacyMember,
   sendMembershipCard,
   getAllUniqueTags,
+  bulkAddTagsToUsers,
 } from '../../../shared/services/userService';
 import type {
   UserListItem,
@@ -95,7 +97,7 @@ const membershipStatusColors: Record<MembershipStatus, string> = {
   cancelled: 'gray',
 };
 
-// Fonction pour parser la date de création (gère tous les formats Firestore)
+// Fonction pour parser la date de création (gère tous les formats Firestore, millisecondes, nanosecondes, etc.)
 function parseCreatedAtDate(createdAt: any): Date {
   if (!createdAt) return new Date(0);
 
@@ -108,7 +110,10 @@ function parseCreatedAtDate(createdAt: any): Date {
     // Si c'est un objet avec seconds (format Firestore serialized)
     if (typeof createdAt === 'object' && ('seconds' in createdAt || '_seconds' in createdAt)) {
       const seconds = createdAt.seconds || createdAt._seconds || 0;
-      return new Date(seconds * 1000);
+      const nanoseconds = createdAt.nanoseconds || createdAt._nanoseconds || 0;
+      // Convertir en millisecondes (seconds * 1000 + nanoseconds / 1000000)
+      const milliseconds = seconds * 1000 + Math.floor(nanoseconds / 1000000);
+      return new Date(milliseconds);
     }
 
     // Si c'est déjà un objet Date
@@ -116,16 +121,28 @@ function parseCreatedAtDate(createdAt: any): Date {
       return createdAt;
     }
 
-    // Si c'est un timestamp en millisecondes
+    // Si c'est un timestamp en millisecondes ou en secondes
     if (typeof createdAt === 'number') {
+      // Si le nombre est trop petit, c'est probablement en secondes (avant 2001 en millisecondes = 978307200000)
+      // Tout timestamp en secondes avant 2030 sera < 2000000000
+      if (createdAt < 10000000000) {
+        // C'est en secondes, convertir en millisecondes
+        return new Date(createdAt * 1000);
+      }
+      // C'est déjà en millisecondes
       return new Date(createdAt);
     }
 
-    // Si c'est une string
+    // Si c'est une string ISO ou un format date standard
     if (typeof createdAt === 'string') {
-      return new Date(createdAt);
+      const parsed = new Date(createdAt);
+      // Vérifier que la date est valide
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
     }
 
+    console.warn('Format de date inconnu:', createdAt);
     return new Date(0);
   } catch (e) {
     console.error('Error parsing createdAt:', e, createdAt);
@@ -169,7 +186,7 @@ function UserTableRow({
 
   return (
     <Table.Tr style={isLegacy ? { backgroundColor: 'rgba(255, 165, 0, 0.08)' } : undefined}>
-      {isLegacy && onSelect && (
+      {onSelect && (
         <Table.Td>
           <Checkbox
             checked={isSelected || false}
@@ -402,6 +419,15 @@ export function EnhancedUsersListPage() {
   const [migrationInProgress, setMigrationInProgress] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState<MigrationProgress[]>([]);
 
+  // États pour la sélection multiple des nouveaux utilisateurs
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [bulkAddTagsModalOpened, setBulkAddTagsModalOpened] = useState(false);
+  const [addingTags, setAddingTags] = useState(false);
+
+  // États pour le filtre par plage de dates (indépendant des autres filtres)
+  const [dateRangeStart, setDateRangeStart] = useState<Date | null>(null);
+  const [dateRangeEnd, setDateRangeEnd] = useState<Date | null>(null);
+
   const adminUserId = currentUser?.uid || 'system';
 
   // Calculer le nombre d'utilisateurs qui n'ont pas reçu leur email
@@ -538,6 +564,33 @@ export function EnhancedUsersListPage() {
         filtered = filtered.filter((user) => user.membership.status === membershipStatus);
       }
 
+      // Filtre par plage de dates (indépendant des autres filtres)
+      if (dateRangeStart || dateRangeEnd) {
+        filtered = filtered.filter((user) => {
+          const userDate = parseCreatedAtDate(user.createdAt);
+
+          // Si date de début définie, vérifier que l'utilisateur a été créé après
+          if (dateRangeStart) {
+            const startOfDay = new Date(dateRangeStart);
+            startOfDay.setHours(0, 0, 0, 0);
+            if (userDate < startOfDay) {
+              return false;
+            }
+          }
+
+          // Si date de fin définie, vérifier que l'utilisateur a été créé avant
+          if (dateRangeEnd) {
+            const endOfDay = new Date(dateRangeEnd);
+            endOfDay.setHours(23, 59, 59, 999);
+            if (userDate > endOfDay) {
+              return false;
+            }
+          }
+
+          return true;
+        });
+      }
+
       return filtered;
     };
 
@@ -615,7 +668,7 @@ export function EnhancedUsersListPage() {
     setFilteredUsers(filteredUsersData);
     setLegacyPage(1);
     setUsersPage(1);
-  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, sortBy, legacyMembers, users]);
+  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, sortBy, legacyMembers, users, dateRangeStart, dateRangeEnd]);
 
   // Pagination
   const legacyTotalPages = Math.ceil(filteredLegacyMembers.length / itemsPerPage);
@@ -927,6 +980,126 @@ export function EnhancedUsersListPage() {
     }
   };
 
+  // Gestion de la sélection multiple des nouveaux utilisateurs
+  const handleSelectUser = (uid: string, checked: boolean) => {
+    setSelectedUsers((prev) => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(uid);
+      } else {
+        newSet.delete(uid);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllUsers = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(paginatedUsers.map((u) => u.uid));
+      setSelectedUsers(allIds);
+    } else {
+      setSelectedUsers(new Set());
+    }
+  };
+
+  // Gestion de l'ajout de tags en masse
+  const handleBulkAddTags = () => {
+    if (selectedUsers.size === 0) return;
+
+    let selectedTags: string[] = [];
+
+    modals.open({
+      title: 'Ajouter des tags',
+      centered: true,
+      size: 'lg',
+      children: (
+        <Stack gap="md">
+          <Text size="sm">
+            Vous allez ajouter des tags à <strong>{selectedUsers.size} utilisateur{selectedUsers.size > 1 ? 's' : ''}</strong>.
+          </Text>
+
+          <TagsInput
+            label="Tags à ajouter"
+            placeholder="Sélectionnez ou créez des tags"
+            data={allTags}
+            defaultValue={[]}
+            onChange={(value) => { selectedTags = value; }}
+            clearable
+            description="Les tags seront ajoutés aux tags existants (pas de remplacement)"
+          />
+
+          <Group justify="flex-end" mt="md">
+            <Button variant="subtle" onClick={() => modals.closeAll()}>
+              Annuler
+            </Button>
+            <Button
+              color="blue"
+              leftSection={<IconTags size={16} />}
+              onClick={() => {
+                if (selectedTags.length === 0) {
+                  notifications.show({
+                    title: 'Attention',
+                    message: 'Veuillez sélectionner au moins un tag',
+                    color: 'orange',
+                  });
+                  return;
+                }
+                modals.closeAll();
+                handleStartBulkAddTags(selectedTags);
+              }}
+            >
+              Ajouter les tags
+            </Button>
+          </Group>
+        </Stack>
+      ),
+    });
+  };
+
+  const handleStartBulkAddTags = async (tags: string[]) => {
+    setBulkAddTagsModalOpened(true);
+    setAddingTags(true);
+
+    try {
+      const userIds = Array.from(selectedUsers);
+      const result = await bulkAddTagsToUsers(userIds, tags, adminUserId);
+
+      setAddingTags(false);
+
+      if (result.success === result.total) {
+        notifications.show({
+          title: 'Succès',
+          message: `Tags ajoutés à ${result.success} utilisateur${result.success > 1 ? 's' : ''}`,
+          color: 'green',
+        });
+      } else {
+        notifications.show({
+          title: 'Terminé avec erreurs',
+          message: `${result.success} succès, ${result.errors} erreurs`,
+          color: 'orange',
+        });
+      }
+
+      // Recharger les utilisateurs
+      await loadUsers();
+
+      // Réinitialiser la sélection
+      setSelectedUsers(new Set());
+
+      // Fermer le modal après un délai
+      setTimeout(() => {
+        setBulkAddTagsModalOpened(false);
+      }, 2000);
+    } catch (error: any) {
+      setAddingTags(false);
+      notifications.show({
+        title: 'Erreur',
+        message: error.message || 'Impossible d\'ajouter les tags',
+        color: 'red',
+      });
+    }
+  };
+
   const handleBulkMigration = () => {
     if (selectedLegacyUsers.size === 0) return;
 
@@ -1229,14 +1402,66 @@ export function EnhancedUsersListPage() {
             />
           </Group>
 
+          <Group>
+            <DatePickerInput
+              label="Date de début"
+              placeholder="Sélectionnez une date"
+              value={dateRangeStart}
+              onChange={(value) => {
+                if (typeof value === 'string') {
+                  setDateRangeStart(value ? new Date(value) : null);
+                } else {
+                  setDateRangeStart(value);
+                }
+              }}
+              clearable
+              style={{ flex: 1 }}
+              valueFormat="DD/MM/YYYY"
+            />
+            <DatePickerInput
+              label="Date de fin"
+              placeholder="Sélectionnez une date"
+              value={dateRangeEnd}
+              onChange={(value) => {
+                if (typeof value === 'string') {
+                  setDateRangeEnd(value ? new Date(value) : null);
+                } else {
+                  setDateRangeEnd(value);
+                }
+              }}
+              clearable
+              style={{ flex: 1 }}
+              valueFormat="DD/MM/YYYY"
+              minDate={dateRangeStart || undefined}
+            />
+            {(dateRangeStart || dateRangeEnd) && (
+              <Button
+                variant="subtle"
+                size="xs"
+                onClick={() => {
+                  setDateRangeStart(null);
+                  setDateRangeEnd(null);
+                }}
+                mt="xl"
+              >
+                Réinitialiser les dates
+              </Button>
+            )}
+          </Group>
+
           {(search ||
             membershipType ||
             membershipStatus ||
             selectedTags.length > 0 ||
-            blockedFilter) && (
+            blockedFilter ||
+            dateRangeStart ||
+            dateRangeEnd) && (
             <Group justify="space-between">
               <Text size="sm" c="dimmed">
                 Anciens membres: {filteredLegacyMembers.length} | Utilisateurs: {filteredUsers.length}
+                {(dateRangeStart || dateRangeEnd) && (
+                  <> | Période: {dateRangeStart ? dateRangeStart.toLocaleDateString('fr-FR') : '...'} - {dateRangeEnd ? dateRangeEnd.toLocaleDateString('fr-FR') : '...'}</>
+                )}
               </Text>
               <Button
                 variant="subtle"
@@ -1248,6 +1473,8 @@ export function EnhancedUsersListPage() {
                   setSelectedTags([]);
                   setBlockedFilter(null);
                   setSortBy('date_desc');
+                  setDateRangeStart(null);
+                  setDateRangeEnd(null);
                 }}
               >
                 Réinitialiser les filtres
@@ -1260,17 +1487,33 @@ export function EnhancedUsersListPage() {
       {/* SECTION 1: Utilisateurs (nouveau système) */}
       <Stack gap="md" mb={filteredLegacyMembers.length > 0 ? 'xl' : undefined}>
         <Paper withBorder p="md" radius="md" bg="blue.0">
-          <Group>
-            <IconUsers size={28} />
-            <div style={{ flex: 1 }}>
-              <Title order={2}>Utilisateurs</Title>
-              <Text size="sm" c="dimmed">
-                Membres du nouveau système
-              </Text>
-            </div>
-            <Badge size="lg" color="blue" variant="filled">
-              {filteredUsers.length}
-            </Badge>
+          <Group justify="space-between">
+            <Group>
+              <IconUsers size={28} />
+              <div>
+                <Title order={2}>Utilisateurs</Title>
+                <Text size="sm" c="dimmed">
+                  Membres du nouveau système
+                </Text>
+              </div>
+              <Badge size="lg" color="blue" variant="filled">
+                {filteredUsers.length}
+              </Badge>
+            </Group>
+            {selectedUsers.size > 0 && (
+              <Group>
+                <Badge size="lg" color="green" variant="filled">
+                  {selectedUsers.size} sélectionné{selectedUsers.size > 1 ? 's' : ''}
+                </Badge>
+                <Button
+                  leftSection={<IconTags size={16} />}
+                  color="green"
+                  onClick={handleBulkAddTags}
+                >
+                  Ajouter des tags
+                </Button>
+              </Group>
+            )}
           </Group>
         </Paper>
 
@@ -1279,6 +1522,19 @@ export function EnhancedUsersListPage() {
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
+                  <Table.Th>
+                    <Checkbox
+                      checked={
+                        paginatedUsers.length > 0 &&
+                        paginatedUsers.every((u) => selectedUsers.has(u.uid))
+                      }
+                      indeterminate={
+                        paginatedUsers.some((u) => selectedUsers.has(u.uid)) &&
+                        !paginatedUsers.every((u) => selectedUsers.has(u.uid))
+                      }
+                      onChange={(e) => handleSelectAllUsers(e.currentTarget.checked)}
+                    />
+                  </Table.Th>
                   <Table.Th>Utilisateur</Table.Th>
                   <Table.Th>Email</Table.Th>
                   <Table.Th>Abonnement</Table.Th>
@@ -1296,6 +1552,8 @@ export function EnhancedUsersListPage() {
                     user={user}
                     isLegacy={false}
                     tagsConfig={tagsConfig}
+                    isSelected={selectedUsers.has(user.uid)}
+                    onSelect={handleSelectUser}
                     onView={handleViewUser}
                     onEdit={handleEditUser}
                     onDelete={handleDeleteUser}
@@ -1469,6 +1727,42 @@ export function EnhancedUsersListPage() {
         onSave={handleSaveTagsConfig}
         initialTags={tagsConfig}
       />
+
+      {/* Modal d'ajout de tags en masse */}
+      <Modal
+        opened={bulkAddTagsModalOpened}
+        onClose={() => {
+          if (!addingTags) {
+            setBulkAddTagsModalOpened(false);
+          }
+        }}
+        title={addingTags ? 'Ajout de tags en cours...' : 'Tags ajoutés avec succès'}
+        centered
+        size="md"
+        closeOnClickOutside={!addingTags}
+        closeOnEscape={!addingTags}
+        withCloseButton={!addingTags}
+      >
+        <Stack gap="md">
+          {addingTags ? (
+            <>
+              <Progress value={100} size="lg" animated />
+              <Text size="sm" ta="center">
+                Ajout des tags en cours...
+              </Text>
+            </>
+          ) : (
+            <>
+              <Alert color="green" title="Succès">
+                Les tags ont été ajoutés avec succès aux utilisateurs sélectionnés.
+              </Alert>
+              <Button fullWidth onClick={() => setBulkAddTagsModalOpened(false)}>
+                Fermer
+              </Button>
+            </>
+          )}
+        </Stack>
+      </Modal>
 
       {/* Modal de migration en masse - Affichage de la progression */}
       <Modal

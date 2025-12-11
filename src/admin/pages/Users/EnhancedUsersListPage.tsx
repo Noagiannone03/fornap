@@ -537,6 +537,8 @@ export function EnhancedUsersListPage() {
     const mergedConfig = mergeTagsWithConfig(allTags, tags);
     saveTagsConfig(mergedConfig);
     setTagsConfig(mergedConfig);
+    // Recharger la liste des tags pour inclure les nouveaux
+    loadAllTags();
     notifications.show({
       title: 'Succès',
       message: 'Configuration des tags enregistrée',

@@ -1048,7 +1048,7 @@ export async function getAllUsersForListSeparated(): Promise<SeparatedUsersList>
             planName: legacy.ticketType || legacy['member-type'] || 'Ancien membre',
           },
           loyaltyPoints: 0,
-          tags: ['NON_MIGRE'],
+          tags: [],
           createdAt: createdAt,
           isAccountBlocked: false,
           isCardBlocked: false,

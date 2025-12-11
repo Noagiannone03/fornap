@@ -51,6 +51,8 @@ import type {
 } from '../../../shared/types/user';
 import type { MembershipPlan } from '../../../shared/types/membership';
 import { AVAILABLE_TAGS } from '../../../shared/types/user';
+import { getAllUniqueTags } from '../../../shared/services/userService';
+import { getTagNames } from '../../../shared/services/tagService';
 
 export function UserCreatePage() {
   const navigate = useNavigate();
@@ -80,6 +82,7 @@ export function UserCreatePage() {
 
   // Form state - Statut
   const [tags, setTags] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
   const [isAccountBlocked, setIsAccountBlocked] = useState(false);
   const [isCardBlocked, setIsCardBlocked] = useState(false);
 
@@ -123,7 +126,21 @@ export function UserCreatePage() {
 
   useEffect(() => {
     loadPlans();
+    loadAllTags();
   }, []);
+
+  const loadAllTags = async () => {
+    try {
+      const [uniqueTags, configTags] = await Promise.all([
+        getAllUniqueTags(),
+        getTagNames(),
+      ]);
+      const mergedTags = Array.from(new Set([...AVAILABLE_TAGS, ...configTags, ...uniqueTags]));
+      setAllTags(mergedTags.sort((a, b) => a.localeCompare(b)));
+    } catch (error) {
+      console.error('Error loading tags:', error);
+    }
+  };
 
   // Déterminer si le plan sélectionné est annuel
   useEffect(() => {
@@ -458,13 +475,12 @@ export function UserCreatePage() {
                   placeholder="Sélectionner un plan"
                   data={plans.map((plan) => ({
                     value: plan.id,
-                    label: `${plan.name} - ${plan.price}€ (${
-                      plan.period === 'month'
+                    label: `${plan.name} - ${plan.price}€ (${plan.period === 'month'
                         ? 'Mensuel'
                         : plan.period === 'year'
-                        ? 'Annuel'
-                        : 'À vie'
-                    })`,
+                          ? 'Annuel'
+                          : 'À vie'
+                      })`,
                   }))}
                   value={planId}
                   onChange={setPlanId}
@@ -846,8 +862,8 @@ export function UserCreatePage() {
               <Stack gap="md">
                 <MultiSelect
                   label="Tags"
-                  placeholder="Sélectionner des tags"
-                  data={AVAILABLE_TAGS.map((tag) => ({ value: tag, label: tag }))}
+                  placeholder="Selectionner des tags"
+                  data={allTags.map((tag) => ({ value: tag, label: tag }))}
                   value={tags}
                   onChange={setTags}
                   searchable
@@ -965,8 +981,8 @@ export function UserCreatePage() {
                       {progressStep === 'creating'
                         ? 'Enregistrement des informations...'
                         : createdUserId
-                        ? `Créé avec succès (${createdUserId.slice(0, 8)}...)`
-                        : 'En attente'}
+                          ? `Créé avec succès (${createdUserId.slice(0, 8)}...)`
+                          : 'En attente'}
                     </Text>
                   </div>
                 </Group>
@@ -980,12 +996,12 @@ export function UserCreatePage() {
                   progressStep === 'sending'
                     ? 'orange.0'
                     : progressStep === 'success'
-                    ? 'green.0'
-                    : progressStep === 'error' && emailResult
-                    ? emailResult.success
                       ? 'green.0'
-                      : 'orange.0'
-                    : 'gray.0'
+                      : progressStep === 'error' && emailResult
+                        ? emailResult.success
+                          ? 'green.0'
+                          : 'orange.0'
+                        : 'gray.0'
                 }
                 className={
                   progressStep === 'sending' || progressStep === 'success' || progressStep === 'error'
@@ -1002,14 +1018,14 @@ export function UserCreatePage() {
                         ? 'orange'
                         : progressStep === 'success' ||
                           (progressStep === 'error' && emailResult?.success)
-                        ? 'green'
-                        : progressStep === 'error' && emailResult && !emailResult.success
-                        ? 'orange'
-                        : 'gray'
+                          ? 'green'
+                          : progressStep === 'error' && emailResult && !emailResult.success
+                            ? 'orange'
+                            : 'gray'
                     }
                     variant={
                       progressStep === 'success' ||
-                      (progressStep === 'error' && emailResult?.success)
+                        (progressStep === 'error' && emailResult?.success)
                         ? 'filled'
                         : 'light'
                     }
@@ -1031,13 +1047,13 @@ export function UserCreatePage() {
                       {progressStep === 'creating'
                         ? 'En attente...'
                         : progressStep === 'sending'
-                        ? 'Envoi en cours...'
-                        : progressStep === 'success' ||
-                          (progressStep === 'error' && emailResult?.success)
-                        ? 'Email envoyé avec succès'
-                        : progressStep === 'error' && emailResult && !emailResult.success
-                        ? emailResult.message
-                        : 'En attente'}
+                          ? 'Envoi en cours...'
+                          : progressStep === 'success' ||
+                            (progressStep === 'error' && emailResult?.success)
+                            ? 'Email envoyé avec succès'
+                            : progressStep === 'error' && emailResult && !emailResult.success
+                              ? emailResult.message
+                              : 'En attente'}
                     </Text>
                   </div>
                 </Group>

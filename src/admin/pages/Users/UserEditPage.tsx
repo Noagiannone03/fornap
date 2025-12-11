@@ -19,7 +19,8 @@ import {
 } from '@mantine/core';
 import { IconArrowLeft, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { getUserById, updateUser } from '../../../shared/services/userService';
+import { getUserById, updateUser, getAllUniqueTags } from '../../../shared/services/userService';
+import { getTagNames } from '../../../shared/services/tagService';
 import { Timestamp } from 'firebase/firestore';
 import type { User, MembershipStatus, PaymentStatus, ProfessionalStatus, PreferredContact, PublicProfileLevel, RegistrationSource } from '../../../shared/types/user';
 import {
@@ -51,6 +52,7 @@ export function UserEditPage() {
 
   // Statut du compte
   const [tags, setTags] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
   const [isAccountBlocked, setIsAccountBlocked] = useState(false);
   const [isCardBlocked, setIsCardBlocked] = useState(false);
   const [blockedReason, setBlockedReason] = useState('');
@@ -161,7 +163,21 @@ export function UserEditPage() {
     if (uid) {
       loadUser();
     }
+    loadAllTags();
   }, [uid]);
+
+  const loadAllTags = async () => {
+    try {
+      const [uniqueTags, configTags] = await Promise.all([
+        getAllUniqueTags(),
+        getTagNames(),
+      ]);
+      const mergedTags = Array.from(new Set([...AVAILABLE_TAGS, ...configTags, ...uniqueTags]));
+      setAllTags(mergedTags.sort((a, b) => a.localeCompare(b)));
+    } catch (error) {
+      console.error('Error loading tags:', error);
+    }
+  };
 
   const loadUser = async () => {
     if (!uid) return;
@@ -472,8 +488,8 @@ export function UserEditPage() {
 
                 <TagsInput
                   label="Tags"
-                  placeholder="Sélectionnez ou créez des tags"
-                  data={AVAILABLE_TAGS}
+                  placeholder="Selectionnez ou creez des tags"
+                  data={allTags}
                   value={tags}
                   onChange={setTags}
                   clearable

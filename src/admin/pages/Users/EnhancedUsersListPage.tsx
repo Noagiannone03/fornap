@@ -75,14 +75,13 @@ import {
 } from '../../../shared/types/user';
 import { CsvImportModal } from '../../components/CsvImportModal';
 import { SendMassiveCardsModal } from '../../components/SendMassiveCardsModal';
-import { TagsManagerModal, type TagConfig } from '../../components/TagsManagerModal';
+import { TagsManagerModal } from '../../components/TagsManagerModal';
 import { QuickAddUserModal } from '../../components/QuickAddUserModal';
 import {
-  getTagsConfig,
-  saveTagsConfig,
+  getAllTags,
   getTagColor,
-  mergeTagsWithConfig,
-} from '../../../shared/utils/tagsConfig';
+  type TagConfig,
+} from '../../../shared/services/tagService';
 
 const membershipTypeColors: Record<MembershipType, string> = {
   monthly: 'blue',
@@ -512,38 +511,40 @@ export function EnhancedUsersListPage() {
     }
   };
 
-  const loadTagsConfig = () => {
-    const config = getTagsConfig();
-    setTagsConfig(config);
+  const loadTagsConfig = async () => {
+    try {
+      const config = await getAllTags();
+      setTagsConfig(config);
+      // Also update allTags with tag names
+      const tagNames = config.map(t => t.name);
+      const uniqueTags = await getAllUniqueTags();
+      const mergedTags = Array.from(new Set([...AVAILABLE_TAGS, ...tagNames, ...uniqueTags]));
+      setAllTags(mergedTags.sort((a, b) => a.localeCompare(b)));
+    } catch (error) {
+      console.error('Error loading tags config:', error);
+    }
   };
 
   const loadAllTags = async () => {
     try {
-      const uniqueTags = await getAllUniqueTags();
-      // Fusionner les tags prédéfinis avec les tags existants, sans doublons
-      const mergedTags = Array.from(new Set([...AVAILABLE_TAGS, ...uniqueTags]));
+      const [uniqueTags, configTags] = await Promise.all([
+        getAllUniqueTags(),
+        getAllTags(),
+      ]);
+      const configTagNames = configTags.map(t => t.name);
+      // Merge predefined tags, config tags, and unique tags from users
+      const mergedTags = Array.from(new Set([...AVAILABLE_TAGS, ...configTagNames, ...uniqueTags]));
       setAllTags(mergedTags.sort((a, b) => a.localeCompare(b)));
     } catch (error) {
       console.error('Error loading tags:', error);
-      // En cas d'erreur, garder les tags par défaut
       setAllTags(AVAILABLE_TAGS);
     }
   };
 
-  const handleSaveTagsConfig = (tags: TagConfig[]) => {
-    saveTagsConfig(tags);
-    setTagsConfig(tags);
-    // Fusionner avec les tags existants
-    const mergedConfig = mergeTagsWithConfig(allTags, tags);
-    saveTagsConfig(mergedConfig);
-    setTagsConfig(mergedConfig);
-    // Recharger la liste des tags pour inclure les nouveaux
+  const handleTagsUpdated = () => {
+    // Reload tags from Firebase when tags are updated
+    loadTagsConfig();
     loadAllTags();
-    notifications.show({
-      title: 'Succès',
-      message: 'Configuration des tags enregistrée',
-      color: 'green',
-    });
   };
 
   // Appliquer les filtres et le tri
@@ -1830,8 +1831,8 @@ export function EnhancedUsersListPage() {
       <TagsManagerModal
         opened={tagsManagerOpened}
         onClose={() => setTagsManagerOpened(false)}
-        onSave={handleSaveTagsConfig}
-        initialTags={tagsConfig}
+        onTagsUpdated={handleTagsUpdated}
+        adminUserId={adminUserId}
       />
 
       {/* Modal d'ajout de tags en masse */}

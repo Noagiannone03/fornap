@@ -1,8 +1,11 @@
+import { useState, useEffect } from 'react';
 import { Stack, Select, TextInput, Switch, TagsInput, Group, Text } from '@mantine/core';
 import type { UseFormReturnType } from '@mantine/form';
 import { useMembershipPlans } from '../../../../shared/hooks/useMembershipPlans';
 import { AVAILABLE_TAGS } from '../../../../shared/types/user';
 import type { AdminCreateUserData } from '../../../../shared/types/user';
+import { getAllUniqueTags } from '../../../../shared/services/userService';
+import { getTagNames } from '../../../../shared/services/tagService';
 
 interface MembershipFormProps {
   form: UseFormReturnType<AdminCreateUserData>;
@@ -10,17 +13,35 @@ interface MembershipFormProps {
 
 export function MembershipForm({ form }: MembershipFormProps) {
   const { plans, loading } = useMembershipPlans(false);
+  const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
+
+  useEffect(() => {
+    loadAllTags();
+  }, []);
+
+  const loadAllTags = async () => {
+    try {
+      const [uniqueTags, configTags] = await Promise.all([
+        getAllUniqueTags(),
+        getTagNames(),
+      ]);
+      const mergedTags = Array.from(new Set([...AVAILABLE_TAGS, ...configTags, ...uniqueTags]));
+      setAllTags(mergedTags.sort((a, b) => a.localeCompare(b)));
+    } catch (error) {
+      console.error('Error loading tags:', error);
+    }
+  };
 
   const planOptions = plans.map((plan) => ({
     value: plan.id,
-    label: `${plan.name} - ${plan.price}€ (${plan.period === 'month' ? 'Mensuel' : plan.period === 'year' ? 'Annuel' : 'À vie'})`,
+    label: `${plan.name} - ${plan.price}€ (${plan.period === 'month' ? 'Mensuel' : plan.period === 'year' ? 'Annuel' : 'A vie'})`,
   }));
 
   return (
     <Stack gap="md" mt="md">
       <Select
         label="Plan d'abonnement"
-        placeholder="Sélectionnez un plan"
+        placeholder="Selectionnez un plan"
         required
         data={planOptions}
         disabled={loading}
@@ -31,16 +52,16 @@ export function MembershipForm({ form }: MembershipFormProps) {
         label="Statut de paiement"
         required
         data={[
-          { value: 'paid', label: 'Payé' },
+          { value: 'paid', label: 'Paye' },
           { value: 'pending', label: 'En attente' },
-          { value: 'failed', label: 'Échec' },
+          { value: 'failed', label: 'Echec' },
         ]}
         {...form.getInputProps('paymentStatus')}
       />
 
       <Group grow>
         <TextInput
-          label="Date de début"
+          label="Date de debut"
           type="date"
           required
           {...form.getInputProps('startDate')}
@@ -55,8 +76,8 @@ export function MembershipForm({ form }: MembershipFormProps) {
 
       <TagsInput
         label="Tags"
-        placeholder="Sélectionnez ou créez des tags"
-        data={AVAILABLE_TAGS}
+        placeholder="Selectionnez ou creez des tags"
+        data={allTags}
         clearable
         {...form.getInputProps('tags')}
       />
@@ -73,8 +94,8 @@ export function MembershipForm({ form }: MembershipFormProps) {
       </Group>
 
       <Text size="sm" c="dimmed" fs="italic">
-        Note : Si le plan sélectionné est un abonnement annuel, vous pourrez remplir le profil étendu à l'étape suivante.
-        Le QR code sera généré automatiquement à partir de l'UID de l'utilisateur.
+        Note : Si le plan selectionne est un abonnement annuel, vous pourrez remplir le profil etendu a l'etape suivante.
+        Le QR code sera genere automatiquement a partir de l'UID de l'utilisateur.
       </Text>
     </Stack>
   );

@@ -12,20 +12,26 @@ import {
   Text,
   ScrollArea,
   Divider,
+  LoadingOverlay,
 } from '@mantine/core';
 import { IconTrash, IconPlus, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import {
+  getAllTags,
+  addTag,
+  updateTagColor,
+  deleteTag,
+  type TagConfig,
+} from '../../shared/services/tagService';
 
-export interface TagConfig {
-  name: string;
-  color: string;
-}
+// Re-export TagConfig for backwards compatibility
+export type { TagConfig };
 
 interface TagsManagerModalProps {
   opened: boolean;
   onClose: () => void;
-  onSave: (tags: TagConfig[]) => void;
-  initialTags: TagConfig[];
+  onTagsUpdated?: () => void; // Callback when tags are updated
+  adminUserId?: string;
 }
 
 const PRESET_COLORS = [
@@ -41,76 +47,125 @@ const PRESET_COLORS = [
   '#7950f2', // violet
 ];
 
-export function TagsManagerModal({ opened, onClose, onSave, initialTags }: TagsManagerModalProps) {
-  const [tags, setTags] = useState<TagConfig[]>(initialTags);
+export function TagsManagerModal({
+  opened,
+  onClose,
+  onTagsUpdated,
+  adminUserId = 'system',
+}: TagsManagerModalProps) {
+  const [tags, setTags] = useState<TagConfig[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
 
   useEffect(() => {
-    setTags(initialTags);
-  }, [initialTags]);
+    if (opened) {
+      loadTags();
+    }
+  }, [opened]);
 
-  const handleAddTag = () => {
+  const loadTags = async () => {
+    try {
+      setLoading(true);
+      const fetchedTags = await getAllTags();
+      setTags(fetchedTags);
+    } catch (error) {
+      console.error('Error loading tags:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de charger les tags',
+        color: 'red',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddTag = async () => {
     if (!newTagName.trim()) {
       notifications.show({
         title: 'Erreur',
-        message: 'Le nom du tag ne peut pas être vide',
+        message: 'Le nom du tag ne peut pas etre vide',
         color: 'red',
       });
       return;
     }
 
-    const tagExists = tags.some(
-      (t) => t.name.toLowerCase() === newTagName.trim().toLowerCase()
-    );
-
-    if (tagExists) {
+    try {
+      setSaving(true);
+      await addTag({ name: newTagName.trim(), color: selectedColor }, adminUserId);
+      setNewTagName('');
+      setSelectedColor(PRESET_COLORS[0]);
+      notifications.show({
+        title: 'Succes',
+        message: `Tag "${newTagName.trim()}" ajoute`,
+        color: 'green',
+      });
+      await loadTags();
+      onTagsUpdated?.();
+    } catch (error: any) {
       notifications.show({
         title: 'Erreur',
-        message: 'Ce tag existe déjà',
+        message: error.message || 'Impossible d\'ajouter le tag',
         color: 'red',
       });
-      return;
+    } finally {
+      setSaving(false);
     }
-
-    setTags([...tags, { name: newTagName.trim(), color: selectedColor }]);
-    setNewTagName('');
-    setSelectedColor(PRESET_COLORS[0]);
   };
 
-  const handleDeleteTag = (tagName: string) => {
-    setTags(tags.filter((t) => t.name !== tagName));
+  const handleDeleteTag = async (tagName: string) => {
+    try {
+      setSaving(true);
+      await deleteTag(tagName, adminUserId);
+      notifications.show({
+        title: 'Succes',
+        message: `Tag "${tagName}" supprime`,
+        color: 'green',
+      });
+      await loadTags();
+      onTagsUpdated?.();
+    } catch (error) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de supprimer le tag',
+        color: 'red',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleUpdateColor = (tagName: string, newColor: string) => {
-    setTags(
-      tags.map((t) => (t.name === tagName ? { ...t, color: newColor } : t))
-    );
-  };
-
-  const handleSave = () => {
-    onSave(tags);
-    notifications.show({
-      title: 'Succès',
-      message: `${tags.length} tags enregistrés`,
-      color: 'green',
-    });
-    onClose();
+  const handleUpdateColor = async (tagName: string, newColor: string) => {
+    try {
+      await updateTagColor(tagName, newColor, adminUserId);
+      // Update local state immediately for responsiveness
+      setTags(tags.map(t => (t.name === tagName ? { ...t, color: newColor } : t)));
+      onTagsUpdated?.();
+    } catch (error) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de mettre a jour la couleur',
+        color: 'red',
+      });
+    }
   };
 
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Gérer les tags"
+      title="Gerer les tags"
       size="lg"
       centered
     >
+      <LoadingOverlay visible={loading} />
       <Stack gap="lg">
         {/* Section d'ajout */}
         <Paper withBorder p="md" radius="md">
           <Text size="sm" fw={500} mb="md">
-            Créer un nouveau tag
+            Creer un nouveau tag
           </Text>
           <Stack gap="md">
             <TextInput
@@ -123,6 +178,7 @@ export function TagsManagerModal({ opened, onClose, onSave, initialTags }: TagsM
                   handleAddTag();
                 }
               }}
+              disabled={saving}
             />
             <div>
               <Text size="sm" fw={500} mb="xs">
@@ -166,6 +222,7 @@ export function TagsManagerModal({ opened, onClose, onSave, initialTags }: TagsM
               leftSection={<IconPlus size={16} />}
               onClick={handleAddTag}
               fullWidth
+              loading={saving}
             >
               Ajouter le tag
             </Button>
@@ -178,14 +235,14 @@ export function TagsManagerModal({ opened, onClose, onSave, initialTags }: TagsM
         <div>
           <Group justify="space-between" mb="md">
             <Text size="sm" fw={500}>
-              Tags configurés ({tags.length})
+              Tags configures ({tags.length})
             </Text>
           </Group>
           <ScrollArea h={300}>
             <Stack gap="xs">
               {tags.length === 0 ? (
                 <Text size="sm" c="dimmed" ta="center" py="xl">
-                  Aucun tag personnalisé. Ajoutez-en un ci-dessus !
+                  Aucun tag personnalise. Ajoutez-en un ci-dessus !
                 </Text>
               ) : (
                 tags.map((tag) => (
@@ -214,6 +271,7 @@ export function TagsManagerModal({ opened, onClose, onSave, initialTags }: TagsM
                           color="red"
                           variant="light"
                           onClick={() => handleDeleteTag(tag.name)}
+                          disabled={saving}
                         >
                           <IconTrash size={16} />
                         </ActionIcon>
@@ -229,10 +287,7 @@ export function TagsManagerModal({ opened, onClose, onSave, initialTags }: TagsM
         {/* Actions */}
         <Group justify="flex-end">
           <Button variant="subtle" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button onClick={handleSave} leftSection={<IconCheck size={16} />}>
-            Enregistrer ({tags.length} tags)
+            Fermer
           </Button>
         </Group>
       </Stack>

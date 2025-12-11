@@ -41,8 +41,9 @@ import {
   AVAILABLE_TAGS,
   REGISTRATION_SOURCE_LABELS,
 } from '../../../../shared/types/user';
-import { getAllUsersForList } from '../../../../shared/services/userService';
+import { getAllUsersForList, getAllUniqueTags } from '../../../../shared/services/userService';
 import { estimateRecipients, getTargetedUsers } from '../../../../shared/services/campaignService';
+import { getTagNames } from '../../../../shared/services/tagService';
 
 interface UserTargetingSelectorProps {
   targetingMode: TargetingMode;
@@ -73,6 +74,25 @@ export function UserTargetingSelector({
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [filteredPage, setFilteredPage] = useState(1);
   const filteredItemsPerPage = 10;
+  const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
+
+  // Load all tags on mount
+  useEffect(() => {
+    loadAllTags();
+  }, []);
+
+  const loadAllTags = async () => {
+    try {
+      const [uniqueTags, configTags] = await Promise.all([
+        getAllUniqueTags(),
+        getTagNames(),
+      ]);
+      const mergedTags = Array.from(new Set([...AVAILABLE_TAGS, ...configTags, ...uniqueTags]));
+      setAllTags(mergedTags.sort((a, b) => a.localeCompare(b)));
+    } catch (error) {
+      console.error('Error loading tags:', error);
+    }
+  };
 
   // Charger tous les users pour la sélection manuelle
   useEffect(() => {
@@ -365,8 +385,8 @@ export function UserTargetingSelector({
                     <MultiSelect
                       label="Inclure les tags"
                       description="Les utilisateurs doivent avoir au moins un de ces tags"
-                      placeholder="Sélectionner les tags..."
-                      data={AVAILABLE_TAGS}
+                      placeholder="Selectionner les tags..."
+                      data={allTags}
                       value={filters.includeTags as string[] || []}
                       onChange={(value) =>
                         onFiltersChange({ ...filters, includeTags: value as string[] })
@@ -378,8 +398,8 @@ export function UserTargetingSelector({
                     <MultiSelect
                       label="Exclure les tags"
                       description="Les utilisateurs ne doivent PAS avoir ces tags"
-                      placeholder="Sélectionner les tags..."
-                      data={AVAILABLE_TAGS}
+                      placeholder="Selectionner les tags..."
+                      data={allTags}
                       value={filters.excludeTags as string[] || []}
                       onChange={(value) =>
                         onFiltersChange({ ...filters, excludeTags: value as string[] })
@@ -449,8 +469,8 @@ export function UserTargetingSelector({
                       filters.eventTypes?.length ||
                       filters.artisticDomains?.length ||
                       filters.skills?.length) && (
-                      <Badge size="sm">Actif</Badge>
-                    )}
+                        <Badge size="sm">Actif</Badge>
+                      )}
                   </Group>
                 </Accordion.Control>
                 <Accordion.Panel>

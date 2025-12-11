@@ -106,6 +106,7 @@ export function periodToMembershipType(period: 'month' | 'year' | 'lifetime'): '
 
 /**
  * Calcule la date d'expiration en fonction du type d'abonnement
+ * ⚠️ TOUJOURS retourne une Date valide pour monthly/annual, null UNIQUEMENT pour lifetime
  */
 function calculateExpiryDate(
   startDate: Date,
@@ -115,15 +116,40 @@ function calculateExpiryDate(
     return null;
   }
 
-  const expiryDate = new Date(startDate);
+  // Creer une copie de la date pour eviter de modifier l'original
+  const expiryDate = new Date(startDate.getTime());
+
+  // Valider que startDate est une date valide
+  if (isNaN(expiryDate.getTime())) {
+    console.error(`[calculateExpiryDate] ERROR: Invalid startDate provided:`, startDate);
+    // Fallback: utiliser maintenant + 1 an
+    const fallback = new Date();
+    fallback.setFullYear(fallback.getFullYear() + 1);
+    return fallback;
+  }
+
   if (planType === 'monthly') {
     expiryDate.setMonth(expiryDate.getMonth() + 1);
   } else if (planType === 'annual') {
     expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+  } else {
+    // Securite: planType inattendu (ne devrait jamais arriver grace au typage)
+    console.error(`[calculateExpiryDate] ERROR: Unexpected planType: "${planType}". Defaulting to annual.`);
+    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+  }
+
+  // Double verification: expiryDate doit etre APRES startDate
+  if (expiryDate.getTime() <= startDate.getTime()) {
+    console.error(`[calculateExpiryDate] ERROR: expiryDate is not after startDate! startDate=${startDate.toISOString()}, expiryDate=${expiryDate.toISOString()}`);
+    // Recalculer avec un fallback
+    const fallback = new Date(startDate.getTime());
+    fallback.setFullYear(fallback.getFullYear() + 1);
+    return fallback;
   }
 
   return expiryDate;
 }
+
 
 /**
  * Valide que le membershipType est standard
@@ -232,6 +258,16 @@ export async function createUserByAdmin(
     const startDate = new Date(userData.startDate);
     const membershipType = periodToMembershipType(plan.period);
     const expiryDate = calculateExpiryDate(startDate, membershipType);
+
+    // ⚠️ VALIDATION CRITIQUE: expiryDate ne doit JAMAIS etre null pour monthly/annual
+    if (membershipType !== 'lifetime' && expiryDate === null) {
+      console.error(`[createUserByAdmin] CRITICAL BUG: expiryDate is null for ${membershipType} membership!`);
+      console.error(`  - planId: ${userData.planId}`);
+      console.error(`  - startDate: ${userData.startDate}`);
+      console.error(`  - plan.period: ${plan.period}`);
+      throw new Error(`Cannot create user: expiryDate is null for ${membershipType} membership. This should never happen.`);
+    }
+
 
     const newUserData: Omit<User, 'uid' | 'createdAt' | 'updatedAt' | 'scanCount' | 'lastScannedAt'> = {
       email: userData.email,

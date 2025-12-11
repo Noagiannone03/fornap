@@ -139,6 +139,14 @@ export async function sendEmailWithFallback(options: EmailOptions): Promise<Emai
     attachments,
   };
 
+  // ================================================================
+  // ⚠️ MODE TEST: BREVO UNIQUEMENT
+  // Le bloc FORNAP est commenté pour tester uniquement Brevo.
+  // Pour réactiver le système complet avec fallback, décommenter
+  // le bloc ci-dessous et supprimer le bloc "MODE TEST BREVO".
+  // ================================================================
+
+  /*
   // Tentative 1: SMTP FORNAP
   try {
     console.log(`📧 [FORNAP] Tentative d'envoi à ${to}...`);
@@ -171,53 +179,62 @@ export async function sendEmailWithFallback(options: EmailOptions): Promise<Emai
     }
 
     // Tentative 2: SMTP Brevo (fallback)
-    // Vérifier si Brevo est configuré
-    if (!process.env.BREVO_SMTP_KEY) {
-      console.error(`⚠️ [BREVO] Fallback non disponible - BREVO_SMTP_KEY non configuré`);
-      return {
-        success: false,
-        provider: 'fornap',
-        error: `${fornapError.message} (fallback Brevo non configuré)`,
-        fallbackUsed: false,
-      };
-    }
+  */
 
-    try {
-      console.log(`🔄 [BREVO] Fallback - Tentative d'envoi à ${to}...`);
-      const brevoTransporter = createBrevoTransporter();
+  // ================================================================
+  // MODE TEST BREVO - Envoi direct via Brevo
+  // ================================================================
 
-      // Pour Brevo, on peut optionnellement changer l'adresse d'expédition
-      // mais on garde la même pour la cohérence
-      const brevoMailOptions: Mail.Options = {
-        ...mailOptions,
-        // Brevo permet d'envoyer avec n'importe quelle adresse from vérifiée
-        // On garde no-reply@fornap.fr si le domaine est vérifié sur Brevo
-        // Sinon, utiliser l'adresse par défaut Brevo
-        from: process.env.BREVO_FROM_EMAIL || from,
-      };
-
-      const result = await brevoTransporter.sendMail(brevoMailOptions);
-
-      console.log(`✅ [BREVO] Email envoyé avec succès à ${to} (messageId: ${result.messageId})`);
-
-      return {
-        success: true,
-        provider: 'brevo',
-        messageId: result.messageId,
-        fallbackUsed: true,
-      };
-    } catch (brevoError: any) {
-      console.error(`❌ [BREVO] Échec du fallback pour ${to}:`, brevoError.message);
-
-      // Les deux providers ont échoué
-      return {
-        success: false,
-        provider: 'brevo',
-        error: `FORNAP: ${fornapError.message} | BREVO: ${brevoError.message}`,
-        fallbackUsed: true,
-      };
-    }
+  // Vérifier si Brevo est configuré
+  if (!process.env.BREVO_SMTP_KEY) {
+    console.error(`⚠️ [BREVO] BREVO_SMTP_KEY non configuré`);
+    return {
+      success: false,
+      provider: 'brevo',
+      error: `BREVO_SMTP_KEY non configuré`,
+      fallbackUsed: false,
+    };
   }
+
+  try {
+    console.log(`� [BREVO] Envoi direct à ${to}...`);
+    const brevoTransporter = createBrevoTransporter();
+
+    // Pour Brevo, on peut optionnellement changer l'adresse d'expédition
+    // mais on garde la même pour la cohérence
+    const brevoMailOptions: Mail.Options = {
+      ...mailOptions,
+      // Brevo permet d'envoyer avec n'importe quelle adresse from vérifiée
+      // On garde no-reply@fornap.fr si le domaine est vérifié sur Brevo
+      // Sinon, utiliser l'adresse par défaut Brevo
+      from: process.env.BREVO_FROM_EMAIL || from,
+    };
+
+    const result = await brevoTransporter.sendMail(brevoMailOptions);
+
+    console.log(`✅ [BREVO] Email envoyé avec succès à ${to} (messageId: ${result.messageId})`);
+
+    return {
+      success: true,
+      provider: 'brevo',
+      messageId: result.messageId,
+      fallbackUsed: false,  // En mode test, pas de fallback car envoi direct
+    };
+  } catch (brevoError: any) {
+    console.error(`❌ [BREVO] Échec d'envoi à ${to}:`, brevoError.message);
+
+    return {
+      success: false,
+      provider: 'brevo',
+      error: brevoError.message,
+      fallbackUsed: false,
+    };
+  }
+
+  /*
+  // Fin du bloc FORNAP commenté (pour réactiver le fallback)
+  }
+  */
 }
 
 /**

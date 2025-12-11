@@ -15,7 +15,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestore, getFieldValue } from '../_lib/firebase-admin.js';
 import { prepareEmailWithTracking } from '../_lib/pxl-tracking.js';
-import { createEmailTransporter } from '../_lib/email-transport.js';
+import { sendEmailWithFallback, type EmailSendResult } from '../_lib/email-transport.js';
 
 /**
  * Met à jour le statut d'un destinataire
@@ -25,7 +25,8 @@ async function updateRecipientStatus(
   campaignId: string,
   recipientId: string,
   status: 'sent' | 'failed',
-  errorMessage?: string
+  errorMessage?: string,
+  emailResult?: EmailSendResult
 ): Promise<void> {
   const FieldValue = getFieldValue();
   const recipientRef = db.collection('campaigns').doc(campaignId).collection('recipients').doc(recipientId);
@@ -37,9 +38,16 @@ async function updateRecipientStatus(
 
   if (status === 'sent') {
     updates.sentAt = FieldValue.serverTimestamp();
+    if (emailResult) {
+      updates.emailProvider = emailResult.provider;
+      updates.fallbackUsed = emailResult.fallbackUsed;
+    }
   } else if (status === 'failed' && errorMessage) {
     updates.errorMessage = errorMessage;
     updates.lastRetryAt = FieldValue.serverTimestamp();
+    if (emailResult) {
+      updates.fallbackUsed = emailResult.fallbackUsed;
+    }
   }
 
   await recipientRef.update(updates);
@@ -177,10 +185,11 @@ export default async function handler(
       success: 0,
       failed: 0,
       total: failedRecipients.length,
+      fallbackCount: 0, // Nombre d'emails envoyés via Brevo
       errors: [] as Array<{ email: string; error: string }>,
     };
 
-    // 4. Tenter de renvoyer chaque email
+    // 4. Tenter de renvoyer chaque email (avec fallback automatique FORNAP -> Brevo)
     for (const recipient of failedRecipients) {
       try {
         // Récupérer les infos user si nécessaire
@@ -206,25 +215,28 @@ export default async function handler(
           recipient.id
         );
 
-        // Envoyer l'email
-        const transporter = createEmailTransporter();
-
-        const mailOptions = {
-          from: '"FOR+NAP Social Club" <no-reply@fornap.fr>',
+        // Envoyer l'email avec fallback automatique (FORNAP -> Brevo)
+        const emailResult = await sendEmailWithFallback({
           to: recipient.email,
           subject: campaign.content.subject,
           html: emailHtml,
+          from: '"FOR+NAP Social Club" <no-reply@fornap.fr>',
           replyTo: 'contact@fornap.fr',
-        };
+        });
 
-        await transporter.sendMail(mailOptions);
+        if (!emailResult.success) {
+          throw new Error(emailResult.error || 'Échec d\'envoi email');
+        }
 
-        console.log(`✅ Email renvoyé à ${recipient.email}`);
+        console.log(`✅ Email renvoyé à ${recipient.email} via ${emailResult.provider}${emailResult.fallbackUsed ? ' [fallback]' : ''}`);
 
-        // Marquer comme envoyé
-        await updateRecipientStatus(db, campaignId, recipient.id, 'sent');
+        // Marquer comme envoyé (avec info provider)
+        await updateRecipientStatus(db, campaignId, recipient.id, 'sent', undefined, emailResult);
 
         results.success++;
+        if (emailResult.fallbackUsed) {
+          results.fallbackCount++;
+        }
       } catch (error: any) {
         console.error(`❌ Erreur retry ${recipient.email}:`, error);
 
@@ -244,22 +256,24 @@ export default async function handler(
         });
       }
 
-      // Petite pause entre les envois
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Petite pause entre les envois (300ms)
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
 
     // 5. Mettre à jour les stats finales
     await updateCampaignStats(db, campaignId);
 
     // 6. Retourner le résultat
+    const fallbackNote = results.fallbackCount > 0 ? ` (${results.fallbackCount} via Brevo)` : '';
     res.status(200).json({
       success: true,
-      message: `Retry terminé: ${results.success} succès, ${results.failed} échecs sur ${results.total} emails`,
+      message: `Retry terminé: ${results.success} succès${fallbackNote}, ${results.failed} échecs sur ${results.total} emails`,
       retryCount: currentRetryCount + 1,
       results: {
         success: results.success,
         failed: results.failed,
         total: results.total,
+        fallbackCount: results.fallbackCount,
       },
       errors: results.errors.slice(0, 10), // Max 10 erreurs pour ne pas surcharger
     });

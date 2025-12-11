@@ -15,25 +15,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestore, getFieldValue } from '../_lib/firebase-admin.js';
 import { prepareEmailWithTracking } from '../_lib/pxl-tracking.js';
-import nodemailer from 'nodemailer';
-
-// Configuration Nodemailer - TOUJOURS no-reply@fornap.fr
-function createEmailTransporter() {
-  const smtpConfig = {
-    host: process.env.SMTP_HOST || 'mail.fornap.fr',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false, // TLS sur port 587
-    auth: {
-      user: process.env.SMTP_USER || 'no-reply@fornap.fr',
-      pass: process.env.SMTP_PASSWORD || 'rU6*suHY_b-ce1Z',
-    },
-    tls: {
-      rejectUnauthorized: false
-    }
-  };
-
-  return nodemailer.createTransport(smtpConfig);
-}
+import { sendEmailWithFallback, type EmailSendResult } from '../_lib/email-transport.js';
 
 /**
  * Crée un destinataire dans la sous-collection recipients
@@ -73,7 +55,8 @@ async function updateRecipientStatus(
   campaignId: string,
   recipientId: string,
   status: 'sent' | 'failed',
-  errorMessage?: string
+  errorMessage?: string,
+  emailResult?: EmailSendResult
 ): Promise<void> {
   const FieldValue = getFieldValue();
   const recipientRef = db.collection('campaigns').doc(campaignId).collection('recipients').doc(recipientId);
@@ -85,8 +68,15 @@ async function updateRecipientStatus(
 
   if (status === 'sent') {
     updates.sentAt = FieldValue.serverTimestamp();
+    if (emailResult) {
+      updates.emailProvider = emailResult.provider;
+      updates.fallbackUsed = emailResult.fallbackUsed;
+    }
   } else if (status === 'failed' && errorMessage) {
     updates.errorMessage = errorMessage;
+    if (emailResult) {
+      updates.fallbackUsed = emailResult.fallbackUsed;
+    }
   }
 
   await recipientRef.update(updates);
@@ -224,23 +214,23 @@ export default async function handler(
         recipientId
       );
 
-      // 5. Envoyer l'email via Nodemailer
-      const transporter = createEmailTransporter();
-
-      const mailOptions = {
-        from: '"FOR+NAP Social Club" <no-reply@fornap.fr>', // TOUJOURS no-reply@fornap.fr
+      // 5. Envoyer l'email avec fallback automatique (FORNAP -> Brevo)
+      const emailResult = await sendEmailWithFallback({
         to: user.email,
         subject: campaign.content.subject,
         html: emailHtml,
-        replyTo: 'contact@fornap.fr', // Où les gens peuvent répondre
-      };
+        from: '"FOR+NAP Social Club" <no-reply@fornap.fr>',
+        replyTo: 'contact@fornap.fr',
+      });
 
-      await transporter.sendMail(mailOptions);
+      if (!emailResult.success) {
+        throw new Error(emailResult.error || 'Échec d\'envoi email');
+      }
 
-      console.log(`✅ Email envoyé à ${user.email} (campagne: ${campaignId})`);
+      console.log(`✅ Email envoyé à ${user.email} via ${emailResult.provider} (campagne: ${campaignId})${emailResult.fallbackUsed ? ' [fallback]' : ''}`);
 
-      // 6. Marquer comme envoyé
-      await updateRecipientStatus(db, campaignId, recipientId, 'sent');
+      // 6. Marquer comme envoyé (avec info provider)
+      await updateRecipientStatus(db, campaignId, recipientId, 'sent', undefined, emailResult);
 
       // 7. Mettre à jour les stats de la campagne
       await updateCampaignStats(db, campaignId);
@@ -249,6 +239,8 @@ export default async function handler(
         success: true,
         message: `Email envoyé à ${user.email}`,
         recipientId,
+        provider: emailResult.provider,
+        fallbackUsed: emailResult.fallbackUsed,
       });
     } catch (emailError: any) {
       console.error('❌ Erreur envoi email:', emailError);

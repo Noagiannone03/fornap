@@ -14,11 +14,10 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as admin from 'firebase-admin';
-import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
-import { readFile } from 'fs/promises';
-import { getFirestore, getFieldValue, getTimestamp } from '../_lib/firebase-admin.js';
+import { getFirestore, getFieldValue } from '../_lib/firebase-admin.js';
+import { sendEmailWithFallback, type EmailSendResult } from '../_lib/email-transport.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -50,26 +49,6 @@ interface UserData {
   };
 }
 
-// Configuration Nodemailer
-function createEmailTransporter() {
-  // Configuration SMTP pour FORNAP
-  // Utilise les variables d'environnement en priorité, sinon les credentials par défaut
-  
-  const smtpConfig = {
-    host: process.env.SMTP_HOST || 'mail.fornap.fr', // Serveur mail FORNAP
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false, // true pour port 465, false pour port 587 (TLS)
-    auth: {
-      user: process.env.SMTP_USER || 'no-reply@fornap.fr',
-      pass: process.env.SMTP_PASSWORD || 'rU6*suHY_b-ce1Z',
-    },
-    tls: {
-      rejectUnauthorized: false // Accepter les certificats auto-signés si nécessaire
-    }
-  };
-
-  return nodemailer.createTransport(smtpConfig);
-}
 
 /**
  * Génère l'image de la carte d'adhérent avec QR code - VERSION @napi-rs/canvas
@@ -206,35 +185,28 @@ async function generateMembershipCardImage(userData: UserData): Promise<Buffer> 
 }
 
 /**
- * Envoie l'email avec la carte d'adhérent
+ * Envoie l'email avec la carte d'adhérent (avec fallback automatique sur Brevo)
  */
-async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer, includeExordeHeader: boolean = false): Promise<void> {
-  try {
-    const transporter = createEmailTransporter();
+async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer, includeExordeHeader: boolean = false): Promise<EmailSendResult> {
+  // Générer le contenu de l'entête EXORDE si nécessaire
+  const exordeHeaderHtml = includeExordeHeader ? `
+    <!-- Message intro EXORDE -->
+    <div style="background-color: #fafafa; border-left: 4px solid #ff4757; padding: 20px; margin: 0 0 32px 0; border-radius: 8px;">
+      <p style="font-size: 15px; line-height: 1.7; color: #1a1a1a; margin: 0 0 12px 0; text-align: center;">
+        <strong>Bonjour,</strong>
+      </p>
+      <p style="font-size: 15px; line-height: 1.7; color: #333; margin: 0 0 12px 0; text-align: center;">
+        Si tu reçois ce mail, c'est que tu es venu.e à <strong style="color: #ff4757;">EXORDE</strong><br/>
+        le <strong>31 Décembre 2024</strong> au Fort Napoléon à la Seyne sur Mer.
+      </p>
+      <p style="font-size: 15px; line-height: 1.7; color: #333; margin: 0; text-align: center;">
+        Nous avons enfin édité la carte d'adhésion<br/>
+        pour le lieu que nous nous apprêtons à ouvrir.
+      </p>
+    </div>
+  ` : '';
 
-    // Générer le contenu de l'entête EXORDE si nécessaire
-    const exordeHeaderHtml = includeExordeHeader ? `
-      <!-- Message intro EXORDE -->
-      <div style="background-color: #fafafa; border-left: 4px solid #ff4757; padding: 20px; margin: 0 0 32px 0; border-radius: 8px;">
-        <p style="font-size: 15px; line-height: 1.7; color: #1a1a1a; margin: 0 0 12px 0; text-align: center;">
-          <strong>Bonjour,</strong>
-        </p>
-        <p style="font-size: 15px; line-height: 1.7; color: #333; margin: 0 0 12px 0; text-align: center;">
-          Si tu reçois ce mail, c'est que tu es venu.e à <strong style="color: #ff4757;">EXORDE</strong><br/>
-          le <strong>31 Décembre 2024</strong> au Fort Napoléon à la Seyne sur Mer.
-        </p>
-        <p style="font-size: 15px; line-height: 1.7; color: #333; margin: 0; text-align: center;">
-          Nous avons enfin édité la carte d'adhésion<br/>
-          pour le lieu que nous nous apprêtons à ouvrir.
-        </p>
-      </div>
-    ` : '';
-
-    const mailOptions = {
-      from: '"team fornap" <no-reply@fornap.fr>',
-      to: userData.email,
-      subject: 'Votre carte d\'adhésion FOR+NAP - Social club du Fort Napoléon à la Seyne sur Mer',
-      html: `
+  const emailHtml = `
         <!DOCTYPE html>
         <html lang="fr">
         <head>
@@ -379,28 +351,36 @@ async function sendMembershipEmail(userData: UserData, cardImageBuffer: Buffer, 
           
         </body>
         </html>
-      `,
-      attachments: [
-        {
-          filename: `FOR+NAP-Carte-Membre-${userData.firstName}-${userData.lastName}.png`,
-          content: cardImageBuffer,
-          contentType: 'image/png',
-        },
-      ],
-    };
+  `;
 
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Email envoyé avec succès à ${userData.email}`);
-  } catch (error) {
-    console.error('❌ Error sending email:', error);
-    throw new Error('Failed to send membership email');
+  // Envoyer l'email avec fallback automatique
+  const result = await sendEmailWithFallback({
+    to: userData.email,
+    subject: 'Votre carte d\'adhésion FOR+NAP - Social club du Fort Napoléon à la Seyne sur Mer',
+    html: emailHtml,
+    from: '"team fornap" <no-reply@fornap.fr>',
+    attachments: [
+      {
+        filename: `FOR+NAP-Carte-Membre-${userData.firstName}-${userData.lastName}.png`,
+        content: cardImageBuffer,
+        contentType: 'image/png',
+      },
+    ],
+  });
+
+  if (!result.success) {
+    console.error('❌ Error sending email:', result.error);
+    throw new Error(`Failed to send membership email: ${result.error}`);
   }
+
+  console.log(`✅ Email envoyé avec succès à ${userData.email} via ${result.provider}${result.fallbackUsed ? ' (fallback)' : ''}`);
+  return result;
 }
 
 /**
  * Marque dans Firestore que l'email a été envoyé
  */
-async function markEmailAsSent(userId: string, isResend: boolean): Promise<void> {
+async function markEmailAsSent(userId: string, isResend: boolean, emailResult: EmailSendResult): Promise<void> {
   try {
     const db = getFirestore();
     const userRef = db.collection('users').doc(userId);
@@ -425,10 +405,12 @@ async function markEmailAsSent(userId: string, isResend: boolean): Promise<void>
       'emailStatus.membershipCardSent': true,
       'emailStatus.membershipCardSentAt': FieldValue.serverTimestamp(),
       'emailStatus.membershipCardSentCount': newCount,
+      'emailStatus.lastProvider': emailResult.provider,
+      'emailStatus.lastFallbackUsed': emailResult.fallbackUsed,
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    console.log(`✅ Email status updated for user ${userId} (count: ${newCount})`);
+    console.log(`✅ Email status updated for user ${userId} (count: ${newCount}, provider: ${emailResult.provider})`);
   } catch (error) {
     console.error('❌ Error marking email as sent:', error);
     console.error('Error details:', error);
@@ -509,12 +491,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`📝 Generating membership card for ${userData.firstName} ${userData.lastName}...`);
     const cardImageBuffer = await generateMembershipCardImage(userData);
 
-    // Envoyer l'email
+    // Envoyer l'email (avec fallback automatique sur Brevo si FORNAP échoue)
     console.log(`📧 Sending email to ${userData.email}...`);
-    await sendMembershipEmail(userData, cardImageBuffer, includeExordeHeader);
+    const emailResult = await sendMembershipEmail(userData, cardImageBuffer, includeExordeHeader);
 
-    // Marquer comme envoyé dans la base de données
-    await markEmailAsSent(userId, forceResend);
+    // Marquer comme envoyé dans la base de données (avec info provider)
+    await markEmailAsSent(userId, forceResend, emailResult);
 
     // Succès !
     return res.status(200).json({
@@ -523,6 +505,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userId,
       email: userData.email,
       sentCount: emailStatus.membershipCardSentCount + 1,
+      provider: emailResult.provider,
+      fallbackUsed: emailResult.fallbackUsed,
     });
 
   } catch (error: any) {

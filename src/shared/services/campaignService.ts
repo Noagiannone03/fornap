@@ -64,11 +64,11 @@ function hasUndefinedValues(obj: any, path = ''): string | null {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const value = obj[key];
       const currentPath = path ? `${path}.${key}` : key;
-      
+
       if (value === undefined) {
         return currentPath;
       }
-      
+
       const result = hasUndefinedValues(value, currentPath);
       if (result) return result;
     }
@@ -116,7 +116,7 @@ function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T>
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const value = obj[key];
-      
+
       // Ignorer uniquement les valeurs undefined (null est accepté par Firebase)
       if (value === undefined) {
         continue;
@@ -125,7 +125,7 @@ function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T>
       // Nettoyer récursivement les objets et tableaux
       if (value && typeof value === 'object') {
         const cleanedValue = cleanUndefinedFields(value);
-        
+
         // Ne pas ajouter des objets vides ou des tableaux vides issus du nettoyage
         if (Array.isArray(cleanedValue)) {
           if (cleanedValue.length > 0) {
@@ -133,10 +133,10 @@ function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T>
           }
         } else if (typeof cleanedValue === 'object') {
           // Vérifier si c'est un Timestamp ou une Date
-          const isSpecialObject = 
+          const isSpecialObject =
             (cleanedValue.toDate && typeof cleanedValue.toDate === 'function') ||
             Object.prototype.toString.call(cleanedValue) === '[object Date]';
-          
+
           if (isSpecialObject || Object.keys(cleanedValue).length > 0) {
             cleaned[key] = cleanedValue;
           }
@@ -148,7 +148,7 @@ function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T>
       }
     }
   }
-  
+
   return cleaned as Partial<T>;
 }
 
@@ -202,6 +202,10 @@ function userMatchesFilters(user: User, filters: TargetingFilters): boolean {
 
   // Filtre d'âge
   if (filters.ageRange) {
+    // Skip si pas de date de naissance
+    if (!user.birthDate) {
+      return false;
+    }
     const age = calculateAge(user.birthDate);
     if (filters.ageRange.min !== undefined && age < filters.ageRange.min) {
       return false;

@@ -20,9 +20,11 @@ import {
 import { IconArrowLeft, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { getUserById, updateUser, getAllUniqueTags } from '../../../shared/services/userService';
+import { getAllMembershipPlans } from '../../../shared/services/membershipService';
 import { getTagNames } from '../../../shared/services/tagService';
 import { Timestamp } from 'firebase/firestore';
 import type { User, MembershipStatus, PaymentStatus, ProfessionalStatus, PreferredContact, PublicProfileLevel, RegistrationSource } from '../../../shared/types/user';
+import type { MembershipPlan } from '../../../shared/types/membership';
 import {
   AVAILABLE_TAGS,
   AVAILABLE_SKILLS,
@@ -61,6 +63,8 @@ export function UserEditPage() {
   const [registrationSource, setRegistrationSource] = useState<RegistrationSource>('platform');
 
   // Abonnement
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>('active');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid');
   const [membershipPrice, setMembershipPrice] = useState(0);
@@ -164,7 +168,17 @@ export function UserEditPage() {
       loadUser();
     }
     loadAllTags();
+    loadPlans();
   }, [uid]);
+
+  const loadPlans = async () => {
+    try {
+      const plansData = await getAllMembershipPlans();
+      setPlans(plansData);
+    } catch (error) {
+      console.error('Error loading plans:', error);
+    }
+  };
 
   const loadAllTags = async () => {
     try {
@@ -218,6 +232,7 @@ export function UserEditPage() {
       setRegistrationSource(userData.registration.source);
 
       // Abonnement
+      setSelectedPlanId(userData.currentMembership.planId);
       setMembershipStatus(userData.currentMembership.status);
       setPaymentStatus(userData.currentMembership.paymentStatus);
       setMembershipPrice(userData.currentMembership.price);
@@ -306,6 +321,8 @@ export function UserEditPage() {
         },
         currentMembership: {
           ...user.currentMembership,
+          planId: selectedPlanId || user.currentMembership.planId,
+          planType: plans.find(p => p.id === selectedPlanId)?.period === 'month' ? 'monthly' : plans.find(p => p.id === selectedPlanId)?.period === 'year' ? 'annual' : 'lifetime',
           status: membershipStatus,
           paymentStatus: paymentStatus,
           price: membershipPrice,
@@ -529,6 +546,39 @@ export function UserEditPage() {
           <Accordion.Panel>
             <Paper withBorder p="md" radius="md">
               <Stack gap="md">
+                <Select
+                  label="Plan d'abonnement"
+                  placeholder="Selectionner un plan"
+                  data={plans.map((plan) => ({
+                    value: plan.id,
+                    label: `${plan.name} - ${plan.price}\u20ac (${plan.period === 'month' ? 'Mensuel' : plan.period === 'year' ? 'Annuel' : 'A vie'})`,
+                  }))}
+                  value={selectedPlanId}
+                  onChange={(value) => {
+                    setSelectedPlanId(value);
+                    const selectedPlan = plans.find(p => p.id === value);
+                    if (selectedPlan) {
+                      // Auto-update price
+                      setMembershipPrice(selectedPlan.price);
+                      // Auto-calculate expiry date based on current start date
+                      if (membershipStartDate) {
+                        if (selectedPlan.period === 'month') {
+                          const expiryDate = new Date(membershipStartDate);
+                          expiryDate.setMonth(expiryDate.getMonth() + 1);
+                          setMembershipExpiryDate(expiryDate);
+                        } else if (selectedPlan.period === 'year') {
+                          const expiryDate = new Date(membershipStartDate);
+                          expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+                          setMembershipExpiryDate(expiryDate);
+                        } else {
+                          // lifetime - no expiry
+                          setMembershipExpiryDate(null);
+                        }
+                      }
+                    }
+                  }}
+                />
+
                 <Group grow>
                   <Select
                     label="Statut de l'abonnement"
@@ -563,10 +613,31 @@ export function UserEditPage() {
 
                 <Group grow>
                   <TextInput
-                    label="Date de début"
+                    label="Date de debut"
                     type="date"
                     value={formatDateForInput(membershipStartDate)}
-                    onChange={(e) => setMembershipStartDate(parseDateFromInput(e.currentTarget.value))}
+                    onChange={(e) => {
+                      const newStartDate = parseDateFromInput(e.currentTarget.value);
+                      setMembershipStartDate(newStartDate);
+                      // Auto-calculate expiry date based on plan type
+                      if (newStartDate && selectedPlanId) {
+                        const selectedPlan = plans.find(p => p.id === selectedPlanId);
+                        if (selectedPlan) {
+                          if (selectedPlan.period === 'month') {
+                            const expiryDate = new Date(newStartDate);
+                            expiryDate.setMonth(expiryDate.getMonth() + 1);
+                            setMembershipExpiryDate(expiryDate);
+                          } else if (selectedPlan.period === 'year') {
+                            const expiryDate = new Date(newStartDate);
+                            expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+                            setMembershipExpiryDate(expiryDate);
+                          } else {
+                            // lifetime - no expiry
+                            setMembershipExpiryDate(null);
+                          }
+                        }
+                      }
+                    }}
                   />
 
                   <TextInput
@@ -574,7 +645,7 @@ export function UserEditPage() {
                     type="date"
                     value={formatDateForInput(membershipExpiryDate)}
                     onChange={(e) => setMembershipExpiryDate(parseDateFromInput(e.currentTarget.value))}
-                    description={user?.currentMembership.planType === 'lifetime' ? 'Laisser vide pour lifetime' : ''}
+                    description={plans.find(p => p.id === selectedPlanId)?.period === 'lifetime' ? 'Laisser vide pour lifetime' : ''}
                   />
                 </Group>
 

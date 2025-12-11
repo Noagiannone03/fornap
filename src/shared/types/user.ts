@@ -166,7 +166,7 @@ export interface User {
   firstName: string;
   lastName: string;
   postalCode: string;
-  birthDate: Timestamp;
+  birthDate?: Timestamp;
   phone: string;
 
   // Statut et métadonnées
@@ -513,7 +513,7 @@ export function isUserBlocked(user: User): boolean {
  */
 export function hasMembershipActive(user: User): boolean {
   return user.currentMembership.status === 'active' &&
-         user.currentMembership.paymentStatus === 'paid';
+    user.currentMembership.paymentStatus === 'paid';
 }
 
 /**

@@ -337,7 +337,7 @@ export async function deleteUser(
 ): Promise<void> {
   try {
     const userRef = doc(db, USERS_COLLECTION, userId);
-    
+
     // Vérifier que le document existe avant de le supprimer
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) {
@@ -1107,19 +1107,19 @@ export async function getUsersCount(): Promise<number> {
  */
 export async function searchUsers(searchQuery: string): Promise<UserListItem[]> {
   if (!searchQuery || searchQuery.length < 2) return [];
-  
+
   try {
     const usersRef = collection(db, USERS_COLLECTION);
     const qLower = searchQuery.toLowerCase();
     const qCap = searchQuery.charAt(0).toUpperCase() + searchQuery.slice(1).toLowerCase();
-    
+
     // Firestore est sensible à la casse par défaut.
     // Stratégie: On lance quelques requêtes parallèles ciblées.
     // Idéalement, il faudrait un champ "keywords" array en minuscule dans le document pour la recherche.
-    
+
     // 1. Recherche par email (très fiable si exact)
     const emailQuery = query(
-      usersRef, 
+      usersRef,
       where('email', '>=', qLower),
       where('email', '<=', qLower + '\uf8ff'),
       limit(5)
@@ -1198,7 +1198,7 @@ export async function sendMembershipCard(
   try {
     // Appeler l'API Vercel serverless
     const apiUrl = `${import.meta.env.VITE_API_URL || ''}/api/users/send-membership-card`;
-    
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -1915,6 +1915,57 @@ function parseTimestamp(value: any): Timestamp {
 }
 
 /**
+ * Parse une date au format DD/MM/YYYY (format français)
+ * Retourne undefined si la date est invalide ou vide
+ */
+function parseFrenchDateString(dateString: string | undefined | null): Timestamp | undefined {
+  if (!dateString || typeof dateString !== 'string' || dateString.trim() === '') {
+    return undefined;
+  }
+
+  const trimmed = dateString.trim();
+
+  // Essayer de parser le format DD/MM/YYYY
+  const frenchDatePattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+  const match = trimmed.match(frenchDatePattern);
+
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const year = parseInt(match[3], 10);
+
+    // Valider les valeurs
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+      // Créer la date en utilisant le bon ordre (year, month-1, day)
+      const date = new Date(year, month - 1, day);
+
+      // Vérifier que la date est valide (ex: 31/02/2020 serait invalide)
+      if (
+        date.getFullYear() === year &&
+        date.getMonth() === month - 1 &&
+        date.getDate() === day
+      ) {
+        return Timestamp.fromDate(date);
+      }
+    }
+  }
+
+  // Si le format DD/MM/YYYY n'a pas fonctionné, essayer new Date() par défaut
+  try {
+    const date = new Date(trimmed);
+    if (!isNaN(date.getTime())) {
+      return Timestamp.fromDate(date);
+    }
+  } catch (e) {
+    // Ignore
+  }
+
+  console.warn(`Unable to parse birthDate: "${dateString}"`);
+  return undefined;
+}
+
+
+/**
  * Détermine le type d'abonnement à partir des données legacy
  */
 function determineLegacyMembershipType(legacy: LegacyMember): 'monthly' | 'annual' | 'lifetime' {
@@ -2157,23 +2208,14 @@ export async function migrateLegacyMember(
     }
 
     // Préparer la date de naissance
-    let birthDate = now;
-    if (legacyData.birthDate && legacyData.birthDate.trim() !== '') {
-      try {
-        const parsedDate = new Date(legacyData.birthDate);
-        if (!isNaN(parsedDate.getTime())) {
-          birthDate = Timestamp.fromDate(parsedDate);
-        }
-      } catch (e) {
-        console.warn('Failed to parse birthDate, using current date');
-      }
-    }
+    // Utiliser le parser français pour le format DD/MM/YYYY
+    // Si vide ou invalide, laisser undefined plutôt que d'utiliser la date actuelle
+    const birthDate = parseFrenchDateString(legacyData.birthDate);
 
-    // Préparer les tags avec le member-type original si disponible
-    const tags: string[] = ['MIGRATED_FROM_LEGACY'];
-    if (legacyData['member-type']) {
-      tags.push(`LEGACY_TYPE:${legacyData['member-type']}`);
-    }
+
+    // Préparer les tags
+    const tags: string[] = [];
+
     // Ajouter les tags personnalisés fournis
     if (additionalTags && additionalTags.length > 0) {
       tags.push(...additionalTags);

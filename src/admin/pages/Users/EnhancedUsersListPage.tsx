@@ -273,14 +273,14 @@ function UserTableRow({
             user.registrationSource === 'platform'
               ? 'blue'
               : user.registrationSource === 'admin'
-              ? 'violet'
-              : user.registrationSource === 'crowdfunding'
-              ? 'pink'
-              : user.registrationSource === 'adhesion_web'
-              ? 'green'
-              : user.registrationSource === 'adhesion'
-              ? 'teal'
-              : 'orange'
+                ? 'violet'
+                : user.registrationSource === 'crowdfunding'
+                  ? 'pink'
+                  : user.registrationSource === 'adhesion_web'
+                    ? 'green'
+                    : user.registrationSource === 'adhesion'
+                      ? 'teal'
+                      : 'orange'
           }
         >
           {REGISTRATION_SOURCE_LABELS[user.registrationSource]}
@@ -949,7 +949,7 @@ export function EnhancedUsersListPage() {
             defaultValue={[]}
             onChange={(value) => { migrationTags = value; }}
             clearable
-            description="Des tags automatiques seront ajoutés (MIGRATED_FROM_LEGACY, etc.)"
+            description="Les tags sélectionnés seront ajoutés"
           />
           <Group justify="flex-end">
             <Button variant="subtle" onClick={() => modals.closeAll()}>
@@ -1162,7 +1162,7 @@ export function EnhancedUsersListPage() {
             defaultValue={[]}
             onChange={(value) => { selectedTags = value; }}
             clearable
-            description="Des tags automatiques seront ajoutés (MIGRATED_FROM_LEGACY, etc.)"
+            description="Les tags sélectionnés seront ajoutés"
           />
 
           <Group justify="flex-end" mt="md">
@@ -1224,10 +1224,10 @@ export function EnhancedUsersListPage() {
           prev.map((item, idx) =>
             idx === i
               ? {
-                  ...item,
-                  status: 'error' as const,
-                  error: error.message || 'Erreur inconnue',
-                }
+                ...item,
+                status: 'error' as const,
+                error: error.message || 'Erreur inconnue',
+              }
               : item
           )
         );
@@ -1500,31 +1500,31 @@ export function EnhancedUsersListPage() {
             blockedFilter ||
             dateRangeStart ||
             dateRangeEnd) && (
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Anciens membres: {filteredLegacyMembers.length} | Utilisateurs: {filteredUsers.length}
-                {(dateRangeStart || dateRangeEnd) && (
-                  <> | Période: {dateRangeStart ? dateRangeStart.toLocaleDateString('fr-FR') : '...'} - {dateRangeEnd ? dateRangeEnd.toLocaleDateString('fr-FR') : '...'}</>
-                )}
-              </Text>
-              <Button
-                variant="subtle"
-                size="xs"
-                onClick={() => {
-                  setSearch('');
-                  setMembershipType(null);
-                  setMembershipStatus(null);
-                  setSelectedTags([]);
-                  setBlockedFilter(null);
-                  setSortBy('date_desc');
-                  setDateRangeStart(null);
-                  setDateRangeEnd(null);
-                }}
-              >
-                Réinitialiser les filtres
-              </Button>
-            </Group>
-          )}
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">
+                  Anciens membres: {filteredLegacyMembers.length} | Utilisateurs: {filteredUsers.length}
+                  {(dateRangeStart || dateRangeEnd) && (
+                    <> | Période: {dateRangeStart ? dateRangeStart.toLocaleDateString('fr-FR') : '...'} - {dateRangeEnd ? dateRangeEnd.toLocaleDateString('fr-FR') : '...'}</>
+                  )}
+                </Text>
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  onClick={() => {
+                    setSearch('');
+                    setMembershipType(null);
+                    setMembershipStatus(null);
+                    setSelectedTags([]);
+                    setBlockedFilter(null);
+                    setSortBy('date_desc');
+                    setDateRangeStart(null);
+                    setDateRangeEnd(null);
+                  }}
+                >
+                  Réinitialiser les filtres
+                </Button>
+              </Group>
+            )}
         </Stack>
       </Paper>
 
@@ -1899,8 +1899,8 @@ export function EnhancedUsersListPage() {
               value={
                 migrationProgress.length > 0
                   ? (migrationProgress.filter((p) => p.status === 'success' || p.status === 'error').length /
-                      migrationProgress.length) *
-                    100
+                    migrationProgress.length) *
+                  100
                   : 0
               }
               size="lg"
@@ -1920,10 +1920,10 @@ export function EnhancedUsersListPage() {
                   progress.status === 'success'
                     ? 'green.0'
                     : progress.status === 'error'
-                    ? 'red.0'
-                    : progress.status === 'processing'
-                    ? 'blue.0'
-                    : undefined
+                      ? 'red.0'
+                      : progress.status === 'processing'
+                        ? 'blue.0'
+                        : undefined
                 }
               >
                 <Group justify="space-between">

@@ -16,6 +16,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestore, getFieldValue } from '../_lib/firebase-admin.js';
 import { prepareEmailWithTracking } from '../_lib/pxl-tracking.js';
 import { sendEmailWithFallback, type EmailSendResult } from '../_lib/email-transport.js';
+import { generateMembershipCardImage, getMembershipCardFilename, type MembershipCardUserData } from '../_lib/membership-card-generator.js';
 
 /**
  * Crée un destinataire dans la sous-collection recipients
@@ -214,25 +215,62 @@ export default async function handler(
         recipientId
       );
 
-      // 5. Envoyer l'email avec fallback automatique (FORNAP -> Brevo)
+      // 5. Préparer les pièces jointes (carte d'adhérent si activée)
+      const attachments: Array<{ filename: string; content: Buffer; contentType: string }> = [];
+
+      if (campaign.content.attachMembershipCard) {
+        console.log(`📇 Génération de la carte d'adhérent pour ${user.email}...`);
+
+        try {
+          // Préparer les données utilisateur pour la génération de carte
+          const membershipCardUserData: MembershipCardUserData = {
+            uid: userId,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            currentMembership: {
+              planType: user.currentMembership?.planType || 'annual',
+              expiryDate: user.currentMembership?.expiryDate || null,
+              planName: user.currentMembership?.planName,
+            },
+          };
+
+          // Générer l'image de la carte
+          const cardImageBuffer = await generateMembershipCardImage(membershipCardUserData);
+
+          // Ajouter en pièce jointe
+          attachments.push({
+            filename: getMembershipCardFilename(user.firstName, user.lastName),
+            content: cardImageBuffer,
+            contentType: 'image/png',
+          });
+
+          console.log(`✅ Carte d'adhérent générée pour ${user.email}`);
+        } catch (cardError: any) {
+          console.error(`⚠️ Erreur génération carte pour ${user.email}:`, cardError.message);
+          // On continue l'envoi sans la carte plutôt que de bloquer tout l'email
+        }
+      }
+
+      // 6. Envoyer l'email avec fallback automatique (FORNAP -> Brevo)
       const emailResult = await sendEmailWithFallback({
         to: user.email,
         subject: campaign.content.subject,
         html: emailHtml,
         from: '"FOR+NAP Social Club" <no-reply@fornap.fr>',
         replyTo: 'contact@fornap.fr',
+        attachments: attachments.length > 0 ? attachments : undefined,
       });
 
       if (!emailResult.success) {
         throw new Error(emailResult.error || 'Échec d\'envoi email');
       }
 
-      console.log(`✅ Email envoyé à ${user.email} via ${emailResult.provider} (campagne: ${campaignId})${emailResult.fallbackUsed ? ' [fallback]' : ''}`);
+      console.log(`✅ Email envoyé à ${user.email} via ${emailResult.provider} (campagne: ${campaignId})${emailResult.fallbackUsed ? ' [fallback]' : ''}${attachments.length > 0 ? ' [avec carte adhérent]' : ''}`);
 
-      // 6. Marquer comme envoyé (avec info provider)
+      // 7. Marquer comme envoyé (avec info provider)
       await updateRecipientStatus(db, campaignId, recipientId, 'sent', undefined, emailResult);
 
-      // 7. Mettre à jour les stats de la campagne
+      // 8. Mettre à jour les stats de la campagne
       await updateCampaignStats(db, campaignId);
 
       res.status(200).json({

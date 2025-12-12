@@ -116,6 +116,9 @@ export interface EmailContent {
   fromName: string;
   fromEmail: string;
   replyTo?: string;
+
+  // Pièce jointe carte d'adhérent
+  attachMembershipCard?: boolean; // Si true, génère et joint la carte d'adhérent personnalisée pour chaque destinataire
 }
 
 /**

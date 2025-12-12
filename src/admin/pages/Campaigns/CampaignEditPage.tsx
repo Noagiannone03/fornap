@@ -32,6 +32,7 @@ import {
   IconFilter,
   IconCalendarEvent,
   IconAlertCircle,
+  IconId,
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -81,6 +82,7 @@ export function CampaignEditPage() {
   const [emailHtml, setEmailHtml] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [editorOpened, setEditorOpened] = useState(false);
+  const [attachMembershipCard, setAttachMembershipCard] = useState(false);
 
   // Étape 4: Planification
   const [sendImmediately, setSendImmediately] = useState(false);
@@ -136,6 +138,7 @@ export function CampaignEditPage() {
 
       setEmailDesign(campaign.content.design);
       setEmailHtml(campaign.content.html);
+      setAttachMembershipCard(campaign.content.attachMembershipCard || false);
 
       // Détecter le type d'email
       if (!campaign.content.design && campaign.content.html) {
@@ -289,6 +292,7 @@ export function CampaignEditPage() {
         fromName,
         fromEmail,
         html: finalHtml,
+        attachMembershipCard,
       };
 
       // Ajouter preheader seulement s'il est défini
@@ -663,6 +667,34 @@ export function CampaignEditPage() {
             </Card>
           )}
 
+          {/* Option carte d'adhérent en pièce jointe */}
+          <Card withBorder p="lg" bg="pink.0">
+            <Stack gap="md">
+              <Group gap="xs">
+                <ThemeIcon size="lg" variant="light" color="pink">
+                  <IconId size={20} />
+                </ThemeIcon>
+                <Text fw={600}>Pièce jointe carte d'adhérent</Text>
+              </Group>
+
+              <Switch
+                label="Joindre la carte d'adhérent personnalisée"
+                description="Génère automatiquement la carte d'adhérent de chaque destinataire et l'envoie en pièce jointe PNG"
+                checked={attachMembershipCard}
+                onChange={(e) => setAttachMembershipCard(e.currentTarget.checked)}
+                size="md"
+              />
+
+              {attachMembershipCard && (
+                <Card p="sm" bg="white" withBorder>
+                  <Text size="sm" c="dimmed">
+                    <strong>Note :</strong> La carte sera générée avec le QR code unique de chaque membre, son type d'abonnement, sa date d'expiration et son nom complet.
+                  </Text>
+                </Card>
+              )}
+            </Stack>
+          </Card>
+
           {emailType === 'html' && emailBody && (
             <Card withBorder>
               <Stack gap="xs">
@@ -789,6 +821,21 @@ export function CampaignEditPage() {
                       {targetingMode === 'all' && <><IconUsers size={16} /><Text size="sm">Tous les utilisateurs</Text></>}
                       {targetingMode === 'filtered' && <><IconFilter size={16} /><Text size="sm">Filtrage avancé</Text></>}
                       {targetingMode === 'manual' && <><IconUsers size={16} /><Text size="sm">Sélection manuelle</Text></>}
+                    </Group>
+                  </Group>
+
+                  <Group>
+                    <Text fw={500} size="sm" w={140}>
+                      Pièce jointe :
+                    </Text>
+                    <Group gap="xs">
+                      {attachMembershipCard ? (
+                        <Badge size="lg" color="pink" leftSection={<IconId size={14} />}>
+                          Carte d'adhérent
+                        </Badge>
+                      ) : (
+                        <Text size="sm" c="dimmed">Aucune</Text>
+                      )}
                     </Group>
                   </Group>
                 </Stack>

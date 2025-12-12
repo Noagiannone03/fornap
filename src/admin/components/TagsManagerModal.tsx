@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Modal,
   Stack,
@@ -14,6 +14,7 @@ import {
   Divider,
   LoadingOverlay,
 } from '@mantine/core';
+import { useDebouncedCallback } from '@mantine/hooks';
 import { IconTrash, IconPlus, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import {
@@ -58,6 +59,8 @@ export function TagsManagerModal({
   const [saving, setSaving] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
+  // Track pending color changes locally (before saving to Firebase)
+  const [pendingColors, setPendingColors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (opened) {
@@ -137,19 +140,40 @@ export function TagsManagerModal({
     }
   };
 
-  const handleUpdateColor = async (tagName: string, newColor: string) => {
-    try {
-      await updateTagColor(tagName, newColor, adminUserId);
-      // Update local state immediately for responsiveness
-      setTags(tags.map(t => (t.name === tagName ? { ...t, color: newColor } : t)));
-      onTagsUpdated?.();
-    } catch (error) {
-      notifications.show({
-        title: 'Erreur',
-        message: 'Impossible de mettre a jour la couleur',
-        color: 'red',
-      });
-    }
+  // Debounced function to save color to Firebase (only fires 500ms after last change)
+  const debouncedSaveColor = useDebouncedCallback(
+    async (tagName: string, newColor: string) => {
+      try {
+        await updateTagColor(tagName, newColor, adminUserId);
+        // Clear pending state for this tag
+        setPendingColors(prev => {
+          const updated = { ...prev };
+          delete updated[tagName];
+          return updated;
+        });
+        onTagsUpdated?.();
+      } catch (error) {
+        notifications.show({
+          title: 'Erreur',
+          message: 'Impossible de mettre a jour la couleur',
+          color: 'red',
+        });
+      }
+    },
+    500
+  );
+
+  // Handle color change: update local state immediately, debounce Firebase save
+  const handleUpdateColor = (tagName: string, newColor: string) => {
+    // Update local pending state immediately for responsiveness
+    setPendingColors(prev => ({ ...prev, [tagName]: newColor }));
+    // Schedule debounced save to Firebase
+    debouncedSaveColor(tagName, newColor);
+  };
+
+  // Get the display color for a tag (pending color takes priority)
+  const getTagDisplayColor = (tag: TagConfig) => {
+    return pendingColors[tag.name] ?? tag.color;
   };
 
   return (
@@ -245,40 +269,43 @@ export function TagsManagerModal({
                   Aucun tag personnalise. Ajoutez-en un ci-dessus !
                 </Text>
               ) : (
-                tags.map((tag) => (
-                  <Paper key={tag.name} withBorder p="sm" radius="md">
-                    <Group justify="space-between" wrap="nowrap">
-                      <Group gap="sm" style={{ flex: 1 }}>
-                        <Badge
-                          size="lg"
-                          variant="light"
-                          style={{ backgroundColor: tag.color + '20' }}
-                        >
-                          <Text c={tag.color} fw={500}>
-                            {tag.name}
-                          </Text>
-                        </Badge>
+                tags.map((tag) => {
+                  const displayColor = getTagDisplayColor(tag);
+                  return (
+                    <Paper key={tag.name} withBorder p="sm" radius="md">
+                      <Group justify="space-between" wrap="nowrap">
+                        <Group gap="sm" style={{ flex: 1 }}>
+                          <Badge
+                            size="lg"
+                            variant="light"
+                            style={{ backgroundColor: displayColor + '20' }}
+                          >
+                            <Text c={displayColor} fw={500}>
+                              {tag.name}
+                            </Text>
+                          </Badge>
+                        </Group>
+                        <Group gap="xs" wrap="nowrap">
+                          <ColorPicker
+                            size="xs"
+                            value={displayColor}
+                            onChange={(color) => handleUpdateColor(tag.name, color)}
+                            format="hex"
+                            swatches={PRESET_COLORS}
+                          />
+                          <ActionIcon
+                            color="red"
+                            variant="light"
+                            onClick={() => handleDeleteTag(tag.name)}
+                            disabled={saving}
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Group>
                       </Group>
-                      <Group gap="xs" wrap="nowrap">
-                        <ColorPicker
-                          size="xs"
-                          value={tag.color}
-                          onChange={(color) => handleUpdateColor(tag.name, color)}
-                          format="hex"
-                          swatches={PRESET_COLORS}
-                        />
-                        <ActionIcon
-                          color="red"
-                          variant="light"
-                          onClick={() => handleDeleteTag(tag.name)}
-                          disabled={saving}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Group>
-                    </Group>
-                  </Paper>
-                ))
+                    </Paper>
+                  );
+                })
               )}
             </Stack>
           </ScrollArea>

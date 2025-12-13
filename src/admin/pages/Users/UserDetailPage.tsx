@@ -283,14 +283,6 @@ export function UserDetailPage() {
                   <Text size="sm" fw={500}>{user.postalCode || 'N/A'}</Text>
                 </Group>
                 <Group justify="space-between">
-                  <Text size="sm" c="dimmed">Date de naissance</Text>
-                  <Text size="sm" fw={500}>
-                    {user.birthDate && toDate(user.birthDate)
-                      ? toDate(user.birthDate)!.toLocaleDateString('fr-FR')
-                      : 'N/A'}
-                  </Text>
-                </Group>
-                <Group justify="space-between">
                   <Text size="sm" c="dimmed">Membre depuis</Text>
                   <Text size="sm" fw={500}>
                     {toDate(user.createdAt)?.toLocaleDateString('fr-FR') ?? 'N/A'}

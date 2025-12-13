@@ -108,14 +108,23 @@ export function UserEditPage() {
   const [participationDomains, setParticipationDomains] = useState<string[]>([]);
 
   // Helper function pour convertir n'importe quelle valeur en Date
+  // Gère tous les formats: Timestamp Firestore, {seconds, nanoseconds}, Date, string, number
   const toDateSafe = (value: any): Date | null => {
     if (!value) return null;
 
     try {
-      // Si c'est un Timestamp Firestore
+      // Si c'est un Timestamp Firestore avec la méthode toDate()
       if (typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
         const converted = value.toDate();
         return converted instanceof Date && !isNaN(converted.getTime()) ? converted : null;
+      }
+
+      // Si c'est un objet avec seconds (format Firestore sérialisé: {seconds, nanoseconds})
+      if (typeof value === 'object' && ('seconds' in value || '_seconds' in value)) {
+        const seconds = value.seconds ?? value._seconds ?? 0;
+        const nanoseconds = value.nanoseconds ?? value._nanoseconds ?? 0;
+        const converted = new Date(seconds * 1000 + Math.floor(nanoseconds / 1000000));
+        return !isNaN(converted.getTime()) ? converted : null;
       }
 
       // Si c'est déjà une Date
@@ -123,8 +132,19 @@ export function UserEditPage() {
         return !isNaN(value.getTime()) ? value : null;
       }
 
-      // Si c'est une chaîne ou un nombre
-      if (typeof value === 'string' || typeof value === 'number') {
+      // Si c'est un nombre (timestamp en millisecondes ou secondes)
+      if (typeof value === 'number') {
+        // Si le nombre est petit, c'est probablement en secondes
+        if (value < 10000000000) {
+          const converted = new Date(value * 1000);
+          return !isNaN(converted.getTime()) ? converted : null;
+        }
+        const converted = new Date(value);
+        return !isNaN(converted.getTime()) ? converted : null;
+      }
+
+      // Si c'est une chaîne
+      if (typeof value === 'string') {
         const converted = new Date(value);
         return !isNaN(converted.getTime()) ? converted : null;
       }

@@ -180,7 +180,7 @@ async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void
     firstName: row.prenom.trim(),
     lastName: row.nom.trim(),
     postalCode: row.codePostal || '',
-    birthDate: birthDate || Timestamp.now(), // Si pas de date de naissance, mettre date actuelle
+    birthDate: birthDate || undefined, // Ne pas mettre de date par défaut si non fournie
     phone: row.telephone || '',
 
     // Statut et métadonnées

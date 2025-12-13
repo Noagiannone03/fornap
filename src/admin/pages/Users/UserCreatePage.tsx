@@ -279,8 +279,20 @@ export function UserCreatePage() {
   };
 
   const handleSave = async () => {
+    // DEBUG: Log des valeurs du formulaire avant validation
+    console.log('=== FORMULAIRE CRÉATION USER ===');
+    console.log('birthDate (state):', birthDate);
+    console.log('startDate (state):', startDate);
+    console.log('================================');
+
     const validation = validateForm();
     if (!validation.isValid || !validation.userData) return;
+
+    // DEBUG: Log des données validées
+    console.log('=== DONNÉES VALIDÉES ===');
+    console.log('userData.birthDate:', validation.userData.birthDate);
+    console.log('userData.startDate:', validation.userData.startDate);
+    console.log('========================');
 
     try {
       setSaving(true);
@@ -306,8 +318,20 @@ export function UserCreatePage() {
   };
 
   const handleSaveAndSendEmail = async () => {
+    // DEBUG: Log des valeurs du formulaire avant validation
+    console.log('=== FORMULAIRE CRÉATION USER (+ EMAIL) ===');
+    console.log('birthDate (state):', birthDate);
+    console.log('startDate (state):', startDate);
+    console.log('==========================================');
+
     const validation = validateForm();
     if (!validation.isValid || !validation.userData) return;
+
+    // DEBUG: Log des données validées
+    console.log('=== DONNÉES VALIDÉES (+ EMAIL) ===');
+    console.log('userData.birthDate:', validation.userData.birthDate);
+    console.log('userData.startDate:', validation.userData.startDate);
+    console.log('==================================');
 
     // Ouvrir le modal de progression
     setProgressModalOpened(true);

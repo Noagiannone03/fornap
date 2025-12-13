@@ -166,7 +166,7 @@ async function createUserFromLine(user: ParsedUser, adminUserId: string): Promis
     firstName: user.prenom.trim(),
     lastName: user.nom.trim(),
     postalCode: user.codePostal || '',
-    birthDate: birthDate || Timestamp.now(),
+    birthDate: birthDate || undefined, // Ne pas mettre de date par défaut si non fournie
     phone: user.telephone || '',
 
     status: {

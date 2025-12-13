@@ -58,9 +58,10 @@ import {
 } from '../../../shared/types/user';
 
 // Fonction utilitaire pour convertir les timestamps de manière sécurisée
-function toDate(timestamp: any): Date {
+// Retourne null si la conversion échoue (au lieu de la date du jour)
+function toDate(timestamp: any): Date | null {
   if (!timestamp) {
-    return new Date();
+    return null;
   }
 
   // Si c'est déjà une Date
@@ -74,22 +75,32 @@ function toDate(timestamp: any): Date {
   }
 
   // Si c'est un objet avec seconds (format Firestore après sérialisation)
-  if (timestamp.seconds) {
-    return new Date(timestamp.seconds * 1000);
+  // Utiliser 'in' pour gérer le cas où seconds === 0 (qui est falsy)
+  if (typeof timestamp === 'object' && 'seconds' in timestamp) {
+    const seconds = timestamp.seconds ?? timestamp._seconds ?? 0;
+    const nanoseconds = timestamp.nanoseconds ?? timestamp._nanoseconds ?? 0;
+    return new Date(seconds * 1000 + Math.floor(nanoseconds / 1000000));
   }
 
-  // Si c'est un nombre (timestamp en millisecondes)
+  // Si c'est un nombre (timestamp en millisecondes ou secondes)
   if (typeof timestamp === 'number') {
+    // Si le nombre est petit, c'est probablement en secondes
+    if (timestamp < 10000000000) {
+      return new Date(timestamp * 1000);
+    }
     return new Date(timestamp);
   }
 
   // Si c'est une string ISO
   if (typeof timestamp === 'string') {
-    return new Date(timestamp);
+    const parsed = new Date(timestamp);
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
   }
 
-  // Fallback
-  return new Date();
+  // Fallback: retourner null au lieu de la date du jour
+  return null;
 }
 
 export function UserDetailPage() {
@@ -274,15 +285,15 @@ export function UserDetailPage() {
                 <Group justify="space-between">
                   <Text size="sm" c="dimmed">Date de naissance</Text>
                   <Text size="sm" fw={500}>
-                    {user.birthDate
-                      ? toDate(user.birthDate).toLocaleDateString('fr-FR')
+                    {user.birthDate && toDate(user.birthDate)
+                      ? toDate(user.birthDate)!.toLocaleDateString('fr-FR')
                       : 'N/A'}
                   </Text>
                 </Group>
                 <Group justify="space-between">
                   <Text size="sm" c="dimmed">Membre depuis</Text>
                   <Text size="sm" fw={500}>
-                    {toDate(user.createdAt).toLocaleDateString('fr-FR')}
+                    {toDate(user.createdAt)?.toLocaleDateString('fr-FR') ?? 'N/A'}
                   </Text>
                 </Group>
                 <Group justify="space-between">
@@ -347,14 +358,14 @@ export function UserDetailPage() {
                   <Grid.Col span={6}>
                     <Text size="sm" c="dimmed">Date de début</Text>
                     <Text size="sm">
-                      {toDate(user.currentMembership.startDate).toLocaleDateString('fr-FR')}
+                      {toDate(user.currentMembership.startDate)?.toLocaleDateString('fr-FR') ?? 'N/A'}
                     </Text>
                   </Grid.Col>
                   <Grid.Col span={6}>
                     <Text size="sm" c="dimmed">Date de fin</Text>
                     <Text size="sm">
                       {user.currentMembership.expiryDate
-                        ? toDate(user.currentMembership.expiryDate).toLocaleDateString('fr-FR')
+                        ? toDate(user.currentMembership.expiryDate)?.toLocaleDateString('fr-FR') ?? 'N/A'
                         : 'Illimité'}
                     </Text>
                   </Grid.Col>
@@ -397,8 +408,8 @@ export function UserDetailPage() {
                 <Grid.Col span={6}>
                   <Text size="xs" c="dimmed">Dernier scan</Text>
                   <Text size="sm" fw={500}>
-                    {user.lastScannedAt
-                      ? toDate(user.lastScannedAt).toLocaleDateString('fr-FR', {
+                    {user.lastScannedAt && toDate(user.lastScannedAt)
+                      ? toDate(user.lastScannedAt)!.toLocaleDateString('fr-FR', {
                           day: '2-digit',
                           month: '2-digit',
                           year: 'numeric',
@@ -636,13 +647,13 @@ export function UserDetailPage() {
                         <Group gap={4} mt="xs">
                           <IconClock size={14} />
                           <Text size="xs" c="dimmed">
-                            {toDate(action.timestamp).toLocaleString('fr-FR', {
+                            {toDate(action.timestamp)?.toLocaleString('fr-FR', {
                               day: '2-digit',
                               month: '2-digit',
                               year: 'numeric',
                               hour: '2-digit',
                               minute: '2-digit',
-                            })}
+                            }) ?? 'Date inconnue'}
                           </Text>
                         </Group>
                       </Timeline.Item>

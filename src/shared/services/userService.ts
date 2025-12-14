@@ -662,10 +662,22 @@ export async function spendLoyaltyPoints(
 
 /**
  * Nettoie un objet en retirant les valeurs undefined récursivement
+ * IMPORTANT: Préserve les objets Timestamp Firestore pour éviter qu'ils soient
+ * convertis en objets simples {seconds, nanoseconds}
  */
 function cleanUndefinedFields(obj: any): any {
   if (obj === null || obj === undefined) {
     return obj;
+  }
+
+  // Préserver les objets Timestamp Firestore (ne pas les reconstruire)
+  if (obj instanceof Timestamp) {
+    return obj;
+  }
+
+  // Convertir les objets Date en Timestamp Firestore
+  if (obj instanceof Date) {
+    return Timestamp.fromDate(obj);
   }
 
   if (Array.isArray(obj)) {

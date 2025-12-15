@@ -24,7 +24,6 @@ import {
   IconMail,
   IconUsers,
   IconEye,
-  IconClick,
   IconCheck,
   IconSend,
   IconTrash,
@@ -363,7 +362,7 @@ export function CampaignDetailPage() {
         </Group>
 
         {/* Statistiques principales */}
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }}>
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Group gap="xs">
@@ -382,28 +381,6 @@ export function CampaignDetailPage() {
               </Group>
               <Text size="xl" fw={700}>{campaign.stats.sent}</Text>
               <Progress value={(campaign.stats.sent / campaign.stats.totalRecipients) * 100} color="green" size="sm" />
-            </Stack>
-          </Card>
-
-          <Card shadow="sm" padding="lg">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <IconEye size={20} color="blue" />
-                <Text size="sm" c="dimmed">Taux d'ouverture</Text>
-              </Group>
-              <Text size="xl" fw={700}>{campaign.stats.openRate.toFixed(1)}%</Text>
-              <Progress value={campaign.stats.openRate} color="blue" size="sm" />
-            </Stack>
-          </Card>
-
-          <Card shadow="sm" padding="lg">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <IconClick size={20} color="teal" />
-                <Text size="sm" c="dimmed">Taux de clic</Text>
-              </Group>
-              <Text size="xl" fw={700}>{campaign.stats.clickRate.toFixed(1)}%</Text>
-              <Progress value={campaign.stats.clickRate} color="teal" size="sm" />
             </Stack>
           </Card>
         </SimpleGrid>
@@ -538,29 +515,18 @@ export function CampaignDetailPage() {
               </Tabs.List>
 
               <Tabs.Panel value="stats" p="md">
-                <Grid>
-                  <Grid.Col span={6}>
-                    <Stack gap="xs">
-                      <Text fw={500}>Détails d'envoi</Text>
-                      <Text size="sm">✅ Envoyés : {campaign.stats.sent}</Text>
-                      <Text size="sm">⏳ En attente : {campaign.stats.pending}</Text>
-                      <Text size="sm">❌ Échecs : {campaign.stats.failed}</Text>
-                      <Text size="sm">⚠️ Rebonds : {campaign.stats.bounced}</Text>
-                    </Stack>
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <Stack gap="xs">
-                      <Text fw={500}>Engagement</Text>
-                      <Text size="sm">👁️ Ouvertures : {campaign.stats.opened} ({campaign.stats.openRate.toFixed(1)}%)</Text>
-                      <Text size="sm">🖱️ Clics : {campaign.stats.clicked} ({campaign.stats.clickRate.toFixed(1)}%)</Text>
-                      {campaign.retryCount && campaign.retryCount > 0 && (
-                        <Text size="sm" c="orange">
-                          🔄 Tentatives de renvoi : {campaign.retryCount}
-                        </Text>
-                      )}
-                    </Stack>
-                  </Grid.Col>
-                </Grid>
+                <Stack gap="xs">
+                  <Text fw={500}>Détails d'envoi</Text>
+                  <Text size="sm">✅ Envoyés : {campaign.stats.sent}</Text>
+                  <Text size="sm">⏳ En attente : {campaign.stats.pending}</Text>
+                  <Text size="sm">❌ Échecs : {campaign.stats.failed}</Text>
+                  <Text size="sm">⚠️ Rebonds : {campaign.stats.bounced}</Text>
+                  {campaign.retryCount && campaign.retryCount > 0 && (
+                    <Text size="sm" c="orange">
+                      🔄 Tentatives de renvoi : {campaign.retryCount}
+                    </Text>
+                  )}
+                </Stack>
               </Tabs.Panel>
 
               <Tabs.Panel value="recipients" p="md">

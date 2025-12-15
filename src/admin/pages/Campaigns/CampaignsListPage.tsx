@@ -16,8 +16,6 @@ import {
   Pagination,
   Stack,
   Flex,
-  Box,
-  Progress,
 } from '@mantine/core';
 import {
   IconPlus,
@@ -176,21 +174,7 @@ export function CampaignsListPage() {
       </Table.Td>
       <Table.Td>{getStatusBadge(campaign.status)}</Table.Td>
       <Table.Td>
-        <Stack gap="xs">
-          <Text size="sm">{campaign.stats.totalRecipients} destinataires</Text>
-          {campaign.status === 'sent' && (
-            <Box>
-              <Text size="xs" c="dimmed" mb={4}>
-                Ouvertures : {campaign.stats.openRate.toFixed(1)}%
-              </Text>
-              <Progress
-                value={campaign.stats.openRate}
-                color="blue"
-                size="sm"
-              />
-            </Box>
-          )}
-        </Stack>
+        <Text size="sm">{campaign.stats.totalRecipients} destinataires</Text>
       </Table.Td>
       <Table.Td>
         <Stack gap={4}>

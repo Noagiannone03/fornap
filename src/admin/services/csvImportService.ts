@@ -213,6 +213,9 @@ async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void
     // Points de fidélité
     loyaltyPoints: 0,
 
+    // Compteurs de scan (initialisés à 0)
+    scanCount: 0,
+
     // Email Status - PAS encore envoyée
     emailStatus: {
       membershipCardSent: false,

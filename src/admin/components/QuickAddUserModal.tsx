@@ -195,6 +195,9 @@ async function createUserFromLine(user: ParsedUser, adminUserId: string): Promis
 
     loyaltyPoints: 0,
 
+    // Compteurs de scan (initialisés à 0)
+    scanCount: 0,
+
     emailStatus: {
       membershipCardSent: false,
       membershipCardSentCount: 0,

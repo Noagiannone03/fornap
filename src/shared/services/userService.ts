@@ -847,7 +847,8 @@ export async function getUserStats(userId: string): Promise<UserStats> {
     const actionHistory = await getUserActionHistory(userId, 1000);
 
     const stats: UserStats = {
-      totalScans: actionHistory.filter((a) => a.actionType === 'scan').length,
+      // Inclure 'scan' ET 'event_checkin' car les scans d'événements sont aussi des scans QR
+      totalScans: actionHistory.filter((a) => a.actionType === 'scan' || a.actionType === 'event_checkin').length,
       totalTransactions: actionHistory.filter((a) => a.actionType === 'transaction')
         .length,
       totalSpent: actionHistory

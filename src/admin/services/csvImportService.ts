@@ -13,9 +13,16 @@ export interface CsvRow {
   telephone?: string;
 }
 
+export interface ImportError {
+  row: number;
+  email: string;
+  error: string;
+  rawData?: CsvRow; // Données brutes pour permettre la correction
+}
+
 export interface ImportResult {
   success: number;
-  errors: Array<{ row: number; email: string; error: string }>;
+  errors: ImportError[];
   skipped: number;
   debugInfo?: {
     separator: string;
@@ -27,6 +34,10 @@ export interface ImportResult {
       telephone?: string;
     };
   };
+}
+
+export interface ImportOptions {
+  customTags?: string[]; // Tags personnalisés à ajouter à tous les utilisateurs importés
 }
 
 /**
@@ -148,7 +159,11 @@ function parseInscriptionDate(inscriptionStr: string): Timestamp | null {
  * IMPORTANT: La date d'expiration est TOUJOURS calculée (1 an après l'inscription)
  * Lance une erreur si l'email existe déjà
  */
-async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void> {
+async function createUserFromCsv(
+  row: CsvRow,
+  adminUserId: string,
+  customTags: string[] = []
+): Promise<void> {
   const email = row.email.toLowerCase().trim();
 
   // ✅ Vérifier si un utilisateur avec cet email existe déjà
@@ -183,9 +198,9 @@ async function createUserFromCsv(row: CsvRow, adminUserId: string): Promise<void
     birthDate: birthDate || undefined, // Ne pas mettre de date par défaut si non fournie
     phone: row.telephone || '',
 
-    // Statut et métadonnées
+    // Statut et métadonnées - inclure les tags personnalisés
     status: {
-      tags: ['XLSX_IMPORT', 'NEW_MEMBER'],
+      tags: ['XLSX_IMPORT', ...customTags],
       isAccountBlocked: false,
       isCardBlocked: false,
     },
@@ -346,8 +361,10 @@ function parseCSV(csvContent: string): { headers: string[]; rows: string[][] } {
  */
 export async function importUsersFromCsv(
   csvContent: string,
-  adminUserId: string
+  adminUserId: string,
+  options: ImportOptions = {}
 ): Promise<ImportResult> {
+  const { customTags = [] } = options;
   const result: ImportResult = {
     success: 0,
     errors: [],
@@ -393,7 +410,7 @@ export async function importUsersFromCsv(
           console.log('Échantillon première ligne:', result.debugInfo.firstRowSample);
         }
 
-        await createUserFromCsv(parsedRow, adminUserId);
+        await createUserFromCsv(parsedRow, adminUserId, customTags);
         result.success++;
 
         // Log de progression tous les 50 utilisateurs
@@ -403,10 +420,20 @@ export async function importUsersFromCsv(
 
       } catch (error: any) {
         console.error(`Error importing row ${rowNumber}:`, error);
+        const parsedRowForError = parseCsvRow(headers, rows[i], false);
         result.errors.push({
           row: rowNumber,
           email: rows[i][headers.findIndex(h => h.toLowerCase().includes('email'))] || 'unknown',
           error: error.message || 'Erreur inconnue',
+          rawData: parsedRowForError || {
+            inscription: rows[i][headers.findIndex(h => h.toLowerCase().includes('inscription'))] || '',
+            nom: rows[i][headers.findIndex(h => h.toLowerCase().includes('nom') && !h.toLowerCase().includes('prenom'))] || '',
+            prenom: rows[i][headers.findIndex(h => h.toLowerCase().includes('prenom'))] || '',
+            email: rows[i][headers.findIndex(h => h.toLowerCase().includes('email'))] || '',
+            dateNaissance: rows[i][headers.findIndex(h => h.toLowerCase().includes('naissance'))] || '',
+            codePostal: rows[i][headers.findIndex(h => h.toLowerCase().includes('postal'))] || '',
+            telephone: rows[i][headers.findIndex(h => h.toLowerCase().includes('telephone') || h.toLowerCase().includes('numero'))] || '',
+          },
         });
       }
     }
@@ -419,4 +446,16 @@ export async function importUsersFromCsv(
   }
 
   return result;
+}
+
+/**
+ * Importe un seul utilisateur depuis des données CsvRow
+ * Utilisé pour réimporter une ligne corrigée après une erreur
+ */
+export async function importSingleUser(
+  userData: CsvRow,
+  adminUserId: string,
+  customTags: string[] = []
+): Promise<void> {
+  await createUserFromCsv(userData, adminUserId, customTags);
 }

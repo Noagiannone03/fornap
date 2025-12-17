@@ -200,7 +200,7 @@ async function createUserFromCsv(
 
     // Statut et métadonnées - inclure les tags personnalisés
     status: {
-      tags: ['XLSX_IMPORT', ...customTags],
+      tags: [...customTags],
       isAccountBlocked: false,
       isCardBlocked: false,
     },

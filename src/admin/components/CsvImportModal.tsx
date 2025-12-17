@@ -167,18 +167,18 @@ export function CsvImportModal({
       prev.map((err, i) =>
         i === index
           ? {
-              ...err,
-              isEditing: false,
-              editedData: err.rawData || {
-                inscription: '',
-                nom: '',
-                prenom: '',
-                email: '',
-                dateNaissance: '',
-                codePostal: '',
-                telephone: '',
-              },
-            }
+            ...err,
+            isEditing: false,
+            editedData: err.rawData || {
+              inscription: '',
+              nom: '',
+              prenom: '',
+              email: '',
+              dateNaissance: '',
+              codePostal: '',
+              telephone: '',
+            },
+          }
           : err
       )
     );
@@ -189,9 +189,9 @@ export function CsvImportModal({
       prev.map((err, i) =>
         i === index
           ? {
-              ...err,
-              editedData: { ...err.editedData, [field]: value },
-            }
+            ...err,
+            editedData: { ...err.editedData, [field]: value },
+          }
           : err
       )
     );
@@ -217,9 +217,9 @@ export function CsvImportModal({
       setResult((prev) =>
         prev
           ? {
-              ...prev,
-              success: prev.success + 1,
-            }
+            ...prev,
+            success: prev.success + 1,
+          }
           : prev
       );
 
@@ -229,10 +229,10 @@ export function CsvImportModal({
         prev.map((err, i) =>
           i === index
             ? {
-                ...err,
-                retryStatus: 'error',
-                retryError: error.message || 'Erreur inconnue',
-              }
+              ...err,
+              retryStatus: 'error',
+              retryError: error.message || 'Erreur inconnue',
+            }
             : err
         )
       );
@@ -307,8 +307,7 @@ export function CsvImportModal({
                   </Text>
                 </Group>
                 <Text size="xs" c="dimmed">
-                  Sélectionnez les tags qui seront automatiquement assignés à tous les utilisateurs importés depuis ce fichier.
-                  Le tag "XLSX_IMPORT" sera toujours ajouté automatiquement.
+                  Selectionnez les tags qui seront automatiquement assignes a tous les utilisateurs importes depuis ce fichier.
                 </Text>
                 {loadingTags ? (
                   <Group gap="xs">
@@ -332,11 +331,8 @@ export function CsvImportModal({
                 {selectedTags.length > 0 && (
                   <Group gap="xs">
                     <Text size="xs" c="dimmed">
-                      Tags sélectionnés:
+                      Tags selectionnes:
                     </Text>
-                    <Badge size="xs" color="gray">
-                      XLSX_IMPORT
-                    </Badge>
                     {selectedTags.map((tag) => (
                       <Badge key={tag} size="xs" color="blue">
                         {tag}
@@ -529,8 +525,8 @@ export function CsvImportModal({
                                   err.retryStatus === 'success'
                                     ? 'var(--mantine-color-green-0)'
                                     : err.retryStatus === 'error'
-                                    ? 'var(--mantine-color-red-0)'
-                                    : undefined,
+                                      ? 'var(--mantine-color-red-0)'
+                                      : undefined,
                               }}
                             >
                               <Accordion.Control>
@@ -718,7 +714,7 @@ export function CsvImportModal({
                     </Text>
                     {selectedTags.length > 0 && (
                       <Text size="xs" mt="xs">
-                        Tags assignés: <strong>XLSX_IMPORT, {selectedTags.join(', ')}</strong>
+                        Tags assignes: <strong>{selectedTags.join(', ')}</strong>
                       </Text>
                     )}
                   </Alert>

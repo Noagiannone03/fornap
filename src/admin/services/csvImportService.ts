@@ -20,10 +20,17 @@ export interface ImportError {
   rawData?: CsvRow; // Données brutes pour permettre la correction
 }
 
+export interface SkippedUser {
+  row: number;
+  email: string;
+  reason: string;
+}
+
 export interface ImportResult {
   success: number;
   errors: ImportError[];
   skipped: number;
+  skippedUsers: SkippedUser[];
   debugInfo?: {
     separator: string;
     headers: string[];
@@ -94,17 +101,47 @@ function parseCsvRow(headers: string[], values: string[], isFirstRow: boolean = 
 }
 
 /**
- * Parse une date au format français (DD/MM/YYYY ou D/M/YYYY)
+ * Parse une date au format DD/MM/YYYY ou MM/DD/YYYY (detection automatique)
+ * Si le premier nombre est > 12, c'est forcement un jour (format DD/MM/YYYY)
+ * Si le second nombre est > 12, c'est forcement un jour (format MM/DD/YYYY)
+ * Sinon, on utilise le format francais par defaut (DD/MM/YYYY)
  */
-function parseFrenchDate(dateStr: string): string | undefined {
+function parseBirthDate(dateStr: string): string | undefined {
   if (!dateStr) return undefined;
 
   try {
     const parts = dateStr.split('/');
     if (parts.length === 3) {
-      const day = parts[0].padStart(2, '0');
-      const month = parts[1].padStart(2, '0');
+      const first = parseInt(parts[0]);
+      const second = parseInt(parts[1]);
       const year = parts[2];
+
+      let day: string;
+      let month: string;
+
+      // Detecter le format automatiquement
+      if (first > 12) {
+        // Premier nombre > 12, donc c'est un jour -> format DD/MM/YYYY
+        day = parts[0].padStart(2, '0');
+        month = parts[1].padStart(2, '0');
+      } else if (second > 12) {
+        // Second nombre > 12, donc c'est un jour -> format MM/DD/YYYY
+        month = parts[0].padStart(2, '0');
+        day = parts[1].padStart(2, '0');
+      } else {
+        // Ambigue, utiliser le format francais par defaut (DD/MM/YYYY)
+        day = parts[0].padStart(2, '0');
+        month = parts[1].padStart(2, '0');
+      }
+
+      // Valider que les valeurs sont correctes
+      const dayNum = parseInt(day);
+      const monthNum = parseInt(month);
+      if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12) {
+        console.warn('Date invalide:', dateStr);
+        return undefined;
+      }
+
       return `${year}-${month}-${day}`;
     }
   } catch (e) {
@@ -179,8 +216,8 @@ async function createUserFromCsv(
   const inscriptionTimestamp = parseInscriptionDate(row.inscription);
   const createdAt = inscriptionTimestamp || Timestamp.now();
 
-  // Parser la date de naissance (format français: DD/MM/YYYY ou D/M/YYYY)
-  const birthDateString = row.dateNaissance ? parseFrenchDate(row.dateNaissance) : undefined;
+  // Parser la date de naissance (format francais DD/MM/YYYY ou americain MM/DD/YYYY)
+  const birthDateString = row.dateNaissance ? parseBirthDate(row.dateNaissance) : undefined;
   const birthDate = birthDateString ? Timestamp.fromDate(new Date(birthDateString)) : undefined;
 
   // ⚠️ IMPORTANT: Calculer la date d'expiration (1 an après l'inscription)
@@ -369,6 +406,7 @@ export async function importUsersFromCsv(
     success: 0,
     errors: [],
     skipped: 0,
+    skippedUsers: [],
   };
 
   try {
@@ -395,6 +433,11 @@ export async function importUsersFromCsv(
 
         if (!parsedRow) {
           result.skipped++;
+          result.skippedUsers.push({
+            row: rowNumber,
+            email: rows[i][headers.findIndex(h => h.toLowerCase().includes('email'))] || 'inconnu',
+            reason: 'Donnees manquantes (inscription, nom, prenom ou email)',
+          });
           continue;
         }
 
@@ -420,21 +463,35 @@ export async function importUsersFromCsv(
 
       } catch (error: any) {
         console.error(`Error importing row ${rowNumber}:`, error);
+        const errorMessage = error.message || 'Erreur inconnue';
         const parsedRowForError = parseCsvRow(headers, rows[i], false);
-        result.errors.push({
-          row: rowNumber,
-          email: rows[i][headers.findIndex(h => h.toLowerCase().includes('email'))] || 'unknown',
-          error: error.message || 'Erreur inconnue',
-          rawData: parsedRowForError || {
-            inscription: rows[i][headers.findIndex(h => h.toLowerCase().includes('inscription'))] || '',
-            nom: rows[i][headers.findIndex(h => h.toLowerCase().includes('nom') && !h.toLowerCase().includes('prenom'))] || '',
-            prenom: rows[i][headers.findIndex(h => h.toLowerCase().includes('prenom'))] || '',
-            email: rows[i][headers.findIndex(h => h.toLowerCase().includes('email'))] || '',
-            dateNaissance: rows[i][headers.findIndex(h => h.toLowerCase().includes('naissance'))] || '',
-            codePostal: rows[i][headers.findIndex(h => h.toLowerCase().includes('postal'))] || '',
-            telephone: rows[i][headers.findIndex(h => h.toLowerCase().includes('telephone') || h.toLowerCase().includes('numero'))] || '',
-          },
-        });
+        const email = rows[i][headers.findIndex(h => h.toLowerCase().includes('email'))] || 'unknown';
+
+        // Si l'email existe deja, on le met en "skipped" et pas en erreur
+        if (errorMessage.includes('Email deja utilise') || errorMessage.includes('Email déjà utilisé')) {
+          result.skipped++;
+          result.skippedUsers.push({
+            row: rowNumber,
+            email: email,
+            reason: `Deja present dans la base de donnees (${errorMessage.split(' par ')[1] || ''})`,
+          });
+        } else {
+          // Vraie erreur d'import
+          result.errors.push({
+            row: rowNumber,
+            email: email,
+            error: errorMessage,
+            rawData: parsedRowForError || {
+              inscription: rows[i][headers.findIndex(h => h.toLowerCase().includes('inscription'))] || '',
+              nom: rows[i][headers.findIndex(h => h.toLowerCase().includes('nom') && !h.toLowerCase().includes('prenom'))] || '',
+              prenom: rows[i][headers.findIndex(h => h.toLowerCase().includes('prenom'))] || '',
+              email: rows[i][headers.findIndex(h => h.toLowerCase().includes('email'))] || '',
+              dateNaissance: rows[i][headers.findIndex(h => h.toLowerCase().includes('naissance'))] || '',
+              codePostal: rows[i][headers.findIndex(h => h.toLowerCase().includes('postal'))] || '',
+              telephone: rows[i][headers.findIndex(h => h.toLowerCase().includes('telephone') || h.toLowerCase().includes('numero'))] || '',
+            },
+          });
+        }
       }
     }
 

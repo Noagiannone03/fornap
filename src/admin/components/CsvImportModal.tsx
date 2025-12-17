@@ -150,6 +150,7 @@ export function CsvImportModal({
         success: 0,
         errors: [{ row: 0, email: '', error: error.message }],
         skipped: 0,
+        skippedUsers: [],
       });
     } finally {
       setImporting(false);
@@ -490,7 +491,7 @@ export function CsvImportModal({
                       <IconAlertCircle size={24} color="gray" />
                       <div>
                         <Text size="xs" c="dimmed">
-                          Ignorés
+                          Ignores (deja presents)
                         </Text>
                         <Text size="xl" fw={700} c="gray">
                           {result.skipped}
@@ -499,6 +500,38 @@ export function CsvImportModal({
                     </Group>
                   </Paper>
                 </Group>
+
+                {/* Section des utilisateurs ignores (deja presents) */}
+                {result.skippedUsers && result.skippedUsers.length > 0 && (
+                  <>
+                    <Divider />
+                    <div>
+                      <Group justify="space-between" mb="xs">
+                        <Text size="sm" fw={600}>
+                          Utilisateurs deja presents ({result.skippedUsers.length})
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Ces utilisateurs existent deja dans la base de donnees
+                        </Text>
+                      </Group>
+                      <ScrollArea h={150}>
+                        <Stack gap="xs">
+                          {result.skippedUsers.map((user, idx) => (
+                            <Paper key={idx} withBorder p="xs" radius="sm" bg="gray.0">
+                              <Group justify="space-between">
+                                <Group gap="xs">
+                                  <Badge size="xs" color="gray">Ligne {user.row}</Badge>
+                                  <Text size="xs" fw={500}>{user.email}</Text>
+                                </Group>
+                                <Text size="xs" c="dimmed">{user.reason}</Text>
+                              </Group>
+                            </Paper>
+                          ))}
+                        </Stack>
+                      </ScrollArea>
+                    </div>
+                  </>
+                )}
 
                 {/* Section des erreurs éditables */}
                 {editableErrors.length > 0 && (

@@ -101,54 +101,93 @@ function parseCsvRow(headers: string[], values: string[], isFirstRow: boolean = 
 }
 
 /**
- * Parse une date au format DD/MM/YYYY ou MM/DD/YYYY (detection automatique)
- * Si le premier nombre est > 12, c'est forcement un jour (format DD/MM/YYYY)
- * Si le second nombre est > 12, c'est forcement un jour (format MM/DD/YYYY)
- * Sinon, on utilise le format francais par defaut (DD/MM/YYYY)
+ * Parse une date de naissance en gerant plusieurs formats possibles
+ * Formats supportes: DD/MM/YYYY, MM/DD/YYYY, DD-MM-YYYY, MM-DD-YYYY, DD/MM/YY, etc.
+ * Retourne undefined si la date est invalide au lieu de lever une erreur
  */
-function parseBirthDate(dateStr: string): string | undefined {
-  if (!dateStr) return undefined;
+function parseBirthDate(dateStr: string): Date | undefined {
+  if (!dateStr || dateStr.trim() === '') return undefined;
 
-  try {
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      const first = parseInt(parts[0]);
-      const second = parseInt(parts[1]);
-      const year = parts[2];
+  // Nettoyer la string
+  const cleanStr = dateStr.trim();
 
-      let day: string;
-      let month: string;
-
-      // Detecter le format automatiquement
-      if (first > 12) {
-        // Premier nombre > 12, donc c'est un jour -> format DD/MM/YYYY
-        day = parts[0].padStart(2, '0');
-        month = parts[1].padStart(2, '0');
-      } else if (second > 12) {
-        // Second nombre > 12, donc c'est un jour -> format MM/DD/YYYY
-        month = parts[0].padStart(2, '0');
-        day = parts[1].padStart(2, '0');
-      } else {
-        // Ambigue, utiliser le format francais par defaut (DD/MM/YYYY)
-        day = parts[0].padStart(2, '0');
-        month = parts[1].padStart(2, '0');
-      }
-
-      // Valider que les valeurs sont correctes
-      const dayNum = parseInt(day);
-      const monthNum = parseInt(month);
-      if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12) {
-        console.warn('Date invalide:', dateStr);
-        return undefined;
-      }
-
-      return `${year}-${month}-${day}`;
-    }
-  } catch (e) {
-    console.error('Error parsing date:', dateStr, e);
+  // Ignorer les valeurs non-date comme "N/A", "inconnu", "-", etc.
+  if (cleanStr.length < 6 || !/\d/.test(cleanStr)) {
+    return undefined;
   }
 
-  return undefined;
+  try {
+    // Remplacer les tirets par des slashes pour uniformiser
+    const normalizedStr = cleanStr.replace(/-/g, '/');
+    const parts = normalizedStr.split('/');
+
+    if (parts.length !== 3) {
+      console.warn('Format de date non reconnu:', dateStr);
+      return undefined;
+    }
+
+    let first = parseInt(parts[0]);
+    let second = parseInt(parts[1]);
+    let yearStr = parts[2];
+
+    // Gerer les annees sur 2 chiffres
+    let year = parseInt(yearStr);
+    if (yearStr.length === 2) {
+      // Si l'annee est < 30, on assume 2000+, sinon 1900+
+      year = year < 30 ? 2000 + year : 1900 + year;
+    }
+
+    // Validation basique des nombres
+    if (isNaN(first) || isNaN(second) || isNaN(year)) {
+      console.warn('Date avec valeurs non numeriques:', dateStr);
+      return undefined;
+    }
+
+    let day: number;
+    let month: number;
+
+    // Detecter le format automatiquement
+    if (first > 12) {
+      // Premier nombre > 12, donc c'est un jour -> format DD/MM/YYYY
+      day = first;
+      month = second;
+    } else if (second > 12) {
+      // Second nombre > 12, donc c'est un jour -> format MM/DD/YYYY
+      month = first;
+      day = second;
+    } else {
+      // Ambigue, utiliser le format francais par defaut (DD/MM/YYYY)
+      day = first;
+      month = second;
+    }
+
+    // Valider les valeurs
+    if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      console.warn('Date avec valeurs hors limites:', dateStr, { day, month, year });
+      return undefined;
+    }
+
+    // Creer la date et verifier qu'elle est valide
+    const date = new Date(year, month - 1, day);
+
+    // Verifier que la date creee correspond bien aux valeurs (evite les dates comme 31/02)
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+      console.warn('Date invalide (jour inexistant pour ce mois):', dateStr);
+      return undefined;
+    }
+
+    // Verifier que la date n'est pas dans le futur et pas trop ancienne
+    const now = new Date();
+    if (date > now || date.getFullYear() < 1900) {
+      console.warn('Date de naissance hors limites raisonnables:', dateStr);
+      return undefined;
+    }
+
+    return date;
+  } catch (e) {
+    console.error('Erreur lors du parsing de la date:', dateStr, e);
+    return undefined;
+  }
 }
 
 /**
@@ -217,8 +256,9 @@ async function createUserFromCsv(
   const createdAt = inscriptionTimestamp || Timestamp.now();
 
   // Parser la date de naissance (format francais DD/MM/YYYY ou americain MM/DD/YYYY)
-  const birthDateString = row.dateNaissance ? parseBirthDate(row.dateNaissance) : undefined;
-  const birthDate = birthDateString ? Timestamp.fromDate(new Date(birthDateString)) : undefined;
+  // parseBirthDate retourne directement un objet Date ou undefined
+  const birthDateParsed = row.dateNaissance ? parseBirthDate(row.dateNaissance) : undefined;
+  const birthDate = birthDateParsed ? Timestamp.fromDate(birthDateParsed) : undefined;
 
   // ⚠️ IMPORTANT: Calculer la date d'expiration (1 an après l'inscription)
   const startDate = createdAt;

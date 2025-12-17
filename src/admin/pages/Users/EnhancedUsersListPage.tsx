@@ -77,6 +77,7 @@ import { CsvImportModal } from '../../components/CsvImportModal';
 import { SendMassiveCardsModal } from '../../components/SendMassiveCardsModal';
 import { TagsManagerModal } from '../../components/TagsManagerModal';
 import { QuickAddUserModal } from '../../components/QuickAddUserModal';
+import { ExordeTagCheckerModal } from '../../components/ExordeTagCheckerModal';
 import {
   getAllTags,
   getTagColor,
@@ -411,6 +412,7 @@ export function EnhancedUsersListPage() {
   const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
   const [tagsConfig, setTagsConfig] = useState<TagConfig[]>([]);
   const [tagsManagerOpened, setTagsManagerOpened] = useState(false);
+  const [exordeCheckerOpened, setExordeCheckerOpened] = useState(false);
 
   // États pour la migration multiple
   const [selectedLegacyUsers, setSelectedLegacyUsers] = useState<Set<string>>(new Set());
@@ -1277,6 +1279,14 @@ export function EnhancedUsersListPage() {
             Importer CSV
           </Button>
           <Button
+            leftSection={<IconSearch size={16} />}
+            variant="light"
+            color="cyan"
+            onClick={() => setExordeCheckerOpened(true)}
+          >
+            Checker EXORDE
+          </Button>
+          <Button
             leftSection={<IconPlus size={16} />}
             variant="light"
             color="cyan"
@@ -1833,6 +1843,14 @@ export function EnhancedUsersListPage() {
         onClose={() => setTagsManagerOpened(false)}
         onTagsUpdated={handleTagsUpdated}
         adminUserId={adminUserId}
+      />
+
+      {/* Modal de verification EXORDE */}
+      <ExordeTagCheckerModal
+        opened={exordeCheckerOpened}
+        onClose={() => setExordeCheckerOpened(false)}
+        adminUserId={adminUserId}
+        onComplete={loadUsers}
       />
 
       {/* Modal d'ajout de tags en masse */}

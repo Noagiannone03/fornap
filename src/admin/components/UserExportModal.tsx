@@ -472,35 +472,47 @@ export function UserExportModal({ opened, onClose, users }: UserExportModalProps
                                     <DatePickerInput
                                         label="Date de début"
                                         placeholder="Sélectionnez une date"
-                                        value={filters.registrationDateRange?.start || null}
-                                        onChange={(value) =>
+                                        value={filters.registrationDateRange?.start ?? null}
+                                        onChange={(value) => {
+                                            let dateValue: Date | null = null;
+                                            if (typeof value === 'string') {
+                                                dateValue = value ? new Date(value) : null;
+                                            } else {
+                                                dateValue = value;
+                                            }
                                             setFilters({
                                                 ...filters,
                                                 registrationDateRange: {
                                                     ...filters.registrationDateRange,
-                                                    start: value,
+                                                    start: dateValue,
                                                 },
-                                            })
-                                        }
+                                            });
+                                        }}
                                         clearable
                                         valueFormat="DD/MM/YYYY"
                                     />
                                     <DatePickerInput
                                         label="Date de fin"
                                         placeholder="Sélectionnez une date"
-                                        value={filters.registrationDateRange?.end || null}
-                                        onChange={(value) =>
+                                        value={filters.registrationDateRange?.end ?? null}
+                                        onChange={(value) => {
+                                            let dateValue: Date | null = null;
+                                            if (typeof value === 'string') {
+                                                dateValue = value ? new Date(value) : null;
+                                            } else {
+                                                dateValue = value;
+                                            }
                                             setFilters({
                                                 ...filters,
                                                 registrationDateRange: {
                                                     ...filters.registrationDateRange,
-                                                    end: value,
+                                                    end: dateValue,
                                                 },
-                                            })
-                                        }
+                                            });
+                                        }}
                                         clearable
                                         valueFormat="DD/MM/YYYY"
-                                        minDate={filters.registrationDateRange?.start || undefined}
+                                        minDate={filters.registrationDateRange?.start ?? undefined}
                                     />
                                 </Group>
                             </Accordion.Panel>

@@ -838,45 +838,35 @@ export async function reopenTicket(
 
 /**
  * Récupère les tickets créés par un admin (pour la page "Mes Demandes Support")
+ * Approche simple sans index composite : récupère par createdBy, filtre côté client
  */
 export async function getAdminTickets(adminUid: string): Promise<Ticket[]> {
   try {
     const ticketsRef = collection(db, TICKETS_COLLECTION);
+    // Requête simple avec un seul champ (pas besoin d'index composite)
     const q = query(
       ticketsRef,
-      where('createdBy', '==', adminUid),
-      where('source', '==', 'admin'),
-      orderBy('createdAt', 'desc')
+      where('createdBy', '==', adminUid)
     );
     const querySnapshot = await getDocs(q);
 
-    return querySnapshot.docs.map(doc => ({
+    const tickets = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
     })) as Ticket[];
+
+    // Filtrer côté client les tickets avec source='admin'
+    // et trier par date de création décroissante
+    return tickets
+      .filter(t => t.source === 'admin')
+      .sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
   } catch (error) {
     console.error('Error fetching admin tickets:', error);
-    // Fallback: si l'index n'existe pas, on filtre côté client
-    try {
-      const ticketsRef = collection(db, TICKETS_COLLECTION);
-      const q = query(
-        ticketsRef,
-        where('createdBy', '==', adminUid),
-        orderBy('createdAt', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-
-      const tickets = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Ticket[];
-
-      // Filtrer les tickets avec source='admin'
-      return tickets.filter(t => t.source === 'admin');
-    } catch (fallbackError) {
-      console.error('Error in fallback fetching admin tickets:', fallbackError);
-      throw fallbackError;
-    }
+    throw error;
   }
 }
 

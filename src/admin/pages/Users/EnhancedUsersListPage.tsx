@@ -1016,10 +1016,19 @@ export function EnhancedUsersListPage() {
 
   const handleSelectAllLegacyUsers = (checked: boolean) => {
     if (checked) {
-      const allIds = new Set(paginatedLegacyMembers.map((m) => m.uid));
-      setSelectedLegacyUsers(allIds);
+      // Ajouter les users de la page courante aux sélections existantes
+      setSelectedLegacyUsers((prev) => {
+        const newSet = new Set(prev);
+        paginatedLegacyMembers.forEach((m) => newSet.add(m.uid));
+        return newSet;
+      });
     } else {
-      setSelectedLegacyUsers(new Set());
+      // Retirer SEULEMENT les users de la page courante
+      setSelectedLegacyUsers((prev) => {
+        const newSet = new Set(prev);
+        paginatedLegacyMembers.forEach((m) => newSet.delete(m.uid));
+        return newSet;
+      });
     }
   };
 
@@ -1038,10 +1047,19 @@ export function EnhancedUsersListPage() {
 
   const handleSelectAllUsers = (checked: boolean) => {
     if (checked) {
-      const allIds = new Set(paginatedUsers.map((u) => u.uid));
-      setSelectedUsers(allIds);
+      // Ajouter les users de la page courante aux sélections existantes
+      setSelectedUsers((prev) => {
+        const newSet = new Set(prev);
+        paginatedUsers.forEach((u) => newSet.add(u.uid));
+        return newSet;
+      });
     } else {
-      setSelectedUsers(new Set());
+      // Retirer SEULEMENT les users de la page courante
+      setSelectedUsers((prev) => {
+        const newSet = new Set(prev);
+        paginatedUsers.forEach((u) => newSet.delete(u.uid));
+        return newSet;
+      });
     }
   };
 

@@ -105,8 +105,12 @@ export function AdminLayout() {
 
   const roleInfo = getRoleInfo();
 
-  // Filtrer les éléments de navigation selon les permissions
+  // Filtrer les éléments de navigation selon les permissions et exclusions de rôle
   const filteredNavigationItems = navigationItems.filter((item) => {
+    // Si l'item exclut le rôle actuel, ne pas l'afficher
+    if (item.excludeRoles && adminProfile && item.excludeRoles.includes(adminProfile.role)) {
+      return false;
+    }
     // Si l'item n'a pas de permission requise, il est accessible à tous
     if (!item.requiredPermission) {
       return true;
@@ -153,9 +157,9 @@ export function AdminLayout() {
             <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap">
               <Burger opened={mobileOpened} onClick={handleToggleMobile} hiddenFrom="sm" size="sm" />
               <Burger opened={desktopOpened} onClick={handleToggleDesktop} visibleFrom="sm" size="sm" />
-              <Text 
-                size={isMobile ? "md" : "xl"} 
-                fw={700} 
+              <Text
+                size={isMobile ? "md" : "xl"}
+                fw={700}
                 c="indigo"
                 style={{ whiteSpace: 'nowrap' }}
               >
@@ -199,10 +203,10 @@ export function AdminLayout() {
                       <Text size="sm" c="dimmed" fw={500} style={{ flex: 1, userSelect: 'none', whiteSpace: 'nowrap' }}>
                         Rechercher partout...
                       </Text>
-                      <Badge 
-                        variant="light" 
-                        color="gray" 
-                        size="sm" 
+                      <Badge
+                        variant="light"
+                        color="gray"
+                        size="sm"
                         radius="sm"
                         styles={{ root: { textTransform: 'none', fontSize: '10px', fontWeight: 700 } }}
                       >
@@ -212,9 +216,9 @@ export function AdminLayout() {
                   )}
                 </UnstyledButton>
               ) : (
-                <ActionIcon 
-                  variant="subtle" 
-                  size="lg" 
+                <ActionIcon
+                  variant="subtle"
+                  size="lg"
                   onClick={() => spotlight.open()}
                   aria-label="Rechercher"
                 >
@@ -342,12 +346,12 @@ export function AdminLayout() {
                       </UnstyledButton>
 
                       <Collapse in={isSubmenuOpen}>
-                        <div style={{ 
-                          paddingLeft: isMobile ? '16px' : '20px', 
-                          marginTop: '4px', 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          gap: '2px' 
+                        <div style={{
+                          paddingLeft: isMobile ? '16px' : '20px',
+                          marginTop: '4px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px'
                         }}>
                           {item.submenu.map((subItem) => {
                             const SubIcon = subItem.icon;

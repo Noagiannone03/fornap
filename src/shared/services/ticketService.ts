@@ -41,8 +41,70 @@ const MESSAGES_SUBCOLLECTION = 'messages';
 const HISTORY_SUBCOLLECTION = 'history';
 
 // ============================================================================
-// GESTION DES TICKETS
+// NOTIFICATIONS EMAIL
 // ============================================================================
+
+/**
+ * Types de notifications pour les tickets
+ */
+type TicketNotificationType =
+  | 'new_ticket'
+  | 'new_message_to_user'
+  | 'new_message_to_admin'
+  | 'status_change'
+  | 'ticket_created_confirmation';
+
+/**
+ * Interface pour les données de notification
+ */
+interface TicketNotificationData {
+  type: TicketNotificationType;
+  ticketId: string;
+  ticketNumber: string;
+  ticketSubject: string;
+  ticketType: string;
+  ticketPriority: string;
+  ticketStatus?: string;
+  previousStatus?: string;
+  userName: string;
+  userEmail: string;
+  messageContent?: string;
+  senderName?: string;
+  adminEmail?: string;
+}
+
+/**
+ * Envoie une notification email via l'API serverless
+ * @param data Données de la notification
+ * @returns Résultat de l'envoi (non bloquant)
+ */
+async function sendTicketNotification(data: TicketNotificationData): Promise<void> {
+  try {
+    // URL de l'API (relative en dev, absolue en prod)
+    const apiUrl = typeof window !== 'undefined'
+      ? '/api/tickets/send-notification'
+      : (process.env.NEXT_PUBLIC_BASE_URL || 'https://fornap.fr') + '/api/tickets/send-notification';
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error(`[Ticket Notification] Erreur HTTP ${response.status}:`, errorData);
+    } else {
+      const result = await response.json();
+      console.log(`[Ticket Notification] ✅ Email ${data.type} envoyé via ${result.provider}`);
+    }
+  } catch (error) {
+    // Log l'erreur mais ne bloque pas l'opération principale
+    console.error('[Ticket Notification] Erreur lors de l\'envoi:', error);
+  }
+}
 
 /**
  * Crée un nouveau ticket de support
@@ -101,6 +163,29 @@ export async function createTicket(
       action: 'ticket_created',
       newValue: data.subject,
     }, userId, userName);
+
+    // Envoyer les notifications email (non bloquant)
+    const notificationData = {
+      ticketId,
+      ticketNumber,
+      ticketSubject: data.subject,
+      ticketType: data.type,
+      ticketPriority: data.priority,
+      userName,
+      userEmail,
+    };
+
+    // Notifier le développeur/admin qu'un nouveau ticket a été créé
+    sendTicketNotification({
+      ...notificationData,
+      type: 'new_ticket' as const,
+    });
+
+    // Envoyer une confirmation à l'utilisateur
+    sendTicketNotification({
+      ...notificationData,
+      type: 'ticket_created_confirmation' as const,
+    });
 
     return {
       id: ticketId,
@@ -272,6 +357,22 @@ export async function updateTicket(
         previousValue: currentTicket.status,
         newValue: data.status,
       }, actorId, actorName);
+
+      // Envoyer notification email à l'utilisateur (non bloquant)
+      if (isAdmin) {
+        sendTicketNotification({
+          type: 'status_change',
+          ticketId,
+          ticketNumber: currentTicket.ticketNumber,
+          ticketSubject: currentTicket.subject,
+          ticketType: currentTicket.type,
+          ticketPriority: currentTicket.priority,
+          ticketStatus: data.status,
+          previousStatus: currentTicket.status,
+          userName: currentTicket.userName,
+          userEmail: currentTicket.userEmail,
+        });
+      }
 
       // Notifier l'utilisateur si c'est l'admin qui change
       if (isAdmin) {
@@ -449,6 +550,36 @@ export async function sendMessage(
       actorType: senderType === SenderType.ADMIN ? 'admin' : 'user',
       description: `Message envoyé`,
     });
+
+    // Envoyer notification email à l'autre partie (non bloquant)
+    const ticket = await getTicketById(ticketId);
+    if (ticket) {
+      const notificationData = {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        ticketSubject: ticket.subject,
+        ticketType: ticket.type,
+        ticketPriority: ticket.priority,
+        userName: ticket.userName,
+        userEmail: ticket.userEmail,
+        messageContent: data.content,
+        senderName,
+      };
+
+      if (senderType === SenderType.ADMIN) {
+        // Admin répond -> notifier l'utilisateur
+        sendTicketNotification({
+          ...notificationData,
+          type: 'new_message_to_user' as const,
+        });
+      } else {
+        // Utilisateur répond -> notifier l'admin/développeur
+        sendTicketNotification({
+          ...notificationData,
+          type: 'new_message_to_admin' as const,
+        });
+      }
+    }
 
     return {
       id: messageRef.id,
@@ -932,6 +1063,18 @@ export async function createAdminTicket(data: CreateAdminTicketData): Promise<Ti
       newValue: data.subject,
     }, data.createdBy, data.userName);
 
+    // Notifier le développeur qu'un admin a créé un ticket (non bloquant)
+    sendTicketNotification({
+      type: 'new_ticket',
+      ticketId,
+      ticketNumber,
+      ticketSubject: data.subject,
+      ticketType: data.type,
+      ticketPriority: data.priority,
+      userName: `${data.userName} (${data.adminRoleLabel})`,
+      userEmail: data.userEmail,
+    });
+
     return {
       id: ticketId,
       ...ticketData,
@@ -1001,6 +1144,36 @@ export async function addTicketMessage(
       actorType: messageData.senderType === SenderType.ADMIN ? 'admin' : 'user',
       description: 'Message envoyé',
     });
+
+    // Envoyer notification email à l'autre partie (non bloquant)
+    const ticket = await getTicketById(ticketId);
+    if (ticket) {
+      const notificationData = {
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+        ticketSubject: ticket.subject,
+        ticketType: ticket.type,
+        ticketPriority: ticket.priority,
+        userName: ticket.userName,
+        userEmail: ticket.userEmail,
+        messageContent: messageData.content,
+        senderName: messageData.senderName,
+      };
+
+      if (messageData.senderType === SenderType.ADMIN) {
+        // Développeur répond -> notifier l'admin créateur
+        sendTicketNotification({
+          ...notificationData,
+          type: 'new_message_to_user' as const,
+        });
+      } else {
+        // Admin créateur répond -> notifier le développeur
+        sendTicketNotification({
+          ...notificationData,
+          type: 'new_message_to_admin' as const,
+        });
+      }
+    }
 
     return {
       id: messageRef.id,

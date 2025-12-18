@@ -16,7 +16,7 @@ import {
   IconChartPie,
   IconHeadset,
 } from '@tabler/icons-react';
-import { AdminPermission } from '../../shared/types/admin';
+import { AdminPermission, AdminRole } from '../../shared/types/admin';
 
 export interface SubMenuItem {
   icon: React.ComponentType<any>;
@@ -33,6 +33,8 @@ export interface NavItem {
   submenu?: SubMenuItem[];
   isExternal?: boolean;
   requiredPermission?: AdminPermission;
+  /** Rôles qui ne doivent PAS voir ce menu (même s'ils ont la permission) */
+  excludeRoles?: AdminRole[];
 }
 
 export const navigationItems: NavItem[] = [
@@ -84,6 +86,7 @@ export const navigationItems: NavItem[] = [
     label: 'Mes Demandes Support',
     path: '/admin/support',
     requiredPermission: AdminPermission.TICKETS_VIEW,
+    excludeRoles: [AdminRole.DEVELOPPEUR], // Le développeur gère les tickets, il n'en crée pas
   },
   {
     icon: IconTicket,

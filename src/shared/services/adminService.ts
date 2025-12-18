@@ -99,9 +99,9 @@ export function canCreateAdminWithRole(creatorRole: AdminRole, targetRole: Admin
   const creatorLevel = ADMIN_ROLES_CONFIG[creatorRole].level;
   const targetLevel = ADMIN_ROLES_CONFIG[targetRole].level;
 
-  // Seul le développeur ou l'administrateur peut créer d'autres développeurs
+  // Seul le développeur peut créer d'autres développeurs
   if (targetRole === AdminRole.DEVELOPPEUR) {
-    return creatorRole === AdminRole.DEVELOPPEUR || creatorRole === AdminRole.ADMINISTRATEUR;
+    return creatorRole === AdminRole.DEVELOPPEUR;
   }
 
   // Seul l'administrateur ou le développeur peut créer d'autres administrateurs
@@ -675,9 +675,9 @@ export function getAssignableRoles(adminRole: AdminRole): AdminRole[] {
       return true;
     }
 
-    // L'administrateur peut assigner tous les rôles y compris DEVELOPPEUR
+    // L'administrateur peut assigner tous les rôles sauf DEVELOPPEUR
     if (adminRole === AdminRole.ADMINISTRATEUR) {
-      return true;
+      return role !== AdminRole.DEVELOPPEUR;
     }
 
     // Les autres ne peuvent pas créer d'administrateur ni de développeur

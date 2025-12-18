@@ -40,7 +40,7 @@ import {
 
 export function SupportPage() {
   const navigate = useNavigate();
-  const { userProfile, currentUser } = useAuth();
+  const { currentUser } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
 

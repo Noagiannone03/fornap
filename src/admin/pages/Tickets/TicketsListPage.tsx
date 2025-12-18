@@ -14,9 +14,7 @@ import {
   Center,
   ThemeIcon,
   TextInput,
-  Select,
   MultiSelect,
-  Menu,
   Tooltip,
   Box,
   Grid,
@@ -26,15 +24,12 @@ import {
   IconEye,
   IconTicket,
   IconSearch,
-  IconFilter,
   IconAlertCircle,
   IconCircleCheck,
   IconClock,
   IconMessage,
   IconRefresh,
-  IconChevronDown,
   IconTrash,
-  IconUserCheck,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -56,11 +51,11 @@ import {
   TicketType,
   TicketPriority,
 } from '../../../shared/types/ticket';
-import { AdminPermission, ROLE_PERMISSIONS } from '../../../shared/types/admin';
+import { AdminPermission } from '../../../shared/types/admin';
 
 export function TicketsListPage() {
   const navigate = useNavigate();
-  const { adminUser, checkPermission } = useAdminAuth();
+  const { checkPermission } = useAdminAuth();
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [stats, setStats] = useState<TicketStats | null>(null);
@@ -70,9 +65,7 @@ export function TicketsListPage() {
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [priorityFilter, setPriorityFilter] = useState<string[]>([]);
 
-  const canChangeStatus = checkPermission(AdminPermission.TICKETS_CHANGE_STATUS);
   const canDelete = checkPermission(AdminPermission.TICKETS_DELETE);
-  const canRespond = checkPermission(AdminPermission.TICKETS_RESPOND);
 
   useEffect(() => {
     loadData();

@@ -18,9 +18,6 @@ import {
   Avatar,
   Box,
   Divider,
-  ThemeIcon,
-  ActionIcon,
-  Tooltip,
   Image,
 } from '@mantine/core';
 import {
@@ -41,7 +38,6 @@ import { notifications } from '@mantine/notifications';
 import { useAuth } from '../../../shared/contexts/AuthContext';
 import {
   getTicketById,
-  getTicketMessages,
   sendMessage,
   markMessagesAsRead,
   subscribeToTicketMessages,
@@ -55,7 +51,6 @@ import {
   TICKET_STATUS_COLORS,
   TICKET_PRIORITY_COLORS,
   TICKET_TYPE_COLORS,
-  TicketStatus,
   MessageSenderType,
   isTicketOpen,
   canReopenTicket,
@@ -122,7 +117,7 @@ export function TicketDetailPage() {
 
     try {
       const userName = `${userProfile.firstName} ${userProfile.lastName}`;
-      const message = await sendMessage(
+      await sendMessage(
         ticketId,
         { content: newMessage.trim(), attachments: files },
         currentUser.uid,

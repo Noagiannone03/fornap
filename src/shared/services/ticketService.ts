@@ -5,19 +5,14 @@ import {
   getDocs,
   addDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
-  limit,
   Timestamp,
   QueryConstraint,
   onSnapshot,
   writeBatch,
   increment,
-  serverTimestamp,
-  startAfter,
-  DocumentSnapshot,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
@@ -31,11 +26,7 @@ import type {
   SendMessageData,
   TicketFilters,
   TicketStats,
-  TicketType,
-  TicketStatus,
-  TicketPriority,
   MessageSenderType,
-  TicketHistoryActionType,
 } from '../types/ticket';
 import {
   generateTicketNumber,

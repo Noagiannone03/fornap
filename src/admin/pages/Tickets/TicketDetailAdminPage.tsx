@@ -19,9 +19,6 @@ import {
   Divider,
   Grid,
   Card,
-  ActionIcon,
-  Tooltip,
-  Menu,
   Image,
   Breadcrumbs,
   Anchor,
@@ -31,14 +28,11 @@ import {
   IconSend,
   IconUpload,
   IconAlertCircle,
-  IconClock,
   IconUser,
   IconShield,
   IconSettings,
   IconPaperclip,
   IconDownload,
-  IconChevronDown,
-  IconCircleCheck,
   IconHistory,
   IconMail,
   IconTrash,
@@ -55,25 +49,22 @@ import {
   getTicketHistory,
   deleteTicket,
 } from '../../../shared/services/ticketService';
-import type { Ticket, TicketMessage, TicketHistoryEntry, UpdateTicketData } from '../../../shared/types/ticket';
+import type { Ticket, TicketMessage, TicketHistoryEntry } from '../../../shared/types/ticket';
 import {
   TICKET_TYPE_LABELS,
   TICKET_STATUS_LABELS,
   TICKET_PRIORITY_LABELS,
-  TICKET_STATUS_COLORS,
-  TICKET_PRIORITY_COLORS,
   TICKET_TYPE_COLORS,
   TicketStatus,
   TicketPriority,
   MessageSenderType,
-  isTicketOpen,
 } from '../../../shared/types/ticket';
 import { AdminPermission } from '../../../shared/types/admin';
 
 export function TicketDetailAdminPage() {
   const navigate = useNavigate();
   const { ticketId } = useParams<{ ticketId: string }>();
-  const { adminUser, checkPermission } = useAdminAuth();
+  const { adminProfile, checkPermission } = useAdminAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -90,7 +81,6 @@ export function TicketDetailAdminPage() {
   const canChangeStatus = checkPermission(AdminPermission.TICKETS_CHANGE_STATUS);
   const canRespond = checkPermission(AdminPermission.TICKETS_RESPOND);
   const canDelete = checkPermission(AdminPermission.TICKETS_DELETE);
-  const canAssign = checkPermission(AdminPermission.TICKETS_ASSIGN);
 
   // Charger le ticket
   useEffect(() => {
@@ -136,19 +126,19 @@ export function TicketDetailAdminPage() {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!ticketId || !adminUser || !newMessage.trim() || !canRespond) return;
+    if (!ticketId || !adminProfile || !newMessage.trim() || !canRespond) return;
 
     setSending(true);
     setError(null);
 
     try {
-      const adminName = `${adminUser.firstName} ${adminUser.lastName}`;
+      const adminName = `${adminProfile.firstName} ${adminProfile.lastName}`;
       await sendMessage(
         ticketId,
         { content: newMessage.trim(), attachments: files },
-        adminUser.uid,
+        adminProfile.uid,
         adminName,
-        adminUser.email,
+        adminProfile.email,
         MessageSenderType.ADMIN
       );
 
@@ -189,17 +179,17 @@ export function TicketDetailAdminPage() {
   };
 
   const handleUpdateStatus = async (newStatus: TicketStatus) => {
-    if (!ticketId || !adminUser || !canChangeStatus) return;
+    if (!ticketId || !adminProfile || !canChangeStatus) return;
 
     setUpdating(true);
     try {
-      const adminName = `${adminUser.firstName} ${adminUser.lastName}`;
+      const adminName = `${adminProfile.firstName} ${adminProfile.lastName}`;
       const previousStatus = ticket?.status;
 
       await updateTicket(
         ticketId,
         { status: newStatus },
-        adminUser.uid,
+        adminProfile.uid,
         adminName,
         true
       );
@@ -251,16 +241,16 @@ export function TicketDetailAdminPage() {
   };
 
   const handleUpdatePriority = async (newPriority: TicketPriority) => {
-    if (!ticketId || !adminUser || !canChangeStatus) return;
+    if (!ticketId || !adminProfile || !canChangeStatus) return;
 
     setUpdating(true);
     try {
-      const adminName = `${adminUser.firstName} ${adminUser.lastName}`;
+      const adminName = `${adminProfile.firstName} ${adminProfile.lastName}`;
 
       await updateTicket(
         ticketId,
         { priority: newPriority },
-        adminUser.uid,
+        adminProfile.uid,
         adminName,
         true
       );
@@ -363,8 +353,6 @@ export function TicketDetailAdminPage() {
       </Container>
     );
   }
-
-  const ticketIsOpen = isTicketOpen(ticket);
 
   const statusOptions = Object.entries(TICKET_STATUS_LABELS).map(([value, label]) => ({
     value,

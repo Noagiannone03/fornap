@@ -5,7 +5,6 @@ import {
     Text,
     Stack,
     Group,
-    Switch,
     Textarea,
     Select,
     Button,
@@ -17,8 +16,8 @@ import { IconTool, IconAlertCircle, IconClock } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 import { AdminRole } from '../../../shared/types/admin';
+import type { MaintenanceConfig } from '../../../shared/services/maintenanceService';
 import {
-    MaintenanceConfig,
     getMaintenanceStatus,
     enableMaintenance,
     disableMaintenance,

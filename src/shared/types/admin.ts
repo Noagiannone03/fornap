@@ -17,6 +17,9 @@ import { Timestamp } from 'firebase/firestore';
  * Système hiérarchique du plus élevé au plus bas
  */
 export const AdminRole = {
+  /** Développeur de la plateforme - Accès total + gestion des tickets de support */
+  DEVELOPPEUR: 'developpeur',
+
   /** Accès complet à toutes les fonctionnalités, y compris suppression d'admins */
   ADMINISTRATEUR: 'administrateur',
 
@@ -58,6 +61,14 @@ export interface RoleConfig {
  * Permet de modifier facilement les rôles et leurs propriétés
  */
 export const ADMIN_ROLES_CONFIG: Record<AdminRole, RoleConfig> = {
+  [AdminRole.DEVELOPPEUR]: {
+    key: AdminRole.DEVELOPPEUR,
+    label: 'Développeur',
+    description: 'Développeur de la plateforme - Accès total + gestion des demandes de support',
+    color: 'violet',
+    level: 8,
+    icon: 'code',
+  },
   [AdminRole.ADMINISTRATEUR]: {
     key: AdminRole.ADMINISTRATEUR,
     label: 'Administrateur',
@@ -201,6 +212,11 @@ export type AdminPermission = typeof AdminPermission[keyof typeof AdminPermissio
  * Système modulaire : ajouter/retirer des permissions facilement
  */
 export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
+  [AdminRole.DEVELOPPEUR]: [
+    // Toutes les permissions (développeur plateforme)
+    ...Object.values(AdminPermission),
+  ],
+
   [AdminRole.ADMINISTRATEUR]: [
     // Toutes les permissions
     ...Object.values(AdminPermission),

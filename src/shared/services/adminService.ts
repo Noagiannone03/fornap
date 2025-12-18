@@ -99,9 +99,14 @@ export function canCreateAdminWithRole(creatorRole: AdminRole, targetRole: Admin
   const creatorLevel = ADMIN_ROLES_CONFIG[creatorRole].level;
   const targetLevel = ADMIN_ROLES_CONFIG[targetRole].level;
 
-  // Seul l'administrateur peut créer d'autres administrateurs
+  // Seul le développeur ou l'administrateur peut créer d'autres développeurs
+  if (targetRole === AdminRole.DEVELOPPEUR) {
+    return creatorRole === AdminRole.DEVELOPPEUR || creatorRole === AdminRole.ADMINISTRATEUR;
+  }
+
+  // Seul l'administrateur ou le développeur peut créer d'autres administrateurs
   if (targetRole === AdminRole.ADMINISTRATEUR) {
-    return creatorRole === AdminRole.ADMINISTRATEUR;
+    return creatorRole === AdminRole.ADMINISTRATEUR || creatorRole === AdminRole.DEVELOPPEUR;
   }
 
   return creatorLevel >= targetLevel;
@@ -665,13 +670,18 @@ export function getAssignableRoles(adminRole: AdminRole): AdminRole[] {
   return Object.values(AdminRole).filter((role) => {
     const roleLevel = ADMIN_ROLES_CONFIG[role].level;
 
-    // L'administrateur peut assigner tous les rôles
+    // Le développeur peut assigner tous les rôles y compris DEVELOPPEUR
+    if (adminRole === AdminRole.DEVELOPPEUR) {
+      return true;
+    }
+
+    // L'administrateur peut assigner tous les rôles y compris DEVELOPPEUR
     if (adminRole === AdminRole.ADMINISTRATEUR) {
       return true;
     }
 
-    // Les autres ne peuvent pas créer d'administrateur
-    if (role === AdminRole.ADMINISTRATEUR) {
+    // Les autres ne peuvent pas créer d'administrateur ni de développeur
+    if (role === AdminRole.ADMINISTRATEUR || role === AdminRole.DEVELOPPEUR) {
       return false;
     }
 

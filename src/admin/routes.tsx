@@ -24,6 +24,7 @@ import { ContributionStatsPage } from './pages/Analytics/ContributionStatsPage';
 import { CampaignsListPage, CampaignCreatePage, CampaignEditPage, CampaignDetailPage } from './pages/Campaigns';
 import { AIAssistantPage } from './pages/AIAssistantPage';
 import { CrowdfundingManagementPage } from './pages/Crowdfunding';
+import { TicketsListPage, TicketDetailAdminPage } from './pages/Tickets';
 
 export function AdminRoutes() {
   return (
@@ -58,6 +59,10 @@ export function AdminRoutes() {
 
           {/* Route Crowdfunding */}
           <Route path="crowdfunding" element={<CrowdfundingManagementPage />} />
+
+          {/* Routes Tickets */}
+          <Route path="tickets" element={<TicketsListPage />} />
+          <Route path="tickets/:ticketId" element={<TicketDetailAdminPage />} />
 
           {/* Routes Campaigns */}
           <Route path="campaigns" element={<CampaignsListPage />} />

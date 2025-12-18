@@ -11,6 +11,7 @@ import { Dashboard } from './app/pages/Dashboard';
 import { Profile } from './app/pages/Profile';
 import { QRCodeSuccess } from './app/pages/QRCodeSuccess';
 import { CheckIn } from './app/pages/CheckIn';
+import { SupportPage, NewTicketPage, TicketDetailPage } from './app/pages/Support';
 import { AdminRoutes } from './admin/routes';
 import { AdminAuthProvider } from './shared/contexts/AdminAuthContext';
 import { EventScannerPage } from './admin/pages/Scanner/EventScannerPage';
@@ -71,6 +72,31 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            {/* Routes Support - Gestion des tickets utilisateur */}
+            <Route
+              path="/dashboard/support"
+              element={
+                <ProtectedRoute>
+                  <SupportPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/support/new"
+              element={
+                <ProtectedRoute>
+                  <NewTicketPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/support/:ticketId"
+              element={
+                <ProtectedRoute>
+                  <TicketDetailPage />
                 </ProtectedRoute>
               }
             />

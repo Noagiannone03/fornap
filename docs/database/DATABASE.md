@@ -250,3 +250,196 @@ Currently, the database schema is relatively flat, with all primary user data re
 | BÂTISSEURS du FORT | 1000€+ | ✅ `annual` | 1 an |
 
 **Note** : Les users créés via crowdfunding ont automatiquement les tags `['CROWDFUNDING', 'NEW_MEMBER']` pour faciliter leur identification.
+
+---
+
+## Collection `tickets` - Système de Support
+
+### 2. `tickets` Collection
+
+*   **Purpose**: Gère les demandes de support (maintenance, améliorations, bugs, nouvelles fonctionnalités)
+*   **Document ID**: Auto-généré par Firestore
+*   **Fichiers sources**: `src/shared/types/ticket.ts`, `src/shared/services/ticketService.ts`
+
+#### Structure du document principal
+
+```typescript
+interface Ticket {
+  id: string;                        // ID auto-généré (Document ID)
+  ticketNumber: string;              // Numéro lisible (ex: TKT-2024-0001)
+
+  // Informations de l'utilisateur
+  createdBy: string;                 // UID de l'utilisateur
+  userEmail: string;                 // Email de l'utilisateur
+  userName: string;                  // Nom complet de l'utilisateur
+
+  // Détails du ticket
+  type: TicketType;                  // 'maintenance' | 'improvement' | 'feature_request' | 'bug_report' | 'other'
+  subject: string;                   // Sujet/Titre du ticket
+  description: string;               // Description détaillée
+  priority: TicketPriority;          // 'low' | 'medium' | 'high' | 'urgent'
+  status: TicketStatus;              // 'open' | 'in_progress' | 'waiting_for_user' | 'resolved' | 'closed'
+
+  // Pièces jointes
+  attachments: TicketAttachment[];   // Fichiers attachés au ticket
+
+  // Assignation (optionnel)
+  assignedTo?: string;               // UID de l'admin assigné
+  assignedToName?: string;           // Nom de l'admin assigné
+
+  // Timestamps
+  createdAt: Timestamp;              // Date de création
+  updatedAt: Timestamp;              // Date de dernière mise à jour
+  resolvedAt?: Timestamp;            // Date de résolution (si résolu/fermé)
+  resolvedBy?: string;               // UID de l'admin qui a résolu
+
+  // Statistiques de conversation
+  messageCount: number;              // Nombre de messages
+  lastMessageAt?: Timestamp;         // Date du dernier message
+
+  // Indicateurs de lecture
+  hasUnreadForUser: boolean;         // Messages non lus pour l'utilisateur
+  hasUnreadForAdmin: boolean;        // Messages non lus pour l'admin
+
+  // Notes internes (visibles uniquement par les admins)
+  internalNotes?: string;
+}
+```
+
+#### Types de tickets
+
+| Type | Valeur | Description |
+|------|--------|-------------|
+| Maintenance | `maintenance` | Demande de maintenance technique |
+| Amélioration | `improvement` | Amélioration d'une fonctionnalité existante |
+| Nouvelle fonctionnalité | `feature_request` | Demande de nouvelle fonctionnalité |
+| Correction de bug | `bug_report` | Signalement d'un bug |
+| Autre | `other` | Autre type de demande |
+
+#### Statuts des tickets
+
+| Statut | Valeur | Description |
+|--------|--------|-------------|
+| Ouvert | `open` | Ticket créé, en attente de traitement |
+| En cours | `in_progress` | Ticket en cours de traitement |
+| En attente | `waiting_for_user` | En attente d'une réponse de l'utilisateur |
+| Résolu | `resolved` | Ticket traité et résolu |
+| Fermé | `closed` | Ticket clôturé |
+
+#### Niveaux de priorité
+
+| Priorité | Valeur | Description |
+|----------|--------|-------------|
+| Basse | `low` | Demande non urgente |
+| Normale | `medium` | Priorité standard |
+| Haute | `high` | Demande importante |
+| Urgente | `urgent` | Problème bloquant |
+
+### Sous-collection `messages`
+
+**Chemin**: `tickets/{ticketId}/messages`
+
+*   **Purpose**: Stocke la conversation entre l'utilisateur et le support
+*   **Document ID**: Auto-généré
+
+```typescript
+interface TicketMessage {
+  id: string;                        // ID auto-généré
+
+  // Expéditeur
+  senderId: string;                  // UID de l'expéditeur
+  senderName: string;                // Nom de l'expéditeur
+  senderEmail: string;               // Email de l'expéditeur
+  senderType: MessageSenderType;     // 'user' | 'admin' | 'system'
+
+  // Contenu
+  content: string;                   // Contenu du message
+  attachments: TicketAttachment[];   // Pièces jointes
+
+  // Timestamps et lecture
+  createdAt: Timestamp;              // Date d'envoi
+  readByUser: boolean;               // Lu par l'utilisateur
+  readByAdmin: boolean;              // Lu par l'admin
+
+  // Messages système
+  isSystemMessage: boolean;          // Est un message automatique
+  systemMetadata?: {                 // Métadonnées pour messages système
+    action: 'status_change' | 'priority_change' | 'assignment' | 'ticket_created';
+    previousValue?: string;
+    newValue?: string;
+  };
+}
+```
+
+### Sous-collection `history`
+
+**Chemin**: `tickets/{ticketId}/history`
+
+*   **Purpose**: Journal d'audit de toutes les actions sur le ticket
+*   **Document ID**: Auto-généré
+
+```typescript
+interface TicketHistoryEntry {
+  id: string;
+  actionType: TicketHistoryActionType;  // Type d'action (created, status_changed, etc.)
+  actorId: string;                       // UID de l'acteur
+  actorName: string;                     // Nom de l'acteur
+  actorType: 'user' | 'admin';           // Type d'acteur
+  description: string;                   // Description de l'action
+  previousValue?: string;                // Valeur précédente
+  newValue?: string;                     // Nouvelle valeur
+  timestamp: Timestamp;                  // Date de l'action
+}
+```
+
+### Permissions admin pour les tickets
+
+Les permissions sont définies dans `src/shared/types/admin.ts`:
+
+| Permission | Description |
+|------------|-------------|
+| `TICKETS_VIEW` | Voir la liste des tickets |
+| `TICKETS_RESPOND` | Répondre aux tickets |
+| `TICKETS_CHANGE_STATUS` | Changer le statut et la priorité |
+| `TICKETS_ASSIGN` | Assigner un ticket à un admin |
+| `TICKETS_DELETE` | Supprimer un ticket |
+
+#### Permissions par rôle
+
+| Rôle | VIEW | RESPOND | CHANGE_STATUS | ASSIGN | DELETE |
+|------|------|---------|---------------|--------|--------|
+| Administrateur | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Co-Administrateur | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Editor | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Viewer | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Scanner | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+### Notifications email
+
+Le système envoie des notifications automatiques via l'API `/api/tickets/send-notification`:
+
+| Événement | Destinataire | Template |
+|-----------|--------------|----------|
+| Nouveau ticket créé | Admin (superadmin) | `new_ticket` |
+| Confirmation de création | Utilisateur | `ticket_created_confirmation` |
+| Nouvelle réponse admin | Utilisateur | `new_message_to_user` |
+| Nouvelle réponse utilisateur | Admin | `new_message_to_admin` |
+| Changement de statut | Utilisateur | `status_change` |
+
+### Routes et pages
+
+#### Côté utilisateur
+- `/dashboard/support` - Liste des tickets de l'utilisateur
+- `/dashboard/support/new` - Créer un nouveau ticket
+- `/dashboard/support/:ticketId` - Détail et conversation d'un ticket
+
+#### Côté admin
+- `/admin/tickets` - Liste de tous les tickets
+- `/admin/tickets/:ticketId` - Gestion détaillée d'un ticket
+
+### Pièces jointes
+
+Les fichiers sont stockés dans Firebase Storage:
+- **Chemin**: `tickets/{ticketId}/{fileName}`
+- **Types acceptés**: Images, PDF, documents Word
+- **Taille max recommandée**: 10MB par fichier

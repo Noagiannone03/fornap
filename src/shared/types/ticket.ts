@@ -221,6 +221,12 @@ export interface Ticket {
 
   /** Notes internes (visibles uniquement par les admins) */
   internalNotes?: string;
+
+  /** Origine du ticket : 'user' pour utilisateur normal, 'admin' pour admin du panel */
+  source?: 'user' | 'admin';
+
+  /** Rôle admin si source='admin' */
+  adminRole?: string;
 }
 
 // ============================================

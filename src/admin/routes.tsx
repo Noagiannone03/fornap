@@ -25,6 +25,7 @@ import { CampaignsListPage, CampaignCreatePage, CampaignEditPage, CampaignDetail
 import { AIAssistantPage } from './pages/AIAssistantPage';
 import { CrowdfundingManagementPage } from './pages/Crowdfunding';
 import { TicketsListPage, TicketDetailAdminPage } from './pages/Tickets';
+import { AdminSupportPage, AdminNewTicketPage, AdminTicketDetailPage } from './pages/Support';
 
 export function AdminRoutes() {
   return (
@@ -60,7 +61,12 @@ export function AdminRoutes() {
           {/* Route Crowdfunding */}
           <Route path="crowdfunding" element={<CrowdfundingManagementPage />} />
 
-          {/* Routes Tickets */}
+          {/* Routes Support Admin - Pour que les admins créent des tickets */}
+          <Route path="support" element={<AdminSupportPage />} />
+          <Route path="support/new" element={<AdminNewTicketPage />} />
+          <Route path="support/:ticketId" element={<AdminTicketDetailPage />} />
+
+          {/* Routes Tickets - Gestion par ADMINISTRATEUR uniquement */}
           <Route path="tickets" element={<TicketsListPage />} />
           <Route path="tickets/:ticketId" element={<TicketDetailAdminPage />} />
 

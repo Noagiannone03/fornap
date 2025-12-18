@@ -831,3 +831,221 @@ export async function reopenTicket(
     throw error;
   }
 }
+
+// ============================================================================
+// FONCTIONS POUR ADMIN QUI CRÉENT DES TICKETS
+// ============================================================================
+
+/**
+ * Récupère les tickets créés par un admin (pour la page "Mes Demandes Support")
+ */
+export async function getAdminTickets(adminUid: string): Promise<Ticket[]> {
+  try {
+    const ticketsRef = collection(db, TICKETS_COLLECTION);
+    const q = query(
+      ticketsRef,
+      where('createdBy', '==', adminUid),
+      where('source', '==', 'admin'),
+      orderBy('createdAt', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Ticket[];
+  } catch (error) {
+    console.error('Error fetching admin tickets:', error);
+    // Fallback: si l'index n'existe pas, on filtre côté client
+    try {
+      const ticketsRef = collection(db, TICKETS_COLLECTION);
+      const q = query(
+        ticketsRef,
+        where('createdBy', '==', adminUid),
+        orderBy('createdAt', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+
+      const tickets = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Ticket[];
+
+      // Filtrer les tickets avec source='admin'
+      return tickets.filter(t => t.source === 'admin');
+    } catch (fallbackError) {
+      console.error('Error in fallback fetching admin tickets:', fallbackError);
+      throw fallbackError;
+    }
+  }
+}
+
+/**
+ * Interface pour créer un ticket depuis le panel admin
+ */
+interface CreateAdminTicketData {
+  subject: string;
+  type: string;
+  priority: string;
+  description: string;
+  createdBy: string;
+  userEmail: string;
+  userName: string;
+  source: 'admin';
+  adminRole: string;
+  adminRoleLabel: string;
+}
+
+/**
+ * Crée un ticket depuis le panel admin (par un admin pour signaler un problème)
+ */
+export async function createAdminTicket(data: CreateAdminTicketData): Promise<Ticket> {
+  try {
+    const ticketNumber = generateTicketNumber();
+    const now = Timestamp.now();
+
+    const ticketData: Omit<Ticket, 'id'> = {
+      ticketNumber,
+      createdBy: data.createdBy,
+      userEmail: data.userEmail,
+      userName: data.userName,
+      type: data.type,
+      subject: data.subject,
+      description: data.description,
+      priority: data.priority,
+      status: TicketStatusEnum.OPEN,
+      attachments: [],
+      createdAt: now,
+      updatedAt: now,
+      messageCount: 0,
+      hasUnreadForUser: false,
+      hasUnreadForAdmin: true,
+      source: 'admin',
+      adminRole: data.adminRole,
+    } as any; // Cast pour inclure les nouveaux champs
+
+    const ticketRef = await addDoc(collection(db, TICKETS_COLLECTION), ticketData);
+    const ticketId = ticketRef.id;
+
+    // Créer l'entrée d'historique pour la création
+    await addHistoryEntry(ticketId, {
+      actionType: HistoryActionType.CREATED,
+      actorId: data.createdBy,
+      actorName: data.userName,
+      actorType: 'user', // L'admin qui crée un ticket est considéré comme "user" dans ce contexte
+      description: `Ticket créé par ${data.adminRoleLabel}: ${data.subject}`,
+    });
+
+    // Créer un message système pour la création
+    await addSystemMessage(ticketId, {
+      action: 'ticket_created',
+      newValue: data.subject,
+    }, data.createdBy, data.userName);
+
+    return {
+      id: ticketId,
+      ...ticketData,
+    } as Ticket;
+  } catch (error) {
+    console.error('Error creating admin ticket:', error);
+    throw error;
+  }
+}
+
+/**
+ * Ajoute un message à un ticket (version simplifiée pour les admins créateurs)
+ */
+export async function addTicketMessage(
+  ticketId: string,
+  messageData: {
+    content: string;
+    senderId: string;
+    senderName: string;
+    senderEmail: string;
+    senderType: typeof SenderType[keyof typeof SenderType];
+  }
+): Promise<TicketMessage> {
+  try {
+    const now = Timestamp.now();
+
+    const message: Omit<TicketMessage, 'id'> = {
+      senderId: messageData.senderId,
+      senderName: messageData.senderName,
+      senderEmail: messageData.senderEmail,
+      senderType: messageData.senderType,
+      content: messageData.content,
+      attachments: [],
+      createdAt: now,
+      readByUser: messageData.senderType === SenderType.USER,
+      readByAdmin: messageData.senderType === SenderType.ADMIN,
+      isSystemMessage: false,
+    };
+
+    const messagesRef = collection(db, TICKETS_COLLECTION, ticketId, MESSAGES_SUBCOLLECTION);
+    const messageRef = await addDoc(messagesRef, message);
+
+    // Mettre à jour le ticket
+    const ticketRef = doc(db, TICKETS_COLLECTION, ticketId);
+    const updateData: Record<string, any> = {
+      updatedAt: now,
+      lastMessageAt: now,
+      messageCount: increment(1),
+    };
+
+    // Marquer comme non lu pour l'autre partie
+    if (messageData.senderType === SenderType.USER) {
+      updateData.hasUnreadForAdmin = true;
+      updateData.hasUnreadForUser = false;
+    } else if (messageData.senderType === SenderType.ADMIN) {
+      updateData.hasUnreadForUser = true;
+      updateData.hasUnreadForAdmin = false;
+    }
+
+    await updateDoc(ticketRef, updateData);
+
+    // Ajouter à l'historique
+    await addHistoryEntry(ticketId, {
+      actionType: HistoryActionType.MESSAGE_SENT,
+      actorId: messageData.senderId,
+      actorName: messageData.senderName,
+      actorType: messageData.senderType === SenderType.ADMIN ? 'admin' : 'user',
+      description: 'Message envoyé',
+    });
+
+    return {
+      id: messageRef.id,
+      ...message,
+    };
+  } catch (error) {
+    console.error('Error adding ticket message:', error);
+    throw error;
+  }
+}
+
+/**
+ * Marque un ticket comme lu pour l'utilisateur (admin créateur du ticket)
+ */
+export async function markTicketAsReadForUser(ticketId: string): Promise<void> {
+  try {
+    const ticketRef = doc(db, TICKETS_COLLECTION, ticketId);
+    await updateDoc(ticketRef, {
+      hasUnreadForUser: false,
+    });
+
+    // Marquer aussi tous les messages comme lus pour l'utilisateur
+    const messagesRef = collection(db, TICKETS_COLLECTION, ticketId, MESSAGES_SUBCOLLECTION);
+    const q = query(messagesRef, where('readByUser', '==', false));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const batch = writeBatch(db);
+      querySnapshot.docs.forEach(doc => {
+        batch.update(doc.ref, { readByUser: true });
+      });
+      await batch.commit();
+    }
+  } catch (error) {
+    console.error('Error marking ticket as read for user:', error);
+    throw error;
+  }
+}

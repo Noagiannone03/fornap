@@ -81,9 +81,15 @@ export const navigationItems: NavItem[] = [
   },
   {
     icon: IconHeadset,
-    label: 'Support Tickets',
-    path: '/admin/tickets',
+    label: 'Mes Demandes Support',
+    path: '/admin/support',
     requiredPermission: AdminPermission.TICKETS_VIEW,
+  },
+  {
+    icon: IconTicket,
+    label: 'Gestion Tickets',
+    path: '/admin/tickets',
+    requiredPermission: AdminPermission.TICKETS_MANAGE,
   },
   {
     icon: IconMail,

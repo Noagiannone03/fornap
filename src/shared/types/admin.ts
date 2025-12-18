@@ -178,10 +178,19 @@ export const AdminPermission = {
   LOGS_EXPORT: 'logs_export',
 
   // Gestion des tickets de support
+  /** Voir ses propres tickets (tous les admins) */
   TICKETS_VIEW: 'tickets_view',
+  /** Créer un ticket de support (tous les admins) */
+  TICKETS_CREATE: 'tickets_create',
+  /** Gérer TOUS les tickets : répondre, changer statut, assigner (superadmin uniquement) */
+  TICKETS_MANAGE: 'tickets_manage',
+  /** Répondre aux tickets (superadmin uniquement) */
   TICKETS_RESPOND: 'tickets_respond',
+  /** Changer le statut des tickets (superadmin uniquement) */
   TICKETS_CHANGE_STATUS: 'tickets_change_status',
+  /** Assigner des tickets (superadmin uniquement) */
   TICKETS_ASSIGN: 'tickets_assign',
+  /** Supprimer des tickets (superadmin uniquement) */
   TICKETS_DELETE: 'tickets_delete',
 } as const;
 
@@ -248,11 +257,9 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     AdminPermission.LOGS_VIEW,
     AdminPermission.LOGS_EXPORT,
 
-    // Tickets (tout sauf suppression)
+    // Tickets (voir et créer ses propres tickets uniquement)
     AdminPermission.TICKETS_VIEW,
-    AdminPermission.TICKETS_RESPOND,
-    AdminPermission.TICKETS_CHANGE_STATUS,
-    AdminPermission.TICKETS_ASSIGN,
+    AdminPermission.TICKETS_CREATE,
   ],
 
   [AdminRole.EDITOR]: [
@@ -296,9 +303,9 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     AdminPermission.LOGS_VIEW,
     AdminPermission.LOGS_EXPORT,
 
-    // Tickets (lecture et réponse, pas de changement de statut)
+    // Tickets (voir et créer ses propres tickets uniquement)
     AdminPermission.TICKETS_VIEW,
-    AdminPermission.TICKETS_RESPOND,
+    AdminPermission.TICKETS_CREATE,
   ],
 
   [AdminRole.VIEWER]: [
@@ -312,8 +319,9 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     AdminPermission.SETTINGS_VIEW,
     AdminPermission.CHECKIN_VIEW_HISTORY,
     AdminPermission.LOGS_VIEW,
+    // Tickets (voir et créer ses propres tickets uniquement)
     AdminPermission.TICKETS_VIEW,
-    // Pas de permissions de création, édition ou suppression
+    AdminPermission.TICKETS_CREATE,
   ],
 
   [AdminRole.SCANNER]: [

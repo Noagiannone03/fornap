@@ -58,7 +58,7 @@ export function MaintenanceScreen({ config }: MaintenanceScreenProps) {
                     <Stack align="center" gap="lg">
                         {/* Logo FOR+NAP */}
                         <img
-                            src="/assets/logo-etendu-fornap.png"
+                            src="https://www.fornap.fr/assets/logo-etendu-fornap-CnmtvHyt.png"
                             alt="FOR+NAP"
                             style={{ height: 60, marginBottom: 8 }}
                         />

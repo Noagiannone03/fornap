@@ -78,6 +78,7 @@ import { SendMassiveCardsModal } from '../../components/SendMassiveCardsModal';
 import { TagsManagerModal } from '../../components/TagsManagerModal';
 import { QuickAddUserModal } from '../../components/QuickAddUserModal';
 import { ExordeTagCheckerModal } from '../../components/ExordeTagCheckerModal';
+import { UserExportModal } from '../../components/UserExportModal';
 import {
   getAllTags,
   getTagColor,
@@ -413,6 +414,7 @@ export function EnhancedUsersListPage() {
   const [tagsConfig, setTagsConfig] = useState<TagConfig[]>([]);
   const [tagsManagerOpened, setTagsManagerOpened] = useState(false);
   const [exordeCheckerOpened, setExordeCheckerOpened] = useState(false);
+  const [exportModalOpened, setExportModalOpened] = useState(false);
 
   // États pour la migration multiple
   const [selectedLegacyUsers, setSelectedLegacyUsers] = useState<Set<string>>(new Set());
@@ -990,11 +992,7 @@ export function EnhancedUsersListPage() {
   };
 
   const handleExport = () => {
-    notifications.show({
-      title: 'Fonction à venir',
-      message: "L'export sera disponible prochainement",
-      color: 'blue',
-    });
+    setExportModalOpened(true);
   };
 
   const handleOpenMassiveSendModal = (mode: 'all' | 'force' | 'unsent') => {
@@ -2009,6 +2007,13 @@ export function EnhancedUsersListPage() {
           )}
         </Stack>
       </Modal>
+
+      {/* Export Users Modal */}
+      <UserExportModal
+        opened={exportModalOpened}
+        onClose={() => setExportModalOpened(false)}
+        users={users}
+      />
     </Container>
   );
 }

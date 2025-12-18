@@ -175,7 +175,7 @@ export function UserExportModal({ opened, onClose, users }: UserExportModalProps
         setExporting(true);
 
         try {
-            downloadUserExport(users, {
+            await downloadUserExport(users, {
                 format,
                 selectedFields,
                 filters,

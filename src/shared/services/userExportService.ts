@@ -1,5 +1,7 @@
 import * as XLSX from 'xlsx';
-import type { UserListItem } from '../types/user';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import type { User, MemberTag } from '../types/user';
 import {
     MEMBERSHIP_TYPE_LABELS,
     MEMBERSHIP_STATUS_LABELS,
@@ -12,60 +14,258 @@ import type {
 } from '../../admin/types/exportTypes';
 import { EXPORT_FIELDS } from '../../admin/types/exportTypes';
 
+const USERS_COLLECTION = 'users';
+
 // ============================================================================
-// FILTRAGE DES UTILISATEURS
+// CONVERSION DE DATES
 // ============================================================================
 
 /**
- * Parse une date Firestore (tous formats) en Date JS
+ * Convertit un timestamp Firestore (tous formats) en Date JS
+ * Retourne null si la conversion échoue
  */
-function parseCreatedAtDate(createdAt: any): Date {
-    if (!createdAt) return new Date(0);
+function toDate(timestamp: any): Date | null {
+    if (!timestamp) return null;
 
     try {
-        if (typeof createdAt.toDate === 'function') {
-            return createdAt.toDate();
+        // Si c'est déjà une Date
+        if (timestamp instanceof Date) {
+            return timestamp;
         }
 
-        if (typeof createdAt === 'object' && ('seconds' in createdAt || '_seconds' in createdAt)) {
-            const seconds = createdAt.seconds || createdAt._seconds || 0;
-            const nanoseconds = createdAt.nanoseconds || createdAt._nanoseconds || 0;
-            const milliseconds = seconds * 1000 + Math.floor(nanoseconds / 1000000);
-            return new Date(milliseconds);
+        // Si c'est un Timestamp Firestore avec la méthode toDate()
+        if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+            return timestamp.toDate();
         }
 
-        if (createdAt instanceof Date) {
-            return createdAt;
+        // Si c'est un objet avec seconds (format Firestore après sérialisation)
+        if (typeof timestamp === 'object' && ('seconds' in timestamp || '_seconds' in timestamp)) {
+            const seconds = timestamp.seconds ?? timestamp._seconds ?? 0;
+            const nanoseconds = timestamp.nanoseconds ?? timestamp._nanoseconds ?? 0;
+            return new Date(seconds * 1000 + Math.floor(nanoseconds / 1000000));
         }
 
-        if (typeof createdAt === 'number') {
-            if (createdAt < 10000000000) {
-                return new Date(createdAt * 1000);
+        // Si c'est un nombre (timestamp en millisecondes ou secondes)
+        if (typeof timestamp === 'number') {
+            if (timestamp < 10000000000) {
+                return new Date(timestamp * 1000);
             }
-            return new Date(createdAt);
+            return new Date(timestamp);
         }
 
-        if (typeof createdAt === 'string') {
-            const parsed = new Date(createdAt);
+        // Si c'est une string ISO
+        if (typeof timestamp === 'string') {
+            const parsed = new Date(timestamp);
             if (!isNaN(parsed.getTime())) {
                 return parsed;
             }
         }
 
-        return new Date(0);
+        return null;
     } catch (e) {
-        console.error('Error parsing createdAt:', e, createdAt);
-        return new Date(0);
+        console.error('Error parsing timestamp:', e, timestamp);
+        return null;
     }
 }
 
 /**
- * Applique les filtres d'export à une liste d'utilisateurs
+ * Formatte une date en format français (DD/MM/YYYY)
+ * Retourne "N/A" si la date est invalide
+ */
+function formatDate(timestamp: any): string {
+    const date = toDate(timestamp);
+    if (!date || date.getTime() === 0) return 'N/A';
+    return date.toLocaleDateString('fr-FR');
+}
+
+// ============================================================================
+// RÉCUPÉRATION DES DONNÉES COMPLÈTES
+// ============================================================================
+
+/**
+ * Récupère tous les utilisateurs avec toutes leurs données
+ * (Pas la version simplifiée UserListItem)
+ */
+async function getAllUsersComplete(): Promise<User[]> {
+    try {
+        const usersRef = collection(db, USERS_COLLECTION);
+        const querySnapshot = await getDocs(usersRef);
+
+        const users: User[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data() as User;
+            users.push({
+                ...data,
+                uid: doc.id,
+            });
+        });
+
+        return users;
+    } catch (error) {
+        console.error('Error fetching users for export:', error);
+        throw error;
+    }
+}
+
+// ============================================================================
+// FILTRAGE DES UTILISATEURS
+// ============================================================================
+
+/**
+ * Applique les filtres d'export à une liste d'utilisateurs complets
  */
 export function applyExportFilters(
-    users: UserListItem[],
+    users: User[],
     filters: UserExportFilters
-): UserListItem[] {
+): User[] {
+    let filtered = [...users];
+
+    // Filtre de recherche textuelle
+    if (filters.search && filters.search.trim()) {
+        const searchLower = filters.search.toLowerCase().trim();
+        filtered = filtered.filter(
+            (user) =>
+                (user.firstName?.toLowerCase().includes(searchLower)) ||
+                (user.lastName?.toLowerCase().includes(searchLower)) ||
+                (user.email?.toLowerCase().includes(searchLower)) ||
+                (user.uid?.toLowerCase().includes(searchLower))
+        );
+    }
+
+    // Filtre par type d'abonnement
+    if (filters.membershipTypes && filters.membershipTypes.length > 0) {
+        filtered = filtered.filter((user) =>
+            user.currentMembership?.planType &&
+            filters.membershipTypes!.includes(user.currentMembership.planType)
+        );
+    }
+
+    // Filtre par statut d'abonnement
+    if (filters.membershipStatus && filters.membershipStatus.length > 0) {
+        filtered = filtered.filter((user) =>
+            user.currentMembership?.status &&
+            filters.membershipStatus!.includes(user.currentMembership.status)
+        );
+    }
+
+    // Filtre par tags à inclure (au moins un)
+    if (filters.includeTags && filters.includeTags.length > 0) {
+        filtered = filtered.filter((user) => {
+            const userTags = user.status?.tags || [];
+            return filters.includeTags!.some((tag) => userTags.includes(tag as MemberTag));
+        });
+    }
+
+    // Filtre par tags à exclure
+    if (filters.excludeTags && filters.excludeTags.length > 0) {
+        filtered = filtered.filter((user) => {
+            const userTags = user.status?.tags || [];
+            return !filters.excludeTags!.some((tag) => userTags.includes(tag as MemberTag));
+        });
+    }
+
+    // Filtre par période d'inscription
+    if (filters.registrationDateRange) {
+        const { start, end } = filters.registrationDateRange;
+
+        if (start) {
+            const startOfDay = new Date(start);
+            startOfDay.setHours(0, 0, 0, 0);
+            filtered = filtered.filter((user) => {
+                const userDate = toDate(user.createdAt);
+                return userDate && userDate >= startOfDay;
+            });
+        }
+
+        if (end) {
+            const endOfDay = new Date(end);
+            endOfDay.setHours(23, 59, 59, 999);
+            filtered = filtered.filter((user) => {
+                const userDate = toDate(user.createdAt);
+                return userDate && userDate <= endOfDay;
+            });
+        }
+    }
+
+    // Filtre par source d'inscription
+    if (filters.registrationSources && filters.registrationSources.length > 0) {
+        filtered = filtered.filter((user) =>
+            user.registration?.source &&
+            filters.registrationSources!.includes(user.registration.source)
+        );
+    }
+
+    // Filtre par points de fidélité
+    if (filters.loyaltyPointsRange) {
+        const { min, max } = filters.loyaltyPointsRange;
+
+        if (min !== undefined && min !== null) {
+            filtered = filtered.filter((user) => (user.loyaltyPoints || 0) >= min);
+        }
+
+        if (max !== undefined && max !== null) {
+            filtered = filtered.filter((user) => (user.loyaltyPoints || 0) <= max);
+        }
+    }
+
+    // Filtre par statut de blocage
+    if (filters.blockedFilter && filters.blockedFilter !== 'all') {
+        switch (filters.blockedFilter) {
+            case 'not_blocked':
+                filtered = filtered.filter(
+                    (user) => !user.status?.isAccountBlocked && !user.status?.isCardBlocked
+                );
+                break;
+            case 'account_blocked':
+                filtered = filtered.filter((user) => user.status?.isAccountBlocked);
+                break;
+            case 'card_blocked':
+                filtered = filtered.filter((user) => user.status?.isCardBlocked);
+                break;
+        }
+    }
+
+    // Filtre par envoi email carte d'adhérent
+    if (filters.emailCardFilter && filters.emailCardFilter !== 'all') {
+        switch (filters.emailCardFilter) {
+            case 'sent':
+                filtered = filtered.filter(
+                    (user) => user.emailStatus?.membershipCardSent === true
+                );
+                break;
+            case 'not_sent':
+                filtered = filtered.filter(
+                    (user) => !user.emailStatus?.membershipCardSent
+                );
+                break;
+        }
+    }
+
+    return filtered;
+}
+
+/**
+ * Compte le nombre d'utilisateurs correspondant aux filtres
+ * NOTE: Cette fonction utilise UserListItem pour la compatibilité avec le modal
+ * Elle applique les mêmes filtres mais avec des champs disponibles dans UserListItem
+ */
+export function countFilteredUsersFromListItems(
+    users: Array<{
+        uid: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        membership: { type: string; status: string };
+        loyaltyPoints: number;
+        tags: string[];
+        createdAt: any;
+        isAccountBlocked: boolean;
+        isCardBlocked: boolean;
+        registrationSource: string;
+        emailStatus?: { membershipCardSent?: boolean };
+    }>,
+    filters: UserExportFilters
+): number {
     let filtered = [...users];
 
     // Filtre de recherche textuelle
@@ -83,18 +283,18 @@ export function applyExportFilters(
     // Filtre par type d'abonnement
     if (filters.membershipTypes && filters.membershipTypes.length > 0) {
         filtered = filtered.filter((user) =>
-            filters.membershipTypes!.includes(user.membership.type)
+            filters.membershipTypes!.includes(user.membership.type as any)
         );
     }
 
     // Filtre par statut d'abonnement
     if (filters.membershipStatus && filters.membershipStatus.length > 0) {
         filtered = filtered.filter((user) =>
-            filters.membershipStatus!.includes(user.membership.status)
+            filters.membershipStatus!.includes(user.membership.status as any)
         );
     }
 
-    // Filtre par tags à inclure (au moins un)
+    // Filtre par tags à inclure
     if (filters.includeTags && filters.includeTags.length > 0) {
         filtered = filtered.filter((user) =>
             filters.includeTags!.some((tag) => user.tags.includes(tag))
@@ -116,8 +316,8 @@ export function applyExportFilters(
             const startOfDay = new Date(start);
             startOfDay.setHours(0, 0, 0, 0);
             filtered = filtered.filter((user) => {
-                const userDate = parseCreatedAtDate(user.createdAt);
-                return userDate >= startOfDay;
+                const userDate = toDate(user.createdAt);
+                return userDate && userDate >= startOfDay;
             });
         }
 
@@ -125,8 +325,8 @@ export function applyExportFilters(
             const endOfDay = new Date(end);
             endOfDay.setHours(23, 59, 59, 999);
             filtered = filtered.filter((user) => {
-                const userDate = parseCreatedAtDate(user.createdAt);
-                return userDate <= endOfDay;
+                const userDate = toDate(user.createdAt);
+                return userDate && userDate <= endOfDay;
             });
         }
     }
@@ -134,7 +334,7 @@ export function applyExportFilters(
     // Filtre par source d'inscription
     if (filters.registrationSources && filters.registrationSources.length > 0) {
         filtered = filtered.filter((user) =>
-            filters.registrationSources!.includes(user.registrationSource)
+            filters.registrationSources!.includes(user.registrationSource as any)
         );
     }
 
@@ -184,31 +384,24 @@ export function applyExportFilters(
         }
     }
 
-    return filtered;
+    return filtered.length;
 }
 
-/**
- * Compte le nombre d'utilisateurs correspondant aux filtres
- */
-export function countFilteredUsers(
-    users: UserListItem[],
-    filters: UserExportFilters
-): number {
-    return applyExportFilters(users, filters).length;
-}
+// Alias pour compatibilité
+export const countFilteredUsers = countFilteredUsersFromListItems;
 
 // ============================================================================
 // EXTRACTION DES CHAMPS
 // ============================================================================
 
 /**
- * Extrait les champs sélectionnés d'un utilisateur pour l'export
+ * Extrait les champs sélectionnés d'un utilisateur complet pour l'export
  */
-export function extractUserFields(
-    user: UserListItem,
+function extractUserFields(
+    user: User,
     selectedFields: UserExportField[]
-): Record<string, any> {
-    const result: Record<string, any> = {};
+): Record<string, string> {
+    const result: Record<string, string> = {};
     const fieldConfigs = EXPORT_FIELDS.filter((f) =>
         selectedFields.includes(f.key)
     );
@@ -222,78 +415,97 @@ export function extractUserFields(
 }
 
 /**
- * Récupère la valeur d'un champ pour un utilisateur
+ * Récupère la valeur d'un champ pour un utilisateur complet
+ * Utilise les données complètes de l'objet User
  */
-function getFieldValue(user: UserListItem, field: UserExportField): string {
+function getFieldValue(user: User, field: UserExportField): string {
     switch (field) {
-        // Informations de base
+        // ===== Informations de base =====
         case 'uid':
-            return user.uid;
+            return user.uid || 'N/A';
+
         case 'email':
-            return user.email;
+            return user.email || 'N/A';
+
         case 'firstName':
-            return user.firstName;
+            return user.firstName || 'N/A';
+
         case 'lastName':
-            return user.lastName;
+            return user.lastName || 'N/A';
+
         case 'phone':
-            return (user as any).phone || '';
+            return user.phone || 'N/A';
+
         case 'postalCode':
-            return (user as any).postalCode || '';
+            return user.postalCode || 'N/A';
+
         case 'birthDate':
-            const birthDate = (user as any).birthDate;
-            if (!birthDate) return '';
-            const bd = parseCreatedAtDate(birthDate);
-            return bd.getTime() === 0 ? '' : bd.toLocaleDateString('fr-FR');
+            return formatDate(user.birthDate);
 
-        // Abonnement
+        // ===== Abonnement =====
         case 'membershipType':
-            return MEMBERSHIP_TYPE_LABELS[user.membership.type] || user.membership.type;
+            if (!user.currentMembership?.planType) return 'N/A';
+            return MEMBERSHIP_TYPE_LABELS[user.currentMembership.planType] || user.currentMembership.planType;
+
         case 'membershipStatus':
-            return MEMBERSHIP_STATUS_LABELS[user.membership.status] || user.membership.status;
+            if (!user.currentMembership?.status) return 'N/A';
+            return MEMBERSHIP_STATUS_LABELS[user.currentMembership.status] || user.currentMembership.status;
+
         case 'membershipPlanName':
-            return user.membership.planName || '';
+            return user.currentMembership?.planName || 'N/A';
+
         case 'membershipStartDate':
-            const startDate = (user as any).membership?.startDate;
-            if (!startDate) return '';
-            const sd = parseCreatedAtDate(startDate);
-            return sd.getTime() === 0 ? '' : sd.toLocaleDateString('fr-FR');
+            return formatDate(user.currentMembership?.startDate);
+
         case 'membershipExpiryDate':
-            const expiryDate = (user as any).membership?.expiryDate;
-            if (!expiryDate) return 'Aucune';
-            const ed = parseCreatedAtDate(expiryDate);
-            return ed.getTime() === 0 ? 'Aucune' : ed.toLocaleDateString('fr-FR');
+            if (!user.currentMembership?.expiryDate) {
+                // Abonnement à vie = pas d'expiration
+                if (user.currentMembership?.planType === 'lifetime') {
+                    return 'Illimité';
+                }
+                return 'N/A';
+            }
+            return formatDate(user.currentMembership.expiryDate);
+
         case 'membershipPrice':
-            const price = (user as any).membership?.price;
-            return price !== undefined ? `${price}€` : '';
+            if (user.currentMembership?.price === undefined || user.currentMembership?.price === null) {
+                return 'N/A';
+            }
+            return `${user.currentMembership.price}€`;
 
-        // Statut & Tags
+        // ===== Statut & Tags =====
         case 'tags':
-            return user.tags.join(', ');
-        case 'loyaltyPoints':
-            return String(user.loyaltyPoints);
-        case 'isAccountBlocked':
-            return user.isAccountBlocked ? 'Oui' : 'Non';
-        case 'isCardBlocked':
-            return user.isCardBlocked ? 'Oui' : 'Non';
+            const tags = user.status?.tags || [];
+            return tags.length > 0 ? tags.join(', ') : 'Aucun';
 
-        // Métadonnées
+        case 'loyaltyPoints':
+            return String(user.loyaltyPoints ?? 0);
+
+        case 'isAccountBlocked':
+            return user.status?.isAccountBlocked ? 'Oui' : 'Non';
+
+        case 'isCardBlocked':
+            return user.status?.isCardBlocked ? 'Oui' : 'Non';
+
+        // ===== Métadonnées =====
         case 'registrationSource':
-            return REGISTRATION_SOURCE_LABELS[user.registrationSource] || user.registrationSource;
+            if (!user.registration?.source) return 'N/A';
+            return REGISTRATION_SOURCE_LABELS[user.registration.source] || user.registration.source;
+
         case 'createdAt':
-            const createdAt = parseCreatedAtDate(user.createdAt);
-            return createdAt.getTime() === 0 ? '' : createdAt.toLocaleDateString('fr-FR');
+            return formatDate(user.createdAt);
+
         case 'emailCardSent':
             return user.emailStatus?.membershipCardSent ? 'Oui' : 'Non';
+
         case 'emailCardSentCount':
-            return String(user.emailStatus?.membershipCardSentCount || 0);
+            return String(user.emailStatus?.membershipCardSentCount ?? 0);
+
         case 'emailCardSentAt':
-            const sentAt = user.emailStatus?.membershipCardSentAt;
-            if (!sentAt) return '';
-            const sat = parseCreatedAtDate(sentAt);
-            return sat.getTime() === 0 ? '' : sat.toLocaleDateString('fr-FR');
+            return formatDate(user.emailStatus?.membershipCardSentAt);
 
         default:
-            return '';
+            return 'N/A';
     }
 }
 
@@ -314,20 +526,19 @@ function escapeCSV(value: any): string {
 }
 
 /**
- * Génère un fichier CSV à partir des données
+ * Génère un fichier CSV à partir des utilisateurs complets
  */
-export function exportUsersToCSV(
-    users: UserListItem[],
-    options: UserExportOptions
+function generateCSV(
+    users: User[],
+    selectedFields: UserExportField[]
 ): Blob {
-    const filteredUsers = applyExportFilters(users, options.filters);
     const fieldConfigs = EXPORT_FIELDS.filter((f) =>
-        options.selectedFields.includes(f.key)
+        selectedFields.includes(f.key)
     );
 
     const headers = fieldConfigs.map((f) => f.labelCSV);
-    const rows = filteredUsers.map((user) => {
-        const extracted = extractUserFields(user, options.selectedFields);
+    const rows = users.map((user) => {
+        const extracted = extractUserFields(user, selectedFields);
         return headers.map((h) => escapeCSV(extracted[h]));
     });
 
@@ -342,20 +553,19 @@ export function exportUsersToCSV(
 }
 
 /**
- * Génère un fichier XLSX à partir des données
+ * Génère un fichier XLSX à partir des utilisateurs complets
  */
-export function exportUsersToXLSX(
-    users: UserListItem[],
-    options: UserExportOptions
+function generateXLSX(
+    users: User[],
+    selectedFields: UserExportField[]
 ): Blob {
-    const filteredUsers = applyExportFilters(users, options.filters);
     const fieldConfigs = EXPORT_FIELDS.filter((f) =>
-        options.selectedFields.includes(f.key)
+        selectedFields.includes(f.key)
     );
 
     const headers = fieldConfigs.map((f) => f.labelCSV);
-    const data = filteredUsers.map((user) => {
-        const extracted = extractUserFields(user, options.selectedFields);
+    const data = users.map((user) => {
+        const extracted = extractUserFields(user, selectedFields);
         return headers.map((h) => extracted[h]);
     });
 
@@ -391,11 +601,19 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 /**
  * Exporte et télécharge les utilisateurs
+ * Récupère les données complètes depuis Firestore pour l'export
  */
-export function downloadUserExport(
-    users: UserListItem[],
+export async function downloadUserExport(
+    _users: unknown[], // Ignoré - on récupère les données complètes
     options: UserExportOptions
-): void {
+): Promise<void> {
+    // 1. Récupérer TOUS les utilisateurs avec données complètes
+    const allUsers = await getAllUsersComplete();
+
+    // 2. Appliquer les filtres
+    const filteredUsers = applyExportFilters(allUsers, options.filters);
+
+    // 3. Générer le fichier
     const date = new Date().toISOString().split('T')[0];
     const defaultFilename = `utilisateurs-export-${date}`;
     const filename = options.filename || defaultFilename;
@@ -404,12 +622,13 @@ export function downloadUserExport(
     let fullFilename: string;
 
     if (options.format === 'xlsx') {
-        blob = exportUsersToXLSX(users, options);
+        blob = generateXLSX(filteredUsers, options.selectedFields);
         fullFilename = `${filename}.xlsx`;
     } else {
-        blob = exportUsersToCSV(users, options);
+        blob = generateCSV(filteredUsers, options.selectedFields);
         fullFilename = `${filename}.csv`;
     }
 
+    // 4. Télécharger
     downloadBlob(blob, fullFilename);
 }

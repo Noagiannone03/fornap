@@ -218,8 +218,16 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
   ],
 
   [AdminRole.ADMINISTRATEUR]: [
-    // Toutes les permissions
-    ...Object.values(AdminPermission),
+    // Toutes les permissions SAUF la gestion des tickets (réservée au développeur)
+    ...Object.values(AdminPermission).filter(permission =>
+      !([
+        AdminPermission.TICKETS_MANAGE,
+        AdminPermission.TICKETS_RESPOND,
+        AdminPermission.TICKETS_CHANGE_STATUS,
+        AdminPermission.TICKETS_ASSIGN,
+        AdminPermission.TICKETS_DELETE,
+      ] as AdminPermission[]).includes(permission)
+    ),
   ],
 
   [AdminRole.CO_ADMINISTRATEUR]: [

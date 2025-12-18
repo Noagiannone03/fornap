@@ -11,25 +11,43 @@ import {
   IconLogout,
 } from '@tabler/icons-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAdminAuth } from '../../shared/contexts/AdminAuthContext';
 import { notifications } from '@mantine/notifications';
-import { ADMIN_ROLES_CONFIG } from '../../shared/types/admin';
+import { ADMIN_ROLES_CONFIG, AdminRole } from '../../shared/types/admin';
 import { AIAssistantDrawer } from '../components/AIAssistant';
 import { GlobalSearch } from '../components/GlobalSearch';
 import { navigationItems } from '../config/navigation';
 import { spotlight } from '@mantine/spotlight';
+import { MaintenanceScreen } from '../components/MaintenanceScreen';
+import type { MaintenanceConfig } from '../../shared/services/maintenanceService';
+import { subscribeToMaintenanceStatus } from '../../shared/services/maintenanceService';
 
 export function AdminLayout() {
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop, close: closeDesktop }] = useDisclosure(true);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [aiSidebarOpened, setAiSidebarOpened] = useState(false);
+  const [maintenanceConfig, setMaintenanceConfig] = useState<MaintenanceConfig | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { adminProfile, logout, checkPermission } = useAdminAuth();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const isTablet = useMediaQuery('(max-width: 1024px)');
+
+  // S'abonner aux changements de mode maintenance
+  useEffect(() => {
+    const unsubscribe = subscribeToMaintenanceStatus((config) => {
+      setMaintenanceConfig(config);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Vérifier si l'utilisateur doit voir l'écran de maintenance
+  const shouldShowMaintenanceScreen =
+    maintenanceConfig?.enabled &&
+    adminProfile &&
+    adminProfile.role !== AdminRole.DEVELOPPEUR;
 
   // Gérer l'ouverture de la sidebar gauche - ferme le panel IA
   const handleToggleDesktop = () => {
@@ -139,6 +157,16 @@ export function AdminLayout() {
     return true;
   });
 
+  // Si mode maintenance actif et utilisateur n'est pas DEVELOPPEUR -> afficher écran maintenance
+  if (shouldShowMaintenanceScreen && maintenanceConfig) {
+    return <MaintenanceScreen config={maintenanceConfig} />;
+  }
+
+  // Variable pour le banner de maintenance (visible par le DEVELOPPEUR)
+  const isDevWithMaintenanceActive =
+    maintenanceConfig?.enabled &&
+    adminProfile?.role === AdminRole.DEVELOPPEUR;
+
   return (
     <>
       <GlobalSearch />
@@ -165,6 +193,19 @@ export function AdminLayout() {
               >
                 {isMobile ? 'FORNAP' : 'FORNAP Admin'}
               </Text>
+              {isDevWithMaintenanceActive && (
+                <Badge
+                  color="orange"
+                  variant="filled"
+                  size={isMobile ? "xs" : "sm"}
+                  style={{
+                    animation: 'pulse 2s infinite',
+                    boxShadow: '0 0 10px rgba(253, 126, 20, 0.4)'
+                  }}
+                >
+                  🔧 MAINTENANCE
+                </Badge>
+              )}
             </Group>
 
             <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap">

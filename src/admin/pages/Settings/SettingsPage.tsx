@@ -8,11 +8,16 @@ import {
 } from '@mantine/core';
 import { IconShield } from '@tabler/icons-react';
 import { AdminManagementPanel } from '../../components/admins';
+import { MaintenanceSettingsPanel } from '../../components/settings';
 
 export function SettingsPage() {
   return (
     <Container size="xl">
       <Stack gap="xl">
+        {/* Section Mode Maintenance (visible uniquement pour DEVELOPPEUR) */}
+        <MaintenanceSettingsPanel />
+
+        {/* Section Gestion des Administrateurs */}
         <div>
           <Group gap="sm" align="center">
             <IconShield size={32} color="var(--mantine-color-indigo-6)" />

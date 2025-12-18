@@ -176,6 +176,13 @@ export const AdminPermission = {
   // Historique et logs
   LOGS_VIEW: 'logs_view',
   LOGS_EXPORT: 'logs_export',
+
+  // Gestion des tickets de support
+  TICKETS_VIEW: 'tickets_view',
+  TICKETS_RESPOND: 'tickets_respond',
+  TICKETS_CHANGE_STATUS: 'tickets_change_status',
+  TICKETS_ASSIGN: 'tickets_assign',
+  TICKETS_DELETE: 'tickets_delete',
 } as const;
 
 export type AdminPermission = typeof AdminPermission[keyof typeof AdminPermission];
@@ -240,6 +247,12 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     // Logs
     AdminPermission.LOGS_VIEW,
     AdminPermission.LOGS_EXPORT,
+
+    // Tickets (tout sauf suppression)
+    AdminPermission.TICKETS_VIEW,
+    AdminPermission.TICKETS_RESPOND,
+    AdminPermission.TICKETS_CHANGE_STATUS,
+    AdminPermission.TICKETS_ASSIGN,
   ],
 
   [AdminRole.EDITOR]: [
@@ -282,6 +295,10 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     // Logs
     AdminPermission.LOGS_VIEW,
     AdminPermission.LOGS_EXPORT,
+
+    // Tickets (lecture et réponse, pas de changement de statut)
+    AdminPermission.TICKETS_VIEW,
+    AdminPermission.TICKETS_RESPOND,
   ],
 
   [AdminRole.VIEWER]: [
@@ -295,6 +312,7 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     AdminPermission.SETTINGS_VIEW,
     AdminPermission.CHECKIN_VIEW_HISTORY,
     AdminPermission.LOGS_VIEW,
+    AdminPermission.TICKETS_VIEW,
     // Pas de permissions de création, édition ou suppression
   ],
 

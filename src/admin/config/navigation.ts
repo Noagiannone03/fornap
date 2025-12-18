@@ -14,6 +14,7 @@ import {
   IconHeart,
   IconShoppingCart,
   IconChartPie,
+  IconHeadset,
 } from '@tabler/icons-react';
 import { AdminPermission } from '../../shared/types/admin';
 
@@ -77,6 +78,12 @@ export const navigationItems: NavItem[] = [
     path: '/scanner',
     isExternal: true,
     requiredPermission: AdminPermission.CHECKIN_SCAN,
+  },
+  {
+    icon: IconHeadset,
+    label: 'Support Tickets',
+    path: '/admin/tickets',
+    requiredPermission: AdminPermission.TICKETS_VIEW,
   },
   {
     icon: IconMail,

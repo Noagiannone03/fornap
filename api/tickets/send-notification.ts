@@ -155,15 +155,16 @@ function getEmailHeader(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FOR+NAP Support</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+<body style="margin: 0; padding: 0; background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; padding: 40px 20px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); overflow: hidden; max-width: 600px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06); overflow: hidden; max-width: 600px;">
+          <!-- Header avec fond blanc -->
           <tr>
-            <td align="center" style="padding: 40px 40px 20px 40px; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);">
-              <img src="https://www.fornap.fr/assets/logo-etendu-fornap-CnmtvHyt.png" alt="FOR+NAP" style="width: 200px; height: auto; display: block; margin: 0 auto;" />
-              <p style="font-size: 14px; color: #999; margin: 16px 0 0 0; letter-spacing: 2px; text-transform: uppercase;">Support Technique</p>
+            <td align="center" style="padding: 40px 40px 30px 40px; background-color: #ffffff; border-bottom: 3px solid #ff4757;">
+              <img src="https://www.fornap.fr/assets/logo-etendu-fornap-CnmtvHyt.png" alt="FOR+NAP" style="width: 180px; height: auto; display: block; margin: 0 auto;" />
+              <p style="font-size: 12px; color: #ff4757; margin: 12px 0 0 0; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">Support Technique</p>
             </td>
           </tr>
 `;
@@ -172,15 +173,16 @@ function getEmailHeader(): string {
 function getEmailFooter(): string {
   return `
           <tr>
-            <td style="background-color: #1a1a1a; padding: 30px; text-align: center;">
-              <p style="font-size: 13px; color: #999; margin: 0 0 8px 0;">
-                FOR+NAP Social Club - Support Technique
+            <td style="background-color: #f8f9fa; padding: 32px; text-align: center; border-top: 1px solid #e9ecef;">
+              <p style="font-size: 13px; color: #6c757d; margin: 0 0 8px 0; font-weight: 500;">
+                FOR+NAP Social Club
               </p>
-              <p style="font-size: 12px; color: #666; margin: 0;">
-                Fort Napoléon, La Seyne-sur-Mer
+              <p style="font-size: 12px; color: #868e96; margin: 0 0 16px 0;">
+                Fort Napoléon · La Seyne-sur-Mer
               </p>
-              <p style="font-size: 11px; color: #555; margin: 12px 0 0 0;">
-                Cet email a été envoyé automatiquement. Merci de ne pas y répondre directement.
+              <p style="font-size: 11px; color: #adb5bd; margin: 0; line-height: 1.6;">
+                Cet email a été envoyé automatiquement.<br>
+                Pour toute question, connectez-vous à votre espace membre.
               </p>
             </td>
           </tr>
@@ -196,45 +198,53 @@ function getEmailFooter(): string {
 // Template generators
 function generateNewTicketAdminEmail(data: NotificationRequest): { subject: string; html: string } {
   const adminUrl = `${BASE_URL}/admin/tickets/${data.ticketId}`;
-  const subject = `[Nouveau Ticket] ${data.ticketNumber} - ${data.ticketSubject}`;
+  const subject = `🎫 Nouveau ticket ${data.ticketNumber} - ${data.ticketSubject}`;
 
   const html = `
 ${getEmailHeader()}
           <tr>
             <td style="padding: 40px 50px;">
-              <h1 style="font-size: 24px; color: #1a1a1a; margin: 0 0 24px 0; text-align: center;">
-                Nouveau ticket de support
-              </h1>
-              <div style="background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%); border-left: 4px solid #ff4757; padding: 24px; margin: 0 0 24px 0; border-radius: 8px;">
-                <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Ticket #</p>
-                <p style="font-size: 18px; color: #1a1a1a; margin: 0 0 16px 0; font-weight: 700;">${data.ticketNumber}</p>
-                <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Sujet</p>
-                <p style="font-size: 16px; color: #1a1a1a; margin: 0 0 16px 0; font-weight: 600;">${data.ticketSubject}</p>
-                <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%;">
-                  <tr>
-                    <td style="width: 50%;">
-                      <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Type</p>
-                      <p style="font-size: 14px; color: #1a1a1a; margin: 0;">${TICKET_TYPE_LABELS[data.ticketType]}</p>
-                    </td>
-                    <td style="width: 50%;">
-                      <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Priorité</p>
-                      ${getPriorityBadge(data.ticketPriority)}
-                    </td>
-                  </tr>
-                </table>
+              <p style="font-size: 15px; color: #495057; margin: 0 0 24px 0; line-height: 1.6;">
+                Un nouveau ticket de support vient d'être créé et attend votre attention.
+              </p>
+
+              <div style="background-color: #fff5f7; border-left: 4px solid #ff4757; padding: 24px; margin: 0 0 24px 0; border-radius: 8px;">
+                <div style="margin-bottom: 20px;">
+                  <p style="font-size: 12px; color: #868e96; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Ticket</p>
+                  <p style="font-size: 20px; color: #212529; margin: 0; font-weight: 700; font-family: 'Courier New', monospace;">${data.ticketNumber}</p>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                  <p style="font-size: 12px; color: #868e96; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Sujet</p>
+                  <p style="font-size: 16px; color: #212529; margin: 0; font-weight: 600; line-height: 1.4;">${data.ticketSubject}</p>
+                </div>
+
+                <div style="display: table; width: 100%;">
+                  <div style="display: table-cell; width: 50%; padding-right: 12px;">
+                    <p style="font-size: 12px; color: #868e96; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Type</p>
+                    <p style="font-size: 14px; color: #495057; margin: 0; font-weight: 500;">${TICKET_TYPE_LABELS[data.ticketType]}</p>
+                  </div>
+                  <div style="display: table-cell; width: 50%; padding-left: 12px;">
+                    <p style="font-size: 12px; color: #868e96; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Priorité</p>
+                    ${getPriorityBadge(data.ticketPriority)}
+                  </div>
+                </div>
               </div>
-              <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 0 0 24px 0;">
-                <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Créé par</p>
-                <p style="font-size: 16px; color: #1a1a1a; margin: 0 0 4px 0; font-weight: 600;">${data.userName}</p>
-                <p style="font-size: 14px; color: #666; margin: 0;">${data.userEmail}</p>
+
+              <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 0 0 32px 0;">
+                <p style="font-size: 12px; color: #868e96; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">Demandeur</p>
+                <p style="font-size: 16px; color: #212529; margin: 0 0 4px 0; font-weight: 600;">${data.userName}</p>
+                <p style="font-size: 14px; color: #6c757d; margin: 0;">${data.userEmail}</p>
               </div>
+
               <div style="text-align: center; margin: 32px 0;">
-                <a href="${adminUrl}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 8px; box-shadow: 0 4px 16px rgba(255, 71, 87, 0.3);">
-                  Voir le ticket
+                <a href="${adminUrl}" style="display: inline-block; padding: 14px 32px; background-color: #ff4757; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; border-radius: 6px; box-shadow: 0 2px 8px rgba(255, 71, 87, 0.25); transition: all 0.2s;">
+                  Répondre au ticket →
                 </a>
               </div>
-              <p style="font-size: 14px; color: #666; text-align: center; margin: 0;">
-                Connectez-vous au panel admin pour répondre à ce ticket.
+
+              <p style="font-size: 13px; color: #868e96; text-align: center; margin: 0;">
+                Cliquez sur le bouton ci-dessus pour accéder au panel admin
               </p>
             </td>
           </tr>
@@ -246,7 +256,7 @@ ${getEmailFooter()}
 
 function generateNewMessageUserEmail(data: NotificationRequest): { subject: string; html: string } {
   const ticketUrl = `${BASE_URL}/dashboard/support/${data.ticketId}`;
-  const subject = `[${data.ticketNumber}] Nouvelle réponse à votre demande`;
+  const subject = `💬 ${data.ticketNumber} - Nouvelle réponse de notre équipe`;
   const messagePreview = data.messageContent
     ? (data.messageContent.length > 300 ? data.messageContent.substring(0, 300) + '...' : data.messageContent)
     : '';
@@ -255,31 +265,41 @@ function generateNewMessageUserEmail(data: NotificationRequest): { subject: stri
 ${getEmailHeader()}
           <tr>
             <td style="padding: 40px 50px;">
-              <p style="font-size: 18px; line-height: 1.6; color: #1a1a1a; margin: 0 0 24px 0;">
-                Bonjour <strong>${data.userName}</strong>,
+              <p style="font-size: 17px; line-height: 1.5; color: #212529; margin: 0 0 8px 0;">
+                Bonjour <strong>${data.userName}</strong> 👋
               </p>
-              <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 24px 0;">
-                Vous avez reçu une nouvelle réponse concernant votre demande de support.
+              <p style="font-size: 15px; line-height: 1.6; color: #495057; margin: 0 0 28px 0;">
+                Bonne nouvelle ! Notre équipe vient de répondre à votre demande.
               </p>
-              <div style="background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%); border-left: 4px solid #ff4757; padding: 24px; margin: 0 0 24px 0; border-radius: 8px;">
-                <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Ticket #${data.ticketNumber}</p>
-                <p style="font-size: 16px; color: #1a1a1a; margin: 0 0 16px 0; font-weight: 600;">${data.ticketSubject}</p>
-                <div style="background-color: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                  <p style="font-size: 13px; color: #666; margin: 0 0 8px 0;">
-                    <strong>${data.senderName || 'Support FOR+NAP'}</strong> a écrit :
-                  </p>
-                  <p style="font-size: 15px; color: #1a1a1a; margin: 0; line-height: 1.6;">
-                    ${messagePreview}
+
+              <div style="background-color: #f8f9fa; border-left: 4px solid #ff4757; padding: 24px; margin: 0 0 24px 0; border-radius: 8px;">
+                <p style="font-size: 12px; color: #868e96; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">Ticket ${data.ticketNumber}</p>
+                <p style="font-size: 16px; color: #212529; margin: 0 0 20px 0; font-weight: 600; line-height: 1.4;">${data.ticketSubject}</p>
+
+                <div style="background-color: #ffffff; padding: 18px; border-radius: 6px; border: 1px solid #dee2e6;">
+                  <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%); border-radius: 50%; display: inline-block; margin-right: 12px; text-align: center; line-height: 36px; color: white; font-weight: 700; font-size: 14px;">
+                      ${(data.senderName || 'Support').charAt(0).toUpperCase()}
+                    </div>
+                    <div style="display: inline-block;">
+                      <p style="font-size: 14px; color: #212529; margin: 0; font-weight: 600;">${data.senderName || 'Équipe Support FOR+NAP'}</p>
+                      <p style="font-size: 12px; color: #868e96; margin: 0;">vient de répondre</p>
+                    </div>
+                  </div>
+                  <p style="font-size: 15px; color: #495057; margin: 0; line-height: 1.6; font-style: italic;">
+                    "${messagePreview}"
                   </p>
                 </div>
               </div>
+
               <div style="text-align: center; margin: 32px 0;">
-                <a href="${ticketUrl}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 8px; box-shadow: 0 4px 16px rgba(255, 71, 87, 0.3);">
-                  Voir la conversation
+                <a href="${ticketUrl}" style="display: inline-block; padding: 14px 32px; background-color: #ff4757; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; border-radius: 6px; box-shadow: 0 2px 8px rgba(255, 71, 87, 0.25);">
+                  Voir la conversation complète →
                 </a>
               </div>
-              <p style="font-size: 14px; color: #666; text-align: center; margin: 0;">
-                Connectez-vous à votre espace membre pour consulter et répondre.
+
+              <p style="font-size: 13px; color: #868e96; text-align: center; margin: 0;">
+                Répondez directement depuis votre espace membre
               </p>
             </td>
           </tr>
@@ -291,7 +311,7 @@ ${getEmailFooter()}
 
 function generateNewMessageAdminEmail(data: NotificationRequest): { subject: string; html: string } {
   const adminUrl = `${BASE_URL}/admin/tickets/${data.ticketId}`;
-  const subject = `[${data.ticketNumber}] Nouvelle réponse de ${data.userName}`;
+  const subject = `💬 ${data.ticketNumber} - ${data.userName} a répondu`;
   const messagePreview = data.messageContent
     ? (data.messageContent.length > 300 ? data.messageContent.substring(0, 300) + '...' : data.messageContent)
     : '';
@@ -300,35 +320,45 @@ function generateNewMessageAdminEmail(data: NotificationRequest): { subject: str
 ${getEmailHeader()}
           <tr>
             <td style="padding: 40px 50px;">
-              <h1 style="font-size: 24px; color: #1a1a1a; margin: 0 0 24px 0; text-align: center;">
-                Nouvelle réponse client
-              </h1>
-              <div style="background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%); border-left: 4px solid #ff4757; padding: 24px; margin: 0 0 24px 0; border-radius: 8px;">
-                <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; margin-bottom: 16px;">
-                  <tr>
-                    <td>
-                      <p style="font-size: 14px; color: #666; margin: 0 0 4px 0;">Ticket #${data.ticketNumber}</p>
-                      <p style="font-size: 16px; color: #1a1a1a; margin: 0; font-weight: 600;">${data.ticketSubject}</p>
-                    </td>
-                    <td style="text-align: right;">
-                      ${getPriorityBadge(data.ticketPriority)}
-                    </td>
-                  </tr>
-                </table>
-                <div style="background-color: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                  <p style="font-size: 13px; color: #666; margin: 0 0 8px 0;">
-                    <strong>${data.userName}</strong> (${data.userEmail}) a écrit :
-                  </p>
-                  <p style="font-size: 15px; color: #1a1a1a; margin: 0; line-height: 1.6;">
-                    ${messagePreview}
+              <p style="font-size: 15px; color: #495057; margin: 0 0 24px 0; line-height: 1.6;">
+                ${data.userName} a ajouté une nouvelle réponse au ticket.
+              </p>
+
+              <div style="background-color: #fff5f7; border-left: 4px solid #ff4757; padding: 24px; margin: 0 0 24px 0; border-radius: 8px;">
+                <div style="margin-bottom: 16px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%;">
+                    <tr>
+                      <td style="width: 70%;">
+                        <p style="font-size: 12px; color: #868e96; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">Ticket ${data.ticketNumber}</p>
+                        <p style="font-size: 16px; color: #212529; margin: 0; font-weight: 600; line-height: 1.4;">${data.ticketSubject}</p>
+                      </td>
+                      <td style="text-align: right; width: 30%;">
+                        ${getPriorityBadge(data.ticketPriority)}
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+
+                <div style="background-color: #ffffff; padding: 18px; border-radius: 6px; border: 1px solid #dee2e6;">
+                  <div style="margin-bottom: 12px;">
+                    <p style="font-size: 14px; color: #212529; margin: 0 0 2px 0; font-weight: 600;">${data.userName}</p>
+                    <p style="font-size: 12px; color: #868e96; margin: 0;">${data.userEmail}</p>
+                  </div>
+                  <p style="font-size: 15px; color: #495057; margin: 0; line-height: 1.6; font-style: italic;">
+                    "${messagePreview}"
                   </p>
                 </div>
               </div>
+
               <div style="text-align: center; margin: 32px 0;">
-                <a href="${adminUrl}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 8px; box-shadow: 0 4px 16px rgba(255, 71, 87, 0.3);">
-                  Répondre au ticket
+                <a href="${adminUrl}" style="display: inline-block; padding: 14px 32px; background-color: #ff4757; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; border-radius: 6px; box-shadow: 0 2px 8px rgba(255, 71, 87, 0.25);">
+                  Répondre au client →
                 </a>
               </div>
+
+              <p style="font-size: 13px; color: #868e96; text-align: center; margin: 0;">
+                Accédez au panel admin pour gérer ce ticket
+              </p>
             </td>
           </tr>
 ${getEmailFooter()}
@@ -341,53 +371,94 @@ function generateStatusChangeEmail(data: NotificationRequest): { subject: string
   const ticketUrl = `${BASE_URL}/dashboard/support/${data.ticketId}`;
   const status = data.ticketStatus!;
 
-  const statusMessages: Record<TicketStatus, string> = {
-    open: 'Votre ticket a été réouvert.',
-    in_progress: 'Votre demande est maintenant en cours de traitement par notre équipe.',
-    waiting_for_user: 'Nous attendons des informations supplémentaires de votre part pour continuer le traitement.',
-    resolved: 'Votre demande a été traitée et résolue. Si vous avez d\'autres questions, n\'hésitez pas à répondre.',
-    closed: 'Votre ticket a été clôturé. Merci de nous avoir contactés.',
+  // Messages personnalisés et sympas pour chaque statut
+  const statusMessages: Record<TicketStatus, { icon: string; title: string; message: string; color: string }> = {
+    open: {
+      icon: '🔄',
+      title: 'Ticket réouvert',
+      message: 'Nous avons rouvert votre ticket pour poursuivre l\'assistance. Notre équipe revient vers vous très prochainement.',
+      color: '#1565c0'
+    },
+    in_progress: {
+      icon: '⚡',
+      title: 'C\'est parti !',
+      message: 'Bonne nouvelle ! Notre équipe travaille activement sur votre demande. Nous vous tiendrons informé de l\'avancement.',
+      color: '#f57c00'
+    },
+    waiting_for_user: {
+      icon: '💭',
+      title: 'On a besoin de vous',
+      message: 'Pour avancer sur votre demande, nous aurions besoin de quelques informations supplémentaires de votre part. Consultez le ticket pour voir nos questions.',
+      color: '#ef6c00'
+    },
+    resolved: {
+      icon: '✅',
+      title: 'Problème résolu !',
+      message: 'Super ! Nous avons traité votre demande avec succès. Si tout est bon pour vous ou si vous avez d\'autres questions, n\'hésitez pas à nous le faire savoir.',
+      color: '#2e7d32'
+    },
+    closed: {
+      icon: '🎉',
+      title: 'Ticket clôturé',
+      message: 'Votre demande a été finalisée et le ticket est maintenant fermé. Merci de nous avoir fait confiance ! Si vous avez besoin d\'aide à nouveau, n\'hésitez pas à créer un nouveau ticket.',
+      color: '#757575'
+    },
   };
 
-  const subject = `[${data.ticketNumber}] Statut mis à jour : ${TICKET_STATUS_LABELS[status]}`;
+  const statusInfo = statusMessages[status];
+  const subject = `${statusInfo.icon} ${data.ticketNumber} - ${statusInfo.title}`;
 
   const html = `
 ${getEmailHeader()}
           <tr>
             <td style="padding: 40px 50px;">
-              <p style="font-size: 18px; line-height: 1.6; color: #1a1a1a; margin: 0 0 24px 0;">
-                Bonjour <strong>${data.userName}</strong>,
+              <p style="font-size: 17px; line-height: 1.5; color: #212529; margin: 0 0 8px 0;">
+                Bonjour <strong>${data.userName}</strong> 👋
               </p>
-              <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 24px 0;">
-                Le statut de votre demande de support a été mis à jour.
+              <p style="font-size: 15px; line-height: 1.6; color: #495057; margin: 0 0 28px 0;">
+                Le statut de votre ticket a été mis à jour.
               </p>
-              <div style="background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%); border-left: 4px solid #ff4757; padding: 24px; margin: 0 0 24px 0; border-radius: 8px;">
-                <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Ticket #${data.ticketNumber}</p>
-                <p style="font-size: 16px; color: #1a1a1a; margin: 0 0 20px 0; font-weight: 600;">${data.ticketSubject}</p>
-                <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%;">
-                  <tr>
-                    <td style="text-align: center; width: 40%;">
-                      ${data.previousStatus ? getStatusBadge(data.previousStatus) : ''}
-                    </td>
-                    <td style="text-align: center; width: 20%;">
-                      <span style="font-size: 24px; color: #999;">→</span>
-                    </td>
-                    <td style="text-align: center; width: 40%;">
-                      ${getStatusBadge(status)}
-                    </td>
-                  </tr>
-                </table>
-                <p style="font-size: 15px; color: #333; margin: 16px 0 0 0; text-align: center; line-height: 1.6;">
-                  ${statusMessages[status]}
-                </p>
+
+              <!-- Encadré de changement de statut -->
+              <div style="background-color: #f8f9fa; border-left: 4px solid ${statusInfo.color}; padding: 24px; margin: 0 0 28px 0; border-radius: 8px;">
+                <p style="font-size: 12px; color: #868e96; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">Ticket ${data.ticketNumber}</p>
+                <p style="font-size: 16px; color: #212529; margin: 0 0 24px 0; font-weight: 600; line-height: 1.4;">${data.ticketSubject}</p>
+
+                <!-- Transition de statut -->
+                <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%;">
+                    <tr>
+                      <td style="text-align: center; width: 35%;">
+                        ${data.previousStatus ? getStatusBadge(data.previousStatus) : '<span style="color: #adb5bd;">—</span>'}
+                      </td>
+                      <td style="text-align: center; width: 30%;">
+                        <span style="font-size: 24px; color: ${statusInfo.color};">→</span>
+                      </td>
+                      <td style="text-align: center; width: 35%;">
+                        ${getStatusBadge(status)}
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+
+                <!-- Message personnalisé -->
+                <div style="text-align: center; padding: 16px; background-color: ${status === 'closed' ? '#fff5f7' : '#ffffff'}; border-radius: 6px;">
+                  <p style="font-size: 32px; margin: 0 0 12px 0;">${statusInfo.icon}</p>
+                  <p style="font-size: 17px; color: #212529; margin: 0 0 12px 0; font-weight: 600;">${statusInfo.title}</p>
+                  <p style="font-size: 15px; color: #495057; margin: 0; line-height: 1.6;">
+                    ${statusInfo.message}
+                  </p>
+                </div>
               </div>
+
               <div style="text-align: center; margin: 32px 0;">
-                <a href="${ticketUrl}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 8px; box-shadow: 0 4px 16px rgba(255, 71, 87, 0.3);">
-                  Voir le ticket
+                <a href="${ticketUrl}" style="display: inline-block; padding: 14px 32px; background-color: #ff4757; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; border-radius: 6px; box-shadow: 0 2px 8px rgba(255, 71, 87, 0.25);">
+                  ${status === 'closed' ? 'Voir le récapitulatif' : 'Consulter le ticket'} →
                 </a>
               </div>
-              <p style="font-size: 14px; color: #666; text-align: center; margin: 0;">
-                Connectez-vous à votre espace membre pour plus de détails.
+
+              <p style="font-size: 13px; color: #868e96; text-align: center; margin: 0;">
+                ${status === 'closed' ? 'N\'hésitez pas à créer un nouveau ticket si besoin' : 'Vous pouvez consulter l\'historique complet depuis votre espace membre'}
               </p>
             </td>
           </tr>
@@ -399,51 +470,59 @@ ${getEmailFooter()}
 
 function generateTicketCreatedConfirmationEmail(data: NotificationRequest): { subject: string; html: string } {
   const ticketUrl = `${BASE_URL}/dashboard/support/${data.ticketId}`;
-  const subject = `[${data.ticketNumber}] Votre demande a bien été enregistrée`;
+  const subject = `✅ ${data.ticketNumber} - Demande enregistrée avec succès`;
 
   const html = `
 ${getEmailHeader()}
           <tr>
             <td style="padding: 40px 50px;">
-              <p style="font-size: 18px; line-height: 1.6; color: #1a1a1a; margin: 0 0 24px 0;">
-                Bonjour <strong>${data.userName}</strong>,
+              <p style="font-size: 17px; line-height: 1.5; color: #212529; margin: 0 0 8px 0;">
+                Bonjour <strong>${data.userName}</strong> 👋
               </p>
-              <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 8px 0;">
+              <p style="font-size: 15px; line-height: 1.6; color: #495057; margin: 0 0 8px 0;">
                 Merci de nous avoir contactés !
               </p>
-              <p style="font-size: 16px; line-height: 1.7; color: #333; margin: 0 0 24px 0;">
-                Votre demande de support a bien été enregistrée. Notre équipe va l'examiner dans les plus brefs délais.
+              <p style="font-size: 15px; line-height: 1.6; color: #495057; margin: 0 0 28px 0;">
+                Votre demande de support a été enregistrée avec succès. Notre équipe en a été informée et reviendra vers vous rapidement.
               </p>
-              <div style="background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%); border-left: 4px solid #ff4757; padding: 24px; margin: 0 0 24px 0; border-radius: 8px;">
-                <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Numéro de ticket</p>
-                <p style="font-size: 20px; color: #1a1a1a; margin: 0 0 20px 0; font-weight: 700; letter-spacing: 1px;">${data.ticketNumber}</p>
-                <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Sujet</p>
-                <p style="font-size: 16px; color: #1a1a1a; margin: 0 0 20px 0; font-weight: 600;">${data.ticketSubject}</p>
-                <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%;">
-                  <tr>
-                    <td style="width: 50%;">
-                      <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Type</p>
-                      <p style="font-size: 14px; color: #1a1a1a; margin: 0;">${TICKET_TYPE_LABELS[data.ticketType]}</p>
-                    </td>
-                    <td style="width: 50%;">
-                      <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;">Priorité</p>
-                      ${getPriorityBadge(data.ticketPriority)}
-                    </td>
-                  </tr>
-                </table>
+
+              <div style="background-color: #f8f9fa; border-left: 4px solid #ff4757; padding: 24px; margin: 0 0 24px 0; border-radius: 8px;">
+                <div style="margin-bottom: 20px;">
+                  <p style="font-size: 12px; color: #868e96; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Votre numéro de ticket</p>
+                  <p style="font-size: 24px; color: #212529; margin: 0; font-weight: 700; letter-spacing: 1px; font-family: 'Courier New', monospace;">${data.ticketNumber}</p>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                  <p style="font-size: 12px; color: #868e96; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Sujet</p>
+                  <p style="font-size: 16px; color: #212529; margin: 0; font-weight: 600; line-height: 1.4;">${data.ticketSubject}</p>
+                </div>
+
+                <div style="display: table; width: 100%;">
+                  <div style="display: table-cell; width: 50%; padding-right: 12px;">
+                    <p style="font-size: 12px; color: #868e96; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Type</p>
+                    <p style="font-size: 14px; color: #495057; margin: 0; font-weight: 500;">${TICKET_TYPE_LABELS[data.ticketType]}</p>
+                  </div>
+                  <div style="display: table-cell; width: 50%; padding-left: 12px;">
+                    <p style="font-size: 12px; color: #868e96; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;">Priorité</p>
+                    ${getPriorityBadge(data.ticketPriority)}
+                  </div>
+                </div>
               </div>
-              <div style="background-color: #e3f2fd; border-radius: 8px; padding: 16px; margin: 0 0 24px 0;">
-                <p style="font-size: 14px; color: #1565c0; margin: 0; line-height: 1.6;">
-                  <strong>Conservez ce numéro de ticket</strong> pour toute référence future concernant cette demande.
+
+              <div style="background-color: #e7f5ff; border-radius: 6px; padding: 16px; margin: 0 0 28px 0; border: 1px solid #339af0;">
+                <p style="font-size: 14px; color: #1971c2; margin: 0; line-height: 1.6; text-align: center;">
+                  💡 <strong>Conseil :</strong> Conservez ce numéro pour toute référence future
                 </p>
               </div>
+
               <div style="text-align: center; margin: 32px 0;">
-                <a href="${ticketUrl}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 8px; box-shadow: 0 4px 16px rgba(255, 71, 87, 0.3);">
-                  Suivre ma demande
+                <a href="${ticketUrl}" style="display: inline-block; padding: 14px 32px; background-color: #ff4757; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; border-radius: 6px; box-shadow: 0 2px 8px rgba(255, 71, 87, 0.25);">
+                  Suivre ma demande →
                 </a>
               </div>
-              <p style="font-size: 14px; color: #666; text-align: center; margin: 0;">
-                Vous recevrez une notification par email dès qu'une réponse sera disponible.
+
+              <p style="font-size: 13px; color: #868e96; text-align: center; margin: 0;">
+                📧 Vous recevrez un email dès qu'une réponse sera disponible
               </p>
             </td>
           </tr>

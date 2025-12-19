@@ -27,10 +27,47 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sendEmailWithFallback } from '../_lib/email-transport.js';
+import { getFirestore } from '../_lib/firebase-admin.js';
 
 // Configuration
 const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'contact@fornap.fr';
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://fornap.fr';
+
+/**
+ * Récupère les emails de tous les développeurs actifs
+ * Fallback sur SUPERADMIN_EMAIL en cas d'erreur
+ */
+async function getDeveloperEmails(): Promise<string[]> {
+  try {
+    const db = getFirestore();
+    const adminsRef = db.collection('admins');
+
+    const snapshot = await adminsRef
+      .where('role', '==', 'developpeur')
+      .where('isActive', '==', true)
+      .get();
+
+    if (snapshot.empty) {
+      console.warn('⚠️ No active developers found, using fallback email');
+      return [SUPERADMIN_EMAIL];
+    }
+
+    const emails = snapshot.docs
+      .map(doc => doc.data().email)
+      .filter((email): email is string => !!email);
+
+    if (emails.length === 0) {
+      console.warn('⚠️ No developer emails found, using fallback email');
+      return [SUPERADMIN_EMAIL];
+    }
+
+    console.log(`✅ Found ${emails.length} developer email(s):`, emails.join(', '));
+    return emails;
+  } catch (error) {
+    console.error('❌ Error fetching developer emails:', error);
+    return [SUPERADMIN_EMAIL];
+  }
+}
 
 // Types
 type NotificationType =
@@ -446,22 +483,24 @@ export default async function handler(
     }
 
     let emailContent: { subject: string; html: string };
-    let recipientEmail: string;
+    let recipientEmails: string[];
 
     switch (data.type) {
       case 'new_ticket':
         emailContent = generateNewTicketAdminEmail(data);
-        recipientEmail = data.adminEmail || SUPERADMIN_EMAIL;
+        // Envoyer à tous les développeurs au lieu d'un seul email
+        recipientEmails = data.adminEmail ? [data.adminEmail] : await getDeveloperEmails();
         break;
 
       case 'new_message_to_user':
         emailContent = generateNewMessageUserEmail(data);
-        recipientEmail = data.userEmail;
+        recipientEmails = [data.userEmail];
         break;
 
       case 'new_message_to_admin':
         emailContent = generateNewMessageAdminEmail(data);
-        recipientEmail = data.adminEmail || SUPERADMIN_EMAIL;
+        // Envoyer à tous les développeurs au lieu d'un seul email
+        recipientEmails = data.adminEmail ? [data.adminEmail] : await getDeveloperEmails();
         break;
 
       case 'status_change':
@@ -470,12 +509,12 @@ export default async function handler(
           return;
         }
         emailContent = generateStatusChangeEmail(data);
-        recipientEmail = data.userEmail;
+        recipientEmails = [data.userEmail];
         break;
 
       case 'ticket_created_confirmation':
         emailContent = generateTicketCreatedConfirmationEmail(data);
-        recipientEmail = data.userEmail;
+        recipientEmails = [data.userEmail];
         break;
 
       default:
@@ -483,27 +522,45 @@ export default async function handler(
         return;
     }
 
-    console.log(`📧 Sending ${data.type} notification for ticket ${data.ticketNumber} to ${recipientEmail}`);
+    console.log(`📧 Sending ${data.type} notification for ticket ${data.ticketNumber} to ${recipientEmails.length} recipient(s): ${recipientEmails.join(', ')}`);
 
-    const result = await sendEmailWithFallback({
-      to: recipientEmail,
-      subject: emailContent.subject,
-      html: emailContent.html,
-    });
+    // Envoyer l'email à tous les destinataires
+    const results = await Promise.allSettled(
+      recipientEmails.map(email =>
+        sendEmailWithFallback({
+          to: email,
+          subject: emailContent.subject,
+          html: emailContent.html,
+        })
+      )
+    );
 
-    if (result.success) {
-      console.log(`✅ Email sent successfully via ${result.provider} (fallback: ${result.fallbackUsed})`);
+    // Analyser les résultats
+    const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failedCount = results.length - successCount;
+
+    if (successCount > 0) {
+      console.log(`✅ Email sent successfully to ${successCount}/${results.length} recipient(s)`);
       res.status(200).json({
         success: true,
-        provider: result.provider,
-        messageId: result.messageId,
-        fallbackUsed: result.fallbackUsed,
+        totalRecipients: results.length,
+        successCount,
+        failedCount,
+        results: results.map((r, i) => ({
+          email: recipientEmails[i],
+          success: r.status === 'fulfilled' && r.value.success,
+          provider: r.status === 'fulfilled' ? r.value.provider : undefined,
+          error: r.status === 'rejected' ? r.reason : (r.status === 'fulfilled' && !r.value.success ? r.value.error : undefined),
+        })),
       });
     } else {
-      console.error(`❌ Failed to send email:`, result.error);
+      console.error(`❌ Failed to send email to all recipients`);
       res.status(500).json({
         success: false,
-        error: result.error,
+        error: 'Failed to send email to all recipients',
+        totalRecipients: results.length,
+        successCount,
+        failedCount,
       });
     }
   } catch (error: any) {

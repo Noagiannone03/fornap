@@ -5,6 +5,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -450,10 +451,36 @@ export async function updateTicket(
 }
 
 /**
- * Supprime un ticket (admin uniquement)
+ * Supprime un ticket
+ * - Un utilisateur peut supprimer ses propres tickets
+ * - Un développeur peut supprimer n'importe quel ticket
+ * @param ticketId ID du ticket à supprimer
+ * @param userId ID de l'utilisateur qui demande la suppression
+ * @param isDeveloper L'utilisateur est-il un développeur (rôle DEVELOPPEUR)
  */
-export async function deleteTicket(ticketId: string): Promise<void> {
+export async function deleteTicket(
+  ticketId: string,
+  userId: string,
+  isDeveloper: boolean = false
+): Promise<void> {
   try {
+    // Récupérer le ticket pour vérifier les permissions
+    const ticketRef = doc(db, TICKETS_COLLECTION, ticketId);
+    const ticketDoc = await getDoc(ticketRef);
+
+    if (!ticketDoc.exists()) {
+      throw new Error('Ticket introuvable');
+    }
+
+    const ticket = ticketDoc.data() as Ticket;
+
+    // Vérifier les permissions
+    // Un user ne peut supprimer que ses propres tickets
+    // Un développeur peut supprimer n'importe quel ticket
+    if (!isDeveloper && ticket.createdBy !== userId) {
+      throw new Error('Vous n\'avez pas la permission de supprimer ce ticket');
+    }
+
     const batch = writeBatch(db);
 
     // Supprimer tous les messages
@@ -471,9 +498,11 @@ export async function deleteTicket(ticketId: string): Promise<void> {
     });
 
     // Supprimer le ticket
-    batch.delete(doc(db, TICKETS_COLLECTION, ticketId));
+    batch.delete(ticketRef);
 
     await batch.commit();
+
+    console.log(`✅ Ticket ${ticket.ticketNumber} supprimé par ${isDeveloper ? 'développeur' : 'utilisateur'} ${userId}`);
   } catch (error) {
     console.error('Error deleting ticket:', error);
     throw error;

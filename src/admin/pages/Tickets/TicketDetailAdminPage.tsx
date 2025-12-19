@@ -280,11 +280,14 @@ export function TicketDetailAdminPage() {
   };
 
   const handleDelete = async () => {
-    if (!ticketId || !canDelete) return;
+    if (!ticketId || !canDelete || !adminProfile) return;
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce ticket ? Cette action est irréversible.')) return;
 
     try {
-      await deleteTicket(ticketId);
+      // Les développeurs peuvent supprimer n'importe quel ticket
+      const isDeveloper = adminProfile.role === 'developpeur';
+      await deleteTicket(ticketId, adminProfile.uid, isDeveloper);
+
       notifications.show({
         title: 'Ticket supprimé',
         message: 'Le ticket a été supprimé avec succès',

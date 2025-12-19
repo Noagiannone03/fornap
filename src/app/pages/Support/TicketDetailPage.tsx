@@ -32,6 +32,7 @@ import {
   IconPaperclip,
   IconDownload,
   IconRefresh,
+  IconTrash,
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -42,6 +43,7 @@ import {
   markMessagesAsRead,
   subscribeToTicketMessages,
   reopenTicket,
+  deleteTicket,
 } from '../../../shared/services/ticketService';
 import type { Ticket, TicketMessage } from '../../../shared/types/ticket';
 import {
@@ -187,6 +189,37 @@ export function TicketDetailPage() {
     }
   };
 
+  const handleDeleteTicket = async () => {
+    if (!ticketId || !currentUser) return;
+
+    // Demander confirmation
+    const confirmed = window.confirm(
+      'Êtes-vous sûr de vouloir supprimer ce ticket ? Cette action est irréversible.'
+    );
+    if (!confirmed) return;
+
+    try {
+      // Supprimer le ticket (user ne peut supprimer que ses propres tickets)
+      await deleteTicket(ticketId, currentUser.uid, false);
+
+      notifications.show({
+        title: 'Ticket supprimé',
+        message: 'Le ticket a été supprimé avec succès',
+        color: 'green',
+      });
+
+      // Rediriger vers la liste
+      navigate('/dashboard/support');
+    } catch (err: any) {
+      console.error('Error deleting ticket:', err);
+      notifications.show({
+        title: 'Erreur',
+        message: err.message || 'Erreur lors de la suppression du ticket',
+        color: 'red',
+      });
+    }
+  };
+
   const formatDate = (timestamp: any) => {
     if (!timestamp) return '-';
     const date = timestamp.toDate();
@@ -270,16 +303,26 @@ export function TicketDetailPage() {
               Retour
             </Button>
           </Group>
-          {canReopen && (
+          <Group>
+            {canReopen && (
+              <Button
+                variant="outline"
+                color="blue"
+                leftSection={<IconRefresh size={16} />}
+                onClick={handleReopenTicket}
+              >
+                Réouvrir le ticket
+              </Button>
+            )}
             <Button
               variant="outline"
-              color="blue"
-              leftSection={<IconRefresh size={16} />}
-              onClick={handleReopenTicket}
+              color="red"
+              leftSection={<IconTrash size={16} />}
+              onClick={handleDeleteTicket}
             >
-              Réouvrir le ticket
+              Supprimer
             </Button>
-          )}
+          </Group>
         </Group>
 
         <Group justify="space-between" align="flex-start" wrap="wrap">

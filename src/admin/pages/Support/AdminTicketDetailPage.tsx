@@ -27,6 +27,7 @@ import {
     IconMessage,
     IconUser,
     IconHeadset,
+    IconTrash,
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -36,6 +37,7 @@ import {
     getTicketMessages,
     addTicketMessage,
     markTicketAsReadForUser,
+    deleteTicket,
 } from '../../../shared/services/ticketService';
 import type { Ticket, TicketMessage } from '../../../shared/types/ticket';
 import {
@@ -128,6 +130,36 @@ export function AdminTicketDetailPage() {
         }
     };
 
+    const handleDeleteTicket = async () => {
+        if (!ticketId || !adminProfile) return;
+
+        const confirmed = window.confirm(
+            'Êtes-vous sûr de vouloir supprimer ce ticket ? Cette action est irréversible.'
+        );
+        if (!confirmed) return;
+
+        try {
+            // Les admins peuvent supprimer leurs propres tickets
+            // Les développeurs peuvent supprimer tous les tickets
+            const isDeveloper = adminProfile.role === 'developpeur';
+            await deleteTicket(ticketId, adminProfile.uid, isDeveloper);
+
+            notifications.show({
+                title: 'Ticket supprimé',
+                message: 'Le ticket a été supprimé avec succès',
+                color: 'green',
+            });
+
+            navigate('/admin/support');
+        } catch (error: any) {
+            notifications.show({
+                title: 'Erreur',
+                message: error.message || 'Erreur lors de la suppression du ticket',
+                color: 'red',
+            });
+        }
+    };
+
     const formatDate = (timestamp: any) => {
         if (!timestamp) return '-';
         const date = timestamp.toDate();
@@ -211,7 +243,7 @@ export function AdminTicketDetailPage() {
         <Container size="lg" py="xl">
             <Stack gap="xl">
                 {/* Header */}
-                <Group>
+                <Group justify="space-between">
                     <Button
                         variant="subtle"
                         leftSection={<IconArrowLeft size={16} />}
@@ -219,6 +251,14 @@ export function AdminTicketDetailPage() {
                         color="gray"
                     >
                         Retour
+                    </Button>
+                    <Button
+                        variant="outline"
+                        color="red"
+                        leftSection={<IconTrash size={16} />}
+                        onClick={handleDeleteTicket}
+                    >
+                        Supprimer
                     </Button>
                 </Group>
 

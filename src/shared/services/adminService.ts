@@ -725,3 +725,22 @@ export async function exportAdminHistory(adminUid: string): Promise<AdminActionH
     throw new Error('Erreur lors de l\'export de l\'historique');
   }
 }
+
+/**
+ * Récupère les emails de tous les développeurs actifs
+ * Utilisé pour envoyer les notifications de tickets
+ */
+export async function getDeveloperEmails(): Promise<string[]> {
+  try {
+    const developers = await getAllAdmins({
+      role: [AdminRole.DEVELOPPEUR],
+      isActive: true,
+    });
+
+    return developers.map(dev => dev.email).filter(email => email);
+  } catch (error) {
+    console.error('Error getting developer emails:', error);
+    // Fallback sur l'email par défaut en cas d'erreur
+    return ['contact@fornap.fr'];
+  }
+}

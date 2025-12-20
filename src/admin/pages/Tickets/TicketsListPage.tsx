@@ -55,7 +55,7 @@ import { AdminPermission } from '../../../shared/types/admin';
 
 export function TicketsListPage() {
   const navigate = useNavigate();
-  const { checkPermission } = useAdminAuth();
+  const { checkPermission, adminProfile } = useAdminAuth();
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [stats, setStats] = useState<TicketStats | null>(null);
@@ -99,11 +99,11 @@ export function TicketsListPage() {
   }
 
   const handleDelete = async (ticket: Ticket) => {
-    if (!canDelete) return;
+    if (!canDelete || !adminProfile) return;
     if (!confirm(`Êtes-vous sûr de vouloir supprimer le ticket ${ticket.ticketNumber} ?`)) return;
 
     try {
-      await deleteTicket(ticket.id);
+      await deleteTicket(ticket.id, adminProfile.uid, true);
       notifications.show({
         title: 'Ticket supprimé',
         message: `Le ticket ${ticket.ticketNumber} a été supprimé`,

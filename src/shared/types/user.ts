@@ -228,7 +228,7 @@ export interface MembershipHistory {
 
 export type PurchaseType = 'crowdfunding' | 'donation' | 'event_ticket' | 'merchandise';
 export type PurchaseSource = 'crowdfunding' | 'adhesion_web' | 'platform' | 'admin';
-export type PurchasePaymentStatus = 'completed' | 'pending' | 'failed' | 'refunded';
+export type PurchasePaymentStatus = 'completed' | 'pending' | 'failed' | 'refunded' | 'cancelled';
 
 /**
  * Structure d'un achat dans la sous-collection purchases
@@ -259,6 +259,11 @@ export interface Purchase {
   // Timestamps
   purchasedAt: Timestamp;
   createdAt: Timestamp;
+
+  // Cancellation info (si annule)
+  cancelledAt?: Timestamp;
+  cancelledBy?: string;  // UID de l'admin
+  cancellationReason?: string;
 }
 
 // ============================================================================

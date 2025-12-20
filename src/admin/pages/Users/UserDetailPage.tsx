@@ -16,6 +16,9 @@ import {
   Timeline,
   Box,
   Center,
+  Modal,
+  TextInput,
+  ActionIcon,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -35,6 +38,7 @@ import {
   IconUser,
   IconClock,
   IconShoppingCart,
+  IconTrash,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { QRCodeDisplay } from '../../../app/components/common/QRCodeDisplay';
@@ -59,6 +63,7 @@ import {
   MEMBERSHIP_STATUS_LABELS,
   REGISTRATION_SOURCE_LABELS,
 } from '../../../shared/types/user';
+import { cancelPurchase } from '../../../shared/services/purchaseCancellationService';
 
 // Fonction utilitaire pour convertir les timestamps de manière sécurisée
 // Retourne null si la conversion échoue (au lieu de la date du jour)
@@ -115,6 +120,12 @@ export function UserDetailPage() {
   const [, setMembershipHistory] = useState<MembershipHistory[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // State pour annulation d'achat
+  const [cancelModalOpened, setCancelModalOpened] = useState(false);
+  const [purchaseToCancel, setPurchaseToCancel] = useState<Purchase | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (uid) {
@@ -212,8 +223,57 @@ export function UserDetailPage() {
     }
   };
 
-  // Note: La régénération du QR code n'est plus nécessaire car le QR code
-  // est maintenant basé directement sur l'UID de l'utilisateur, qui ne change jamais.
+  // Ouvre le modal de confirmation d'annulation
+  const openCancelModal = (purchase: Purchase) => {
+    setPurchaseToCancel(purchase);
+    setCancelReason('');
+    setCancelModalOpened(true);
+  };
+
+  // Annule un achat
+  const handleCancelPurchase = async () => {
+    if (!purchaseToCancel || !uid) return;
+
+    setCancelling(true);
+    try {
+      const result = await cancelPurchase(
+        uid,
+        purchaseToCancel.id,
+        'current-admin-id', // TODO: Utiliser l'ID de l'admin connecte
+        cancelReason || 'Annule par admin'
+      );
+
+      if (result.success) {
+        notifications.show({
+          title: 'Achat annule',
+          message: result.contributionDeleted
+            ? 'Achat annule et stock libere'
+            : 'Achat annule (pas de contribution liee)',
+          color: 'green',
+        });
+        setCancelModalOpened(false);
+        setPurchaseToCancel(null);
+        loadUserData(); // Recharger les donnees
+      } else {
+        notifications.show({
+          title: 'Erreur',
+          message: result.error || 'Impossible d\'annuler l\'achat',
+          color: 'red',
+        });
+      }
+    } catch (error) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Erreur lors de l\'annulation',
+        color: 'red',
+      });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  // Note: La regeneration du QR code n'est plus necessaire car le QR code
+  // est maintenant base directement sur l'UID de l'utilisateur, qui ne change jamais.
 
   if (loading || !user) {
     return (
@@ -538,36 +598,71 @@ export function UserDetailPage() {
               </Group>
               {purchases.length > 0 ? (
                 <Stack gap="xs">
-                  {purchases.map((purchase) => (
-                    <Paper key={purchase.id} withBorder p="sm" radius="sm" bg="gray.0">
-                      <Group justify="space-between">
-                        <Group gap="sm">
-                          <IconShoppingCart size={20} color="#228be6" />
-                          <div>
-                            <Text size="sm" fw={600}>{purchase.itemName}</Text>
-                            <Text size="xs" c="dimmed">
-                              {purchase.source} - {toDate(purchase.purchasedAt)?.toLocaleDateString('fr-FR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              }) ?? 'Date inconnue'}
+                  {purchases.map((purchase) => {
+                    // Determine badge color and text based on status
+                    const getStatusConfig = () => {
+                      switch (purchase.paymentStatus) {
+                        case 'completed':
+                          return { color: 'green', text: 'Paye' };
+                        case 'pending':
+                          return { color: 'yellow', text: 'En attente' };
+                        case 'cancelled':
+                          return { color: 'red', text: 'Annule' };
+                        case 'refunded':
+                          return { color: 'orange', text: 'Rembourse' };
+                        default:
+                          return { color: 'gray', text: 'Echoue' };
+                      }
+                    };
+                    const statusConfig = getStatusConfig();
+                    const canCancel = purchase.paymentStatus !== 'cancelled' && purchase.paymentStatus !== 'refunded';
+
+                    return (
+                      <Paper key={purchase.id} withBorder p="sm" radius="sm" bg={purchase.paymentStatus === 'cancelled' ? 'red.0' : 'gray.0'}>
+                        <Group justify="space-between">
+                          <Group gap="sm">
+                            <IconShoppingCart size={20} color={purchase.paymentStatus === 'cancelled' ? '#ef4444' : '#228be6'} />
+                            <div>
+                              <Text size="sm" fw={600} td={purchase.paymentStatus === 'cancelled' ? 'line-through' : undefined}>
+                                {purchase.itemName}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                {purchase.source} - {toDate(purchase.purchasedAt)?.toLocaleDateString('fr-FR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                }) ?? 'Date inconnue'}
+                              </Text>
+                              {purchase.cancellationReason && (
+                                <Text size="xs" c="red">Raison: {purchase.cancellationReason}</Text>
+                              )}
+                            </div>
+                          </Group>
+                          <Group gap="xs">
+                            <Badge color={statusConfig.color} variant="light">
+                              {statusConfig.text}
+                            </Badge>
+                            <Text fw={700} size="lg" td={purchase.paymentStatus === 'cancelled' ? 'line-through' : undefined}>
+                              {purchase.amount}€
                             </Text>
-                          </div>
+                            {canCancel && (
+                              <ActionIcon
+                                color="red"
+                                variant="subtle"
+                                size="sm"
+                                onClick={() => openCancelModal(purchase)}
+                                title="Annuler cet achat"
+                              >
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            )}
+                          </Group>
                         </Group>
-                        <Group gap="xs">
-                          <Badge
-                            color={purchase.paymentStatus === 'completed' ? 'green' : purchase.paymentStatus === 'pending' ? 'yellow' : 'red'}
-                            variant="light"
-                          >
-                            {purchase.paymentStatus === 'completed' ? 'Paye' : purchase.paymentStatus === 'pending' ? 'En attente' : 'Echoue'}
-                          </Badge>
-                          <Text fw={700} size="lg">{purchase.amount}€</Text>
-                        </Group>
-                      </Group>
-                    </Paper>
-                  ))}
+                      </Paper>
+                    );
+                  })}
                 </Stack>
               ) : (
                 <Text c="dimmed" size="sm">Aucun achat enregistre</Text>
@@ -713,6 +808,55 @@ export function UserDetailPage() {
           </Stack>
         </Grid.Col>
       </Grid>
+
+      {/* Modal de confirmation d'annulation */}
+      <Modal
+        opened={cancelModalOpened}
+        onClose={() => setCancelModalOpened(false)}
+        title="Annuler cet achat"
+        centered
+      >
+        {purchaseToCancel && (
+          <Stack gap="md">
+            <Text size="sm">
+              Vous allez annuler l'achat suivant:
+            </Text>
+            <Paper withBorder p="sm" bg="red.0">
+              <Text fw={700}>{purchaseToCancel.itemName}</Text>
+              <Text size="sm" c="dimmed">{purchaseToCancel.amount}€</Text>
+            </Paper>
+            <Text size="sm" c="red" fw={500}>
+              ⚠️ Cette action va:
+            </Text>
+            <Text size="xs" c="dimmed">
+              • Marquer l'achat comme annule{'\n'}
+              • Supprimer la contribution correspondante{'\n'}
+              • Liberer le stock si applicable
+            </Text>
+            <TextInput
+              label="Raison de l'annulation (optionnel)"
+              placeholder="Ex: Demande client, erreur..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+            />
+            <Group justify="flex-end">
+              <Button
+                variant="light"
+                onClick={() => setCancelModalOpened(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                color="red"
+                onClick={handleCancelPurchase}
+                loading={cancelling}
+              >
+                Confirmer l'annulation
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
     </Container>
   );
 }

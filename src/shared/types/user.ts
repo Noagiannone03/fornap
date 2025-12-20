@@ -223,6 +223,45 @@ export interface MembershipHistory {
 }
 
 // ============================================================================
+// HISTORIQUE D'ACHATS (Sous-collection)
+// ============================================================================
+
+export type PurchaseType = 'crowdfunding' | 'donation' | 'event_ticket' | 'merchandise';
+export type PurchaseSource = 'crowdfunding' | 'adhesion_web' | 'platform' | 'admin';
+export type PurchasePaymentStatus = 'completed' | 'pending' | 'failed' | 'refunded';
+
+/**
+ * Structure d'un achat dans la sous-collection purchases
+ * Path: users/{userId}/purchases/{purchaseId}
+ */
+export interface Purchase {
+  id: string;
+  type: PurchaseType;
+  source: PurchaseSource;
+
+  // Details de l'achat
+  itemName: string;
+  itemDescription?: string;
+  amount: number;
+
+  // Pour les billets d'evenements (future)
+  eventId?: string;
+  eventName?: string;
+  eventDate?: Timestamp;
+
+  // Informations de paiement
+  paymentId: string;
+  paymentStatus: PurchasePaymentStatus;
+
+  // Reference vers la collection contributions (pour crowdfunding)
+  contributionId?: string;
+
+  // Timestamps
+  purchasedAt: Timestamp;
+  createdAt: Timestamp;
+}
+
+// ============================================================================
 // HISTORIQUE D'ACTIONS (Sous-collection)
 // ============================================================================
 

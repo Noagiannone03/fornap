@@ -47,6 +47,7 @@ import {
   IconTags,
   IconCheck,
   IconX,
+  IconDatabaseImport,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -79,6 +80,8 @@ import { TagsManagerModal } from '../../components/TagsManagerModal';
 import { QuickAddUserModal } from '../../components/QuickAddUserModal';
 import { ExordeTagCheckerModal } from '../../components/ExordeTagCheckerModal';
 import { UserExportModal } from '../../components/UserExportModal';
+import { PurchaseMigrationModal } from '../../components/PurchaseMigrationModal';
+import { PaymentFixModal } from '../../components/PaymentFixModal';
 import {
   getAllTags,
   getTagColor,
@@ -415,6 +418,8 @@ export function EnhancedUsersListPage() {
   const [tagsManagerOpened, setTagsManagerOpened] = useState(false);
   const [exordeCheckerOpened, setExordeCheckerOpened] = useState(false);
   const [exportModalOpened, setExportModalOpened] = useState(false);
+  const [purchaseMigrationOpened, setPurchaseMigrationOpened] = useState(false);
+  const [paymentFixOpened, setPaymentFixOpened] = useState(false);
 
   // États pour la migration multiple
   const [selectedLegacyUsers, setSelectedLegacyUsers] = useState<Set<string>>(new Set());
@@ -1281,7 +1286,23 @@ export function EnhancedUsersListPage() {
             color="grape"
             onClick={() => setTagsManagerOpened(true)}
           >
-            Gérer les tags
+            Gerer les tags
+          </Button>
+          <Button
+            leftSection={<IconDatabaseImport size={16} />}
+            variant="light"
+            color="orange"
+            onClick={() => setPurchaseMigrationOpened(true)}
+          >
+            Migrer Achats
+          </Button>
+          <Button
+            leftSection={<IconCreditCard size={16} />}
+            variant="light"
+            color="teal"
+            onClick={() => setPaymentFixOpened(true)}
+          >
+            Fix Paiements
           </Button>
           <Button leftSection={<IconDownload size={16} />} variant="light" onClick={handleExport}>
             Exporter
@@ -2031,6 +2052,18 @@ export function EnhancedUsersListPage() {
         opened={exportModalOpened}
         onClose={() => setExportModalOpened(false)}
         users={users}
+      />
+
+      {/* Modal de migration des achats */}
+      <PurchaseMigrationModal
+        opened={purchaseMigrationOpened}
+        onClose={() => setPurchaseMigrationOpened(false)}
+      />
+
+      {/* Modal de correction des paiements */}
+      <PaymentFixModal
+        opened={paymentFixOpened}
+        onClose={() => setPaymentFixOpened(false)}
       />
     </Container>
   );

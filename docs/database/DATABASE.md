@@ -443,3 +443,60 @@ Les fichiers sont stockés dans Firebase Storage:
 - **Chemin**: `tickets/{ticketId}/{fileName}`
 - **Types acceptés**: Images, PDF, documents Word
 - **Taille max recommandée**: 10MB par fichier
+## Historique des Achats (Sous-collection `purchases`)
+
+Chaque utilisateur possede une sous-collection `purchases` qui enregistre tous les achats effectues.
+
+**Path** : `users/{userId}/purchases/{purchaseId}`
+
+### Structure d'un document Purchase
+
+```typescript
+interface Purchase {
+  id: string;
+  type: 'crowdfunding' | 'donation' | 'event_ticket' | 'merchandise';
+  source: 'crowdfunding' | 'adhesion_web' | 'platform' | 'admin';
+
+  // Details de l'achat
+  itemName: string;
+  itemDescription?: string;
+  amount: number;
+
+  // Pour billets d'evenements (futur)
+  eventId?: string;
+  eventName?: string;
+  eventDate?: Timestamp;
+
+  // Paiement
+  paymentId: string;
+  paymentStatus: 'completed' | 'pending' | 'failed' | 'refunded';
+
+  // Lien vers contributions
+  contributionId?: string;
+
+  // Timestamps
+  purchasedAt: Timestamp;
+  createdAt: Timestamp;
+}
+```
+
+### Fonctions disponibles (`userService.ts`)
+
+| Fonction | Description |
+|----------|-------------|
+| `addPurchase(userId, purchaseData)` | Ajoute un achat |
+| `getUserPurchases(userId, limit?)` | Recupere les achats d'un user |
+| `getPurchaseById(userId, purchaseId)` | Recupere un achat specifique |
+| `getUserTotalSpent(userId)` | Calcule le total depense |
+
+### Migration des contributions existantes
+
+Script disponible : `scripts/migratePurchases.ts`
+
+```bash
+# Preview
+npx ts-node scripts/migratePurchases.ts --dry-run
+
+# Execute
+npx ts-node scripts/migratePurchases.ts
+```

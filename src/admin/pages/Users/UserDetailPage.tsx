@@ -34,6 +34,7 @@ import {
   IconMapPin,
   IconUser,
   IconClock,
+  IconShoppingCart,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { QRCodeDisplay } from '../../../app/components/common/QRCodeDisplay';
@@ -42,6 +43,7 @@ import {
   getUserStats,
   getUserActionHistory,
   getUserMembershipHistory,
+  getUserPurchases,
   toggleAccountBlocked,
   toggleCardBlocked,
 } from '../../../shared/services/userService';
@@ -50,6 +52,7 @@ import type {
   UserStats,
   ActionHistory,
   MembershipHistory,
+  Purchase,
 } from '../../../shared/types/user';
 import {
   MEMBERSHIP_TYPE_LABELS,
@@ -110,6 +113,7 @@ export function UserDetailPage() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [actionHistory, setActionHistory] = useState<ActionHistory[]>([]);
   const [, setMembershipHistory] = useState<MembershipHistory[]>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -123,11 +127,12 @@ export function UserDetailPage() {
 
     try {
       setLoading(true);
-      const [userData, statsData, actionsData, membershipData] = await Promise.all([
+      const [userData, statsData, actionsData, membershipData, purchasesData] = await Promise.all([
         getUserById(uid),
         getUserStats(uid).catch(() => null),
         getUserActionHistory(uid, 20).catch(() => []),
         getUserMembershipHistory(uid).catch(() => []),
+        getUserPurchases(uid, 50).catch(() => []),
       ]);
 
       if (!userData) {
@@ -144,6 +149,7 @@ export function UserDetailPage() {
       setStats(statsData);
       setActionHistory(actionsData);
       setMembershipHistory(membershipData);
+      setPurchases(purchasesData);
     } catch (error) {
       console.error('Error loading user data:', error);
       notifications.show({
@@ -402,10 +408,10 @@ export function UserDetailPage() {
                   <Text size="sm" fw={500}>
                     {user.lastScannedAt && toDate(user.lastScannedAt)
                       ? toDate(user.lastScannedAt)!.toLocaleDateString('fr-FR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                        })
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })
                       : 'Jamais'}
                   </Text>
                 </Grid.Col>
@@ -463,10 +469,10 @@ export function UserDetailPage() {
                       user.registration.source === 'platform'
                         ? 'blue'
                         : user.registration.source === 'admin'
-                        ? 'violet'
-                        : user.registration.source === 'crowdfunding'
-                        ? 'pink'
-                        : 'orange'
+                          ? 'violet'
+                          : user.registration.source === 'crowdfunding'
+                            ? 'pink'
+                            : 'orange'
                     }
                     variant="light"
                   >
@@ -518,6 +524,54 @@ export function UserDetailPage() {
                   <Text c="dimmed" size="sm">Aucun tag</Text>
                 )}
               </Group>
+            </Paper>
+
+            {/* Historique des Achats */}
+            <Paper withBorder p="md" radius="md">
+              <Group justify="space-between" mb="md">
+                <Title order={3}>Historique des Achats</Title>
+                {purchases.length > 0 && (
+                  <Badge color="green" size="lg">
+                    {purchases.reduce((sum, p) => p.paymentStatus === 'completed' ? sum + p.amount : sum, 0)}€ total
+                  </Badge>
+                )}
+              </Group>
+              {purchases.length > 0 ? (
+                <Stack gap="xs">
+                  {purchases.map((purchase) => (
+                    <Paper key={purchase.id} withBorder p="sm" radius="sm" bg="gray.0">
+                      <Group justify="space-between">
+                        <Group gap="sm">
+                          <IconShoppingCart size={20} color="#228be6" />
+                          <div>
+                            <Text size="sm" fw={600}>{purchase.itemName}</Text>
+                            <Text size="xs" c="dimmed">
+                              {purchase.source} - {toDate(purchase.purchasedAt)?.toLocaleDateString('fr-FR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              }) ?? 'Date inconnue'}
+                            </Text>
+                          </div>
+                        </Group>
+                        <Group gap="xs">
+                          <Badge
+                            color={purchase.paymentStatus === 'completed' ? 'green' : purchase.paymentStatus === 'pending' ? 'yellow' : 'red'}
+                            variant="light"
+                          >
+                            {purchase.paymentStatus === 'completed' ? 'Paye' : purchase.paymentStatus === 'pending' ? 'En attente' : 'Echoue'}
+                          </Badge>
+                          <Text fw={700} size="lg">{purchase.amount}€</Text>
+                        </Group>
+                      </Group>
+                    </Paper>
+                  ))}
+                </Stack>
+              ) : (
+                <Text c="dimmed" size="sm">Aucun achat enregistre</Text>
+              )}
             </Paper>
 
             {/* Historique d'actions récentes */}

@@ -29,6 +29,7 @@ import type {
   ActionType,
   LegacyMember,
   SeparatedUsersList,
+  Purchase,
 } from '../types/user';
 import { getMembershipPlanById } from './membershipService';
 
@@ -36,6 +37,7 @@ const USERS_COLLECTION = 'users';
 const LEGACY_MEMBERS_COLLECTION = 'members';
 const ACTION_HISTORY_SUBCOLLECTION = 'actionHistory';
 const MEMBERSHIP_HISTORY_SUBCOLLECTION = 'membershipHistory';
+const PURCHASES_SUBCOLLECTION = 'purchases';
 
 // ============================================================================
 // GESTION DES UTILISATEURS
@@ -826,6 +828,122 @@ export async function getUserMembershipHistory(
     return history;
   } catch (error) {
     console.error('Error fetching membership history:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// HISTORIQUE D'ACHATS (PURCHASES)
+// ============================================================================
+
+/**
+ * Ajoute un achat dans la sous-collection purchases d'un utilisateur
+ */
+export async function addPurchase(
+  userId: string,
+  purchaseData: Omit<Purchase, 'id' | 'createdAt'>
+): Promise<string> {
+  try {
+    const purchasesRef = collection(
+      db,
+      USERS_COLLECTION,
+      userId,
+      PURCHASES_SUBCOLLECTION
+    );
+
+    const purchaseEntry = cleanUndefinedFields({
+      ...purchaseData,
+      createdAt: Timestamp.now(),
+    });
+
+    const docRef = await addDoc(purchasesRef, purchaseEntry);
+    console.log(`✅ Achat ajouté pour l'utilisateur ${userId}:`, docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding purchase:', error);
+    throw error;
+  }
+}
+
+/**
+ * Recupere l'historique d'achats d'un utilisateur
+ */
+export async function getUserPurchases(
+  userId: string,
+  limitCount: number = 50
+): Promise<Purchase[]> {
+  try {
+    const purchasesRef = collection(
+      db,
+      USERS_COLLECTION,
+      userId,
+      PURCHASES_SUBCOLLECTION
+    );
+
+    const q = query(
+      purchasesRef,
+      orderBy('purchasedAt', 'desc'),
+      limit(limitCount)
+    );
+    const querySnapshot = await getDocs(q);
+
+    const purchases: Purchase[] = [];
+    querySnapshot.forEach((doc) => {
+      purchases.push({
+        ...doc.data(),
+        id: doc.id,
+      } as Purchase);
+    });
+
+    return purchases;
+  } catch (error) {
+    console.error('Error fetching user purchases:', error);
+    throw error;
+  }
+}
+
+/**
+ * Recupere un achat specifique par son ID
+ */
+export async function getPurchaseById(
+  userId: string,
+  purchaseId: string
+): Promise<Purchase | null> {
+  try {
+    const purchaseRef = doc(
+      db,
+      USERS_COLLECTION,
+      userId,
+      PURCHASES_SUBCOLLECTION,
+      purchaseId
+    );
+    const purchaseDoc = await getDoc(purchaseRef);
+
+    if (purchaseDoc.exists()) {
+      return {
+        ...purchaseDoc.data(),
+        id: purchaseDoc.id,
+      } as Purchase;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching purchase:', error);
+    throw error;
+  }
+}
+
+/**
+ * Calcule le total depense par un utilisateur
+ */
+export async function getUserTotalSpent(userId: string): Promise<number> {
+  try {
+    const purchases = await getUserPurchases(userId, 1000);
+    return purchases
+      .filter((p) => p.paymentStatus === 'completed')
+      .reduce((sum, p) => sum + p.amount, 0);
+  } catch (error) {
+    console.error('Error calculating user total spent:', error);
     throw error;
   }
 }

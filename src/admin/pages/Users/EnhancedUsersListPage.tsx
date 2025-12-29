@@ -48,6 +48,8 @@ import {
   IconCheck,
   IconX,
   IconDatabaseImport,
+  IconUsersGroup,
+  IconWand,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -82,11 +84,20 @@ import { ExordeTagCheckerModal } from '../../components/ExordeTagCheckerModal';
 import { UserExportModal } from '../../components/UserExportModal';
 import { PurchaseMigrationModal } from '../../components/PurchaseMigrationModal';
 import { PaymentFixModal } from '../../components/PaymentFixModal';
+import { ContributionFixModal } from '../../components/ContributionFixModal';
 import {
   getAllTags,
   getTagColor,
   type TagConfig,
 } from '../../../shared/services/tagService';
+import {
+  findDuplicateUsers,
+  mergeUsers,
+  type DuplicateGroup,
+  type UserMergeData,
+} from '../../../shared/services/duplicateDetectionService';
+import { DuplicateUserModal } from '../../components/DuplicateUserModal';
+import { ItemNormalizationModal } from '../../components/ItemNormalizationModal';
 
 const membershipTypeColors: Record<MembershipType, string> = {
   monthly: 'blue',
@@ -420,6 +431,14 @@ export function EnhancedUsersListPage() {
   const [exportModalOpened, setExportModalOpened] = useState(false);
   const [purchaseMigrationOpened, setPurchaseMigrationOpened] = useState(false);
   const [paymentFixOpened, setPaymentFixOpened] = useState(false);
+  const [itemNormalizationOpened, setItemNormalizationOpened] = useState(false);
+  const [contributionFixOpened, setContributionFixOpened] = useState(false);
+
+  // États pour la detection des doublons
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
+  const [currentDuplicateIndex, setCurrentDuplicateIndex] = useState(0);
+  const [duplicateModalOpened, setDuplicateModalOpened] = useState(false);
+  const [loadingDuplicates, setLoadingDuplicates] = useState(false);
 
   // États pour la migration multiple
   const [selectedLegacyUsers, setSelectedLegacyUsers] = useState<Set<string>>(new Set());
@@ -1000,6 +1019,91 @@ export function EnhancedUsersListPage() {
     setExportModalOpened(true);
   };
 
+  // Gestion de la detection des doublons
+  const handleStartDuplicateCheck = async () => {
+    setLoadingDuplicates(true);
+    try {
+      const groups = await findDuplicateUsers();
+      if (groups.length === 0) {
+        notifications.show({
+          title: 'Aucun doublon',
+          message: 'Aucun utilisateur en double n\'a ete detecte',
+          color: 'green',
+        });
+        return;
+      }
+      setDuplicateGroups(groups);
+      setCurrentDuplicateIndex(0);
+      setDuplicateModalOpened(true);
+      notifications.show({
+        title: 'Doublons detectes',
+        message: `${groups.length} groupe(s) de doublons detecte(s)`,
+        color: 'yellow',
+      });
+    } catch (error) {
+      console.error('Error detecting duplicates:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de detecter les doublons',
+        color: 'red',
+      });
+    } finally {
+      setLoadingDuplicates(false);
+    }
+  };
+
+  const handleMergeDuplicate = async (keepUserId: string, deleteUserId: string, mergeData: UserMergeData) => {
+    try {
+      await mergeUsers(keepUserId, deleteUserId, mergeData, adminUserId);
+      notifications.show({
+        title: 'Fusion reussie',
+        message: 'Les comptes ont ete fusionnes avec succes',
+        color: 'green',
+      });
+      // Passer au doublon suivant ou fermer
+      if (currentDuplicateIndex < duplicateGroups.length - 1) {
+        setCurrentDuplicateIndex(prev => prev + 1);
+      } else {
+        setDuplicateModalOpened(false);
+        setDuplicateGroups([]);
+        setCurrentDuplicateIndex(0);
+        notifications.show({
+          title: 'Termine',
+          message: 'Tous les doublons ont ete traites',
+          color: 'green',
+        });
+      }
+      // Recharger les utilisateurs
+      await loadUsers();
+    } catch (error) {
+      console.error('Error merging users:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de fusionner les comptes',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleSkipDuplicate = () => {
+    if (currentDuplicateIndex < duplicateGroups.length - 1) {
+      setCurrentDuplicateIndex(prev => prev + 1);
+    } else {
+      setDuplicateModalOpened(false);
+      setDuplicateGroups([]);
+      setCurrentDuplicateIndex(0);
+      notifications.show({
+        title: 'Termine',
+        message: 'Verification des doublons terminee',
+        color: 'blue',
+      });
+    }
+  };
+
+  const handleCloseDuplicateMode = () => {
+    setDuplicateModalOpened(false);
+  };
+
   const handleOpenMassiveSendModal = (mode: 'all' | 'force' | 'unsent') => {
     setForceResend(mode === 'force');
     setOnlyUnsent(mode === 'unsent');
@@ -1303,6 +1407,36 @@ export function EnhancedUsersListPage() {
             onClick={() => setPaymentFixOpened(true)}
           >
             Fix Paiements
+          </Button>
+          <Button
+            leftSection={<IconWand size={16} />}
+            variant="light"
+            color="pink"
+            onClick={() => setItemNormalizationOpened(true)}
+          >
+            Normaliser Items
+          </Button>
+          <Button
+            leftSection={<IconAlertTriangle size={16} />}
+            variant="light"
+            color="red"
+            onClick={() => setContributionFixOpened(true)}
+          >
+            Fix Bug Inkipit
+          </Button>
+          <Button
+            leftSection={<IconUsersGroup size={16} />}
+            variant="light"
+            color="yellow"
+            onClick={handleStartDuplicateCheck}
+            loading={loadingDuplicates}
+          >
+            Detecter doublons
+            {duplicateGroups.length > 0 && (
+              <Badge size="xs" color="red" ml={6}>
+                {duplicateGroups.length}
+              </Badge>
+            )}
           </Button>
           <Button leftSection={<IconDownload size={16} />} variant="light" onClick={handleExport}>
             Exporter
@@ -2065,6 +2199,35 @@ export function EnhancedUsersListPage() {
         opened={paymentFixOpened}
         onClose={() => setPaymentFixOpened(false)}
       />
+
+      {/* Modal de correction des contributions (Bug Inkipit) */}
+      <ContributionFixModal
+        opened={contributionFixOpened}
+        onClose={() => setContributionFixOpened(false)}
+        onComplete={loadUsers}
+      />
+
+      {/* Modal de normalisation des noms d'items */}
+      <ItemNormalizationModal
+        opened={itemNormalizationOpened}
+        onClose={() => setItemNormalizationOpened(false)}
+        onComplete={loadUsers}
+      />
+
+      {/* Modal de detection des doublons */}
+      {duplicateGroups.length > 0 && duplicateGroups[currentDuplicateIndex] && (
+        <DuplicateUserModal
+          opened={duplicateModalOpened}
+          onClose={handleCloseDuplicateMode}
+          userAId={duplicateGroups[currentDuplicateIndex].users[0]?.uid || ''}
+          userBId={duplicateGroups[currentDuplicateIndex].users[1]?.uid || ''}
+          email={duplicateGroups[currentDuplicateIndex].email}
+          onMerge={handleMergeDuplicate}
+          onSkip={handleSkipDuplicate}
+          currentIndex={currentDuplicateIndex}
+          totalCount={duplicateGroups.length}
+        />
+      )}
     </Container>
   );
 }

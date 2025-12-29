@@ -66,6 +66,66 @@ export async function getUserById(userId: string): Promise<User | null> {
 }
 
 /**
+ * Interface pour le resultat de la recherche avec redirection de doublon
+ */
+export interface UserWithMergeInfo {
+  user: User;
+  wasRedirected: boolean;
+  originalUserId?: string;
+  mergedMessage?: string;
+}
+
+/**
+ * Récupère un utilisateur par son UID, avec gestion des doublons fusionnes.
+ * Si l'utilisateur scanne est un doublon fusionne, on retourne automatiquement
+ * l'utilisateur cible avec un message indiquant la redirection.
+ * Utile pour les scans QR code.
+ */
+export async function getUserByIdWithMergeCheck(userId: string): Promise<UserWithMergeInfo | null> {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, userId);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) {
+      return null;
+    }
+
+    const userData = userDoc.data();
+
+    // Verifier si c'est un doublon fusionne
+    if (userData.isMergedDuplicate && userData.mergedIntoUserId) {
+      // Recuperer l'utilisateur cible
+      const targetUser = await getUserById(userData.mergedIntoUserId);
+
+      if (targetUser) {
+        return {
+          user: targetUser,
+          wasRedirected: true,
+          originalUserId: userId,
+          mergedMessage: `Ce compte a ete fusionne. Redirection vers le compte principal (${targetUser.firstName} ${targetUser.lastName}).`,
+        };
+      }
+
+      // Si l'utilisateur cible n'existe plus, retourner null
+      console.warn(`Merged user target ${userData.mergedIntoUserId} not found`);
+      return null;
+    }
+
+    // Utilisateur normal
+    return {
+      user: {
+        ...userData,
+        uid: userDoc.id,
+      } as User,
+      wasRedirected: false,
+    };
+  } catch (error) {
+    console.error('Error fetching user with merge check:', error);
+    throw error;
+  }
+}
+
+/**
  * Récupère un utilisateur par son email
  */
 export async function getUserByEmail(email: string): Promise<User | null> {

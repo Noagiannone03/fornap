@@ -20,7 +20,14 @@ import { db } from '../config/firebase';
 const USERS_COLLECTION = 'users';
 const PURCHASES_SUBCOLLECTION = 'purchases';
 const ACTION_HISTORY_SUBCOLLECTION = 'actionHistory';
-const INKIPIT_ITEM_NAME = 'PACK PARTY HARDER';
+
+// Les deux variantes de nom utilisées dans le crowdfunding
+// - ParticipationPage.vue utilise 'PACK PARTY HARDER'
+// - InkipitPage.vue utilise '20€ - PACK PARTY HARDER - edition limitee'
+const INKIPIT_ITEM_NAMES = [
+    'PACK PARTY HARDER',
+    '20€ - PACK PARTY HARDER - edition limitee',
+];
 
 // ============================================================================
 // Types
@@ -140,67 +147,70 @@ export async function getInkipitParticipants(): Promise<InkipitParticipant[]> {
     const participants: InkipitParticipant[] = [];
 
     try {
-        // Collection Group Query - interroge TOUTES les sous-collections 'purchases' en une seule requête
-        const purchasesQuery = query(
-            collectionGroup(db, PURCHASES_SUBCOLLECTION),
-            where('itemName', '==', INKIPIT_ITEM_NAME)
-        );
+        // Cache pour éviter de fetch le même user plusieurs fois
+        const userCache = new Map<string, any>();
 
-        const purchasesSnapshot = await getDocs(purchasesQuery);
-        console.log(`🔍 Trouvé ${purchasesSnapshot.docs.length} achats ${INKIPIT_ITEM_NAME}`);
+        // Faire une requête pour chaque variante de nom
+        // (Firestore ne supporte pas 'in' sur collectionGroup avec plusieurs valeurs efficacement)
+        for (const itemName of INKIPIT_ITEM_NAMES) {
+            const purchasesQuery = query(
+                collectionGroup(db, PURCHASES_SUBCOLLECTION),
+                where('itemName', '==', itemName)
+            );
 
-        // Pour chaque achat trouvé, récupérer les infos du user
-        const userCache = new Map<string, any>(); // Cache pour éviter de fetch le même user plusieurs fois
+            const purchasesSnapshot = await getDocs(purchasesQuery);
+            console.log(`🔍 Trouvé ${purchasesSnapshot.docs.length} achats "${itemName}"`);
 
-        for (const purchaseDoc of purchasesSnapshot.docs) {
-            const purchaseData = purchaseDoc.data();
+            for (const purchaseDoc of purchasesSnapshot.docs) {
+                const purchaseData = purchaseDoc.data();
 
-            // Extraire l'userId du path: users/{userId}/purchases/{purchaseId}
-            const pathParts = purchaseDoc.ref.path.split('/');
-            const userId = pathParts[1]; // users/[userId]/purchases/...
+                // Extraire l'userId du path: users/{userId}/purchases/{purchaseId}
+                const pathParts = purchaseDoc.ref.path.split('/');
+                const userId = pathParts[1]; // users/[userId]/purchases/...
 
-            // Récupérer les données user (avec cache)
-            let userData = userCache.get(userId);
-            if (!userData) {
-                const userDoc = await getDoc(doc(db, USERS_COLLECTION, userId));
-                if (userDoc.exists()) {
-                    userData = userDoc.data();
-                    userCache.set(userId, userData);
-                } else {
-                    console.warn(`⚠️ User ${userId} non trouvé pour l'achat ${purchaseDoc.id}`);
-                    continue;
+                // Récupérer les données user (avec cache)
+                let userData = userCache.get(userId);
+                if (!userData) {
+                    const userDoc = await getDoc(doc(db, USERS_COLLECTION, userId));
+                    if (userDoc.exists()) {
+                        userData = userDoc.data();
+                        userCache.set(userId, userData);
+                    } else {
+                        console.warn(`⚠️ User ${userId} non trouvé pour l'achat ${purchaseDoc.id}`);
+                        continue;
+                    }
                 }
+
+                participants.push({
+                    userId,
+                    firstName: userData.firstName || '',
+                    lastName: userData.lastName || '',
+                    email: userData.email || '',
+                    phone: userData.phone,
+                    birthDate: toTimestamp(userData.birthDate),
+                    postalCode: userData.postalCode,
+
+                    purchaseId: purchaseDoc.id,
+                    contributionId: purchaseData.contributionId,
+                    amount: purchaseData.amount || 20,
+                    purchasedAt: toTimestamp(purchaseData.purchasedAt || purchaseData.createdAt) || Timestamp.now(),
+                    paymentId: purchaseData.paymentId,
+                    paymentStatus: purchaseData.paymentStatus || 'completed',
+
+                    inkipitScanned: purchaseData.inkipitScanned || false,
+                    inkipitScannedAt: toTimestamp(purchaseData.inkipitScannedAt),
+                    inkipitScannedBy: purchaseData.inkipitScannedBy,
+
+                    cancelled: purchaseData.paymentStatus === 'cancelled' || purchaseData.cancelled || false,
+                    cancelledAt: toTimestamp(purchaseData.cancelledAt),
+                    cancelledBy: purchaseData.cancelledBy,
+                    cancellationReason: purchaseData.cancellationReason,
+
+                    hasActiveSubscription: isSubscriptionActive(userData),
+                    membershipType: userData.currentMembership?.planType,
+                    membershipExpiry: toTimestamp(userData.currentMembership?.expiryDate),
+                });
             }
-
-            participants.push({
-                userId,
-                firstName: userData.firstName || '',
-                lastName: userData.lastName || '',
-                email: userData.email || '',
-                phone: userData.phone,
-                birthDate: toTimestamp(userData.birthDate),
-                postalCode: userData.postalCode,
-
-                purchaseId: purchaseDoc.id,
-                contributionId: purchaseData.contributionId,
-                amount: purchaseData.amount || 20,
-                purchasedAt: toTimestamp(purchaseData.purchasedAt || purchaseData.createdAt) || Timestamp.now(),
-                paymentId: purchaseData.paymentId,
-                paymentStatus: purchaseData.paymentStatus || 'completed',
-
-                inkipitScanned: purchaseData.inkipitScanned || false,
-                inkipitScannedAt: toTimestamp(purchaseData.inkipitScannedAt),
-                inkipitScannedBy: purchaseData.inkipitScannedBy,
-
-                cancelled: purchaseData.paymentStatus === 'cancelled' || purchaseData.cancelled || false,
-                cancelledAt: toTimestamp(purchaseData.cancelledAt),
-                cancelledBy: purchaseData.cancelledBy,
-                cancellationReason: purchaseData.cancellationReason,
-
-                hasActiveSubscription: isSubscriptionActive(userData),
-                membershipType: userData.currentMembership?.planType,
-                membershipExpiry: toTimestamp(userData.currentMembership?.expiryDate),
-            });
         }
 
         // Trier par date d'achat (plus récent en premier)
@@ -210,7 +220,7 @@ export async function getInkipitParticipants(): Promise<InkipitParticipant[]> {
             return dateB.getTime() - dateA.getTime();
         });
 
-        console.log(`✅ ${participants.length} participants Inkipit chargés (optimisé)`);
+        console.log(`✅ ${participants.length} participants Inkipit chargés au total`);
         return participants;
     } catch (error: any) {
         // Si l'erreur est liée à un index manquant, Firestore fournit un lien pour le créer

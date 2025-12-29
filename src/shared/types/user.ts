@@ -191,6 +191,12 @@ export interface User {
   // Statut d'envoi des emails
   emailStatus?: EmailStatus;
 
+  // Soft delete pour doublons fusionnés
+  isMergedDuplicate?: boolean;
+  mergedIntoUserId?: string;
+  mergedAt?: Timestamp;
+  mergedBy?: string;
+
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;

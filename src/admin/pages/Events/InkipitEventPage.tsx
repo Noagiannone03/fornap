@@ -389,7 +389,6 @@ export function InkipitEventPage() {
                         <Table.Tr>
                             <Table.Th>Participant</Table.Th>
                             <Table.Th>Date d'achat</Table.Th>
-                            <Table.Th>Abonnement</Table.Th>
                             <Table.Th>Scanné</Table.Th>
                             <Table.Th>Statut</Table.Th>
                             <Table.Th>Actions</Table.Th>
@@ -452,21 +451,6 @@ export function InkipitEventPage() {
 
                                         <Table.Td>
                                             <Text size="sm">{formatDate(participant.purchasedAt)}</Text>
-                                        </Table.Td>
-
-                                        <Table.Td>
-                                            <Badge
-                                                color={participant.hasActiveSubscription ? 'green' : 'red'}
-                                                variant="light"
-                                                size="sm"
-                                            >
-                                                {participant.hasActiveSubscription ? 'Actif' : 'Inactif'}
-                                            </Badge>
-                                            {participant.membershipType && (
-                                                <Text size="xs" c="dimmed">
-                                                    {participant.membershipType}
-                                                </Text>
-                                            )}
                                         </Table.Td>
 
                                         <Table.Td>

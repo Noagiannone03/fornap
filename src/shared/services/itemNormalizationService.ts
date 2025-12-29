@@ -8,7 +8,6 @@ import {
     collection,
     collectionGroup,
     getDocs,
-    updateDoc,
     doc,
     writeBatch,
     Timestamp,
@@ -16,7 +15,6 @@ import {
 import { db } from '../config/firebase';
 
 const CONTRIBUTIONS_COLLECTION = 'contributions';
-const USERS_COLLECTION = 'users';
 const PURCHASES_SUBCOLLECTION = 'purchases';
 
 // ============================================================================

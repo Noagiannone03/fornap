@@ -242,8 +242,11 @@ export async function getInkipitTicket(userId: string): Promise<InkipitParticipa
 
         const userData = userDoc.data();
         const purchasesRef = collection(db, USERS_COLLECTION, userId, PURCHASES_SUBCOLLECTION);
-        const q = query(purchasesRef, where('itemName', '==', INKIPIT_ITEM_NAME));
-        const purchasesSnap = await getDocs(q);
+        // Essayer de trouver un achat avec l'une des variantes du nom
+        let purchasesSnap = await getDocs(query(purchasesRef, where('itemName', '==', INKIPIT_ITEM_NAMES[0])));
+        if (purchasesSnap.empty) {
+            purchasesSnap = await getDocs(query(purchasesRef, where('itemName', '==', INKIPIT_ITEM_NAMES[1])));
+        }
 
         if (purchasesSnap.empty) return null;
 
@@ -314,13 +317,16 @@ export async function scanInkipitTicket(
 
         // 3. Chercher le billet PACK PARTY HARDER
         const purchasesRef = collection(db, USERS_COLLECTION, userId, PURCHASES_SUBCOLLECTION);
-        const q = query(purchasesRef, where('itemName', '==', INKIPIT_ITEM_NAME));
-        const purchasesSnap = await getDocs(q);
+        // Essayer de trouver un achat avec l'une des variantes du nom
+        let purchasesSnap = await getDocs(query(purchasesRef, where('itemName', '==', INKIPIT_ITEM_NAMES[0])));
+        if (purchasesSnap.empty) {
+            purchasesSnap = await getDocs(query(purchasesRef, where('itemName', '==', INKIPIT_ITEM_NAMES[1])));
+        }
 
         if (purchasesSnap.empty) {
             return {
                 status: 'NO_TICKET',
-                message: `Pas de billet ${INKIPIT_ITEM_NAME} pour cet utilisateur`,
+                message: `Pas de billet PACK PARTY HARDER pour cet utilisateur`,
             };
         }
 
@@ -360,9 +366,9 @@ export async function scanInkipitTicket(
                 actionType: 'event_checkin',
                 details: {
                     eventName: 'Soirée Inkipit',
-                    itemName: INKIPIT_ITEM_NAME,
+                    itemName: purchaseData.itemName,
                     purchaseId: purchaseDoc.id,
-                    description: `Check-in Soirée Inkipit (${INKIPIT_ITEM_NAME})`,
+                    description: `Check-in Soirée Inkipit (${purchaseData.itemName})`,
                 },
                 performedBy: scannerId,
                 timestamp: now,
@@ -442,7 +448,7 @@ export async function unscanInkipitTicket(
             actionType: 'event_unscan',
             details: {
                 eventName: 'Soirée Inkipit',
-                itemName: INKIPIT_ITEM_NAME,
+                itemName: purchaseData.itemName,
                 purchaseId,
                 reason: reason || 'Scan annulé par admin',
                 description: `Annulation check-in Soirée Inkipit`,

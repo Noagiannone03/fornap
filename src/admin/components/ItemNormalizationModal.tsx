@@ -21,8 +21,6 @@ import {
 import {
     IconRefresh,
     IconCheck,
-    IconX,
-    IconArrowRight,
     IconAlertTriangle,
     IconWand,
     IconSearch,
@@ -33,7 +31,6 @@ import {
     detectNonStandardItems,
     suggestNormalization,
     normalizeItemName,
-    autoNormalizeAll,
     STANDARD_ITEM_NAMES,
     type ItemNameStats,
     type NormalizationResult,
@@ -52,7 +49,6 @@ interface ItemWithSuggestion extends ItemNameStats {
 }
 
 export function ItemNormalizationModal({ opened, onClose, onComplete }: ItemNormalizationModalProps) {
-    const [loading, setLoading] = useState(false);
     const [scanning, setScanning] = useState(false);
     const [normalizing, setNormalizing] = useState(false);
     const [allItems, setAllItems] = useState<ItemNameStats[]>([]);

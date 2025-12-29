@@ -13,6 +13,7 @@ import { EventsListPage } from './pages/Events/EventsListPage';
 import { EventCreatePage } from './pages/Events/EventCreatePage';
 import { EventEditPage } from './pages/Events/EventEditPage';
 import { EventDetailPage } from './pages/Events/EventDetailPage';
+import { InkipitEventPage } from './pages/Events/InkipitEventPage';
 import { CoworkingListPage } from './pages/Coworking/CoworkingListPage';
 import { SettingsPage } from './pages/Settings/SettingsPage';
 import { AnalyticsOverviewPage } from './pages/Analytics/AnalyticsOverviewPage';
@@ -53,6 +54,7 @@ export function AdminRoutes() {
           {/* Routes Events */}
           <Route path="events" element={<EventsListPage />} />
           <Route path="events/create" element={<EventCreatePage />} />
+          <Route path="events/inkipit" element={<InkipitEventPage />} />
           <Route path="events/:eventId" element={<EventDetailPage />} />
           <Route path="events/:eventId/edit" element={<EventEditPage />} />
 

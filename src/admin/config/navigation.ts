@@ -63,6 +63,12 @@ export const navigationItems: NavItem[] = [
     requiredPermission: AdminPermission.EVENTS_VIEW,
   },
   {
+    icon: IconTicket,
+    label: 'Soirée Inkipit',
+    path: '/admin/events/inkipit',
+    requiredPermission: AdminPermission.EVENTS_VIEW,
+  },
+  {
     icon: IconBuildingCommunity,
     label: 'Coworking',
     path: '/admin/coworking',

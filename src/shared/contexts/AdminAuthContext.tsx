@@ -12,6 +12,9 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  updatePassword,
 } from 'firebase/auth';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../config/firebase';
@@ -47,6 +50,9 @@ interface AdminAuthContextType {
 
   /** Déconnexion admin */
   logout: () => Promise<void>;
+
+  /** Changer le mot de passe */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 
   /** Vérifie si l'admin a une permission */
   checkPermission: (permission: AdminPermission) => boolean;
@@ -199,7 +205,40 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
       setAdminProfile(null);
     } catch (error) {
       console.error('Logout error:', error);
-      throw new Error('Erreur lors de la déconnexion');
+      throw new Error('Erreur lors de la deconnexion');
+    }
+  };
+
+  /**
+   * Changer le mot de passe de l'admin connecte
+   */
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+    if (!currentUser || !currentUser.email) {
+      throw new Error('Vous devez etre connecte pour changer votre mot de passe');
+    }
+
+    try {
+      // Reauthentifier l'utilisateur avec son mot de passe actuel
+      const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+      await reauthenticateWithCredential(currentUser, credential);
+
+      // Mettre a jour le mot de passe
+      await updatePassword(currentUser, newPassword);
+    } catch (error: any) {
+      console.error('Change password error:', error);
+
+      // Messages d'erreur Firebase traduits
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        throw new Error('Mot de passe actuel incorrect');
+      } else if (error.code === 'auth/weak-password') {
+        throw new Error('Le nouveau mot de passe est trop faible (minimum 6 caracteres)');
+      } else if (error.code === 'auth/requires-recent-login') {
+        throw new Error('Session expiree. Veuillez vous reconnecter et reessayer.');
+      } else if (error.code === 'auth/too-many-requests') {
+        throw new Error('Trop de tentatives. Veuillez reessayer plus tard.');
+      }
+
+      throw new Error('Erreur lors du changement de mot de passe');
     }
   };
 
@@ -252,6 +291,7 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
     loading,
     login,
     logout,
+    changePassword,
     checkPermission,
     checkAllPermissions,
     checkAnyPermission,

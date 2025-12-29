@@ -31,6 +31,7 @@ import type { User } from '../types/user';
 import type { EventPurchase } from '../types/event';
 import type { AdminUser } from '../types/admin';
 import { addActionHistory } from './userService';
+import { scanInkipitTicket } from './inkipitService';
 
 /**
  * ============================================
@@ -460,6 +461,70 @@ export async function performScan(
       };
     }
 
+    // 8. Mode INKIPIT_EVENT - vérifier abonnement + billet PACK PARTY HARDER
+    if (config.mode === ScanMode.INKIPIT_EVENT) {
+      // Utiliser le service Inkipit existant
+      const inkipitResult = await scanInkipitTicket(uid, scannerId);
+
+      // Mapper le résultat Inkipit vers ScanResultStatus
+      let status: ScanResultStatus;
+      let message = inkipitResult.message;
+
+      switch (inkipitResult.status) {
+        case 'SUCCESS':
+          status = ScanResultStatus.SUCCESS;
+          break;
+        case 'SUBSCRIPTION_INACTIVE':
+          status = ScanResultStatus.SUBSCRIPTION_INACTIVE;
+          break;
+        case 'NO_TICKET':
+          status = ScanResultStatus.NO_TICKET;
+          message = 'Pas de billet PACK PARTY HARDER pour cet utilisateur';
+          break;
+        case 'ALREADY_SCANNED':
+          status = ScanResultStatus.ALREADY_SCANNED;
+          break;
+        case 'TICKET_CANCELLED':
+          status = ScanResultStatus.NO_TICKET;
+          message = 'Billet annulé';
+          break;
+        case 'USER_NOT_FOUND':
+          status = ScanResultStatus.USER_NOT_FOUND;
+          break;
+        default:
+          status = ScanResultStatus.INVALID_QR;
+      }
+
+      // Enregistrer le scan (sauf si déjà géré par scanInkipitTicket pour SUCCESS)
+      if (status !== ScanResultStatus.SUCCESS) {
+        await recordScan(uid, user, config, scannerId, status);
+      } else {
+        // Pour SUCCESS, enregistrer aussi dans le système global
+        await recordScan(uid, user, config, scannerId, ScanResultStatus.SUCCESS);
+      }
+
+      // Construire le résultat avec infos du participant Inkipit si disponible
+      const result: ScanResult = {
+        status,
+        message,
+        user: buildUserInfo(user),
+        scannedAt: Timestamp.now(),
+      };
+
+      // Ajouter les infos du ticket si disponible
+      if (inkipitResult.participant) {
+        result.ticket = {
+          purchaseId: inkipitResult.participant.purchaseId,
+          ticketNumber: 'INKIPIT-' + inkipitResult.participant.purchaseId.substring(0, 6).toUpperCase(),
+          ticketCategoryName: 'PACK PARTY HARDER',
+          alreadyScanned: inkipitResult.status === 'ALREADY_SCANNED',
+          scannedAt: inkipitResult.scannedAt,
+        };
+      }
+
+      return result;
+    }
+
     throw new Error(`Mode de scan inconnu: ${config.mode}`);
   } catch (error) {
     console.error('Erreur lors du scan:', error);
@@ -709,7 +774,7 @@ async function recordScan(
     const actionType: 'event_checkin' | 'scan' = config.eventId ? 'event_checkin' : 'scan';
     const actionDescription = config.eventId
       ? `Scan pour l'événement: ${scanRecord.eventInfo?.title || 'Événement'}${result !== ScanResultStatus.SUCCESS ? ' (Refusé: ' + result + ')' : ''}`
-      : `Scan QR ${result === ScanResultStatus.SUCCESS ? 'réussi' : 'échoué ('+result+')'}`;
+      : `Scan QR ${result === ScanResultStatus.SUCCESS ? 'réussi' : 'échoué (' + result + ')'}`;
 
     await addActionHistory(userId, {
       actionType,

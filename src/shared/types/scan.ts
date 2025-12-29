@@ -25,6 +25,9 @@ export const ScanMode = {
 
   /** Scanner pour un événement - vérifier abonnement + billet */
   EVENT_WITH_TICKET: 'event_with_ticket',
+
+  /** Scanner pour la Soirée Inkipit - vérifier abonnement + billet PACK PARTY HARDER */
+  INKIPIT_EVENT: 'inkipit_event',
 } as const;
 
 export type ScanMode = (typeof ScanMode)[keyof typeof ScanMode];

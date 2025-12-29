@@ -97,6 +97,7 @@ import {
   type UserMergeData,
 } from '../../../shared/services/duplicateDetectionService';
 import { DuplicateUserModal } from '../../components/DuplicateUserModal';
+import { DuplicateReviewModal } from '../../components/DuplicateReviewModal';
 import { ItemNormalizationModal } from '../../components/ItemNormalizationModal';
 
 const membershipTypeColors: Record<MembershipType, string> = {
@@ -438,6 +439,7 @@ export function EnhancedUsersListPage() {
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [currentDuplicateIndex, setCurrentDuplicateIndex] = useState(0);
   const [duplicateModalOpened, setDuplicateModalOpened] = useState(false);
+  const [duplicateReviewOpened, setDuplicateReviewOpened] = useState(false);
   const [loadingDuplicates, setLoadingDuplicates] = useState(false);
 
   // États pour la migration multiple
@@ -1034,12 +1036,8 @@ export function EnhancedUsersListPage() {
       }
       setDuplicateGroups(groups);
       setCurrentDuplicateIndex(0);
-      setDuplicateModalOpened(true);
-      notifications.show({
-        title: 'Doublons detectes',
-        message: `${groups.length} groupe(s) de doublons detecte(s)`,
-        color: 'yellow',
-      });
+      // Ouvrir le modal de revue au lieu du modal de fusion directement
+      setDuplicateReviewOpened(true);
     } catch (error) {
       console.error('Error detecting duplicates:', error);
       notifications.show({
@@ -1052,6 +1050,14 @@ export function EnhancedUsersListPage() {
     }
   };
 
+
+  // Selectionner un groupe de doublons a traiter
+  const handleSelectDuplicateGroup = (groupIndex: number) => {
+    setCurrentDuplicateIndex(groupIndex);
+    setDuplicateReviewOpened(false);
+    setDuplicateModalOpened(true);
+  };
+
   const handleMergeDuplicate = async (keepUserId: string, deleteUserId: string, mergeData: UserMergeData) => {
     try {
       await mergeUsers(keepUserId, deleteUserId, mergeData, adminUserId);
@@ -1060,21 +1066,22 @@ export function EnhancedUsersListPage() {
         message: 'Les comptes ont ete fusionnes avec succes',
         color: 'green',
       });
-      // Passer au doublon suivant ou fermer
-      if (currentDuplicateIndex < duplicateGroups.length - 1) {
-        setCurrentDuplicateIndex(prev => prev + 1);
+      // Fermer le modal de fusion et retourner a la liste
+      setDuplicateModalOpened(false);
+      // Recharger les utilisateurs et la liste des doublons
+      await loadUsers();
+      // Relancer la detection pour avoir la liste a jour
+      const groups = await findDuplicateUsers();
+      setDuplicateGroups(groups);
+      if (groups.length > 0) {
+        setDuplicateReviewOpened(true);
       } else {
-        setDuplicateModalOpened(false);
-        setDuplicateGroups([]);
-        setCurrentDuplicateIndex(0);
         notifications.show({
           title: 'Termine',
           message: 'Tous les doublons ont ete traites',
           color: 'green',
         });
       }
-      // Recharger les utilisateurs
-      await loadUsers();
     } catch (error) {
       console.error('Error merging users:', error);
       notifications.show({
@@ -1086,22 +1093,16 @@ export function EnhancedUsersListPage() {
   };
 
   const handleSkipDuplicate = () => {
-    if (currentDuplicateIndex < duplicateGroups.length - 1) {
-      setCurrentDuplicateIndex(prev => prev + 1);
-    } else {
-      setDuplicateModalOpened(false);
-      setDuplicateGroups([]);
-      setCurrentDuplicateIndex(0);
-      notifications.show({
-        title: 'Termine',
-        message: 'Verification des doublons terminee',
-        color: 'blue',
-      });
-    }
+    // Fermer le modal de fusion et retourner a la liste
+    setDuplicateModalOpened(false);
+    setDuplicateReviewOpened(true);
   };
 
   const handleCloseDuplicateMode = () => {
     setDuplicateModalOpened(false);
+    setDuplicateReviewOpened(false);
+    setDuplicateGroups([]);
+    setCurrentDuplicateIndex(0);
   };
 
   const handleOpenMassiveSendModal = (mode: 'all' | 'force' | 'unsent') => {
@@ -2214,7 +2215,15 @@ export function EnhancedUsersListPage() {
         onComplete={loadUsers}
       />
 
-      {/* Modal de detection des doublons */}
+      {/* Modal de revue des doublons */}
+      <DuplicateReviewModal
+        opened={duplicateReviewOpened}
+        onClose={handleCloseDuplicateMode}
+        duplicateGroups={duplicateGroups}
+        onSelectGroup={handleSelectDuplicateGroup}
+      />
+
+      {/* Modal de fusion des doublons */}
       {duplicateGroups.length > 0 && duplicateGroups[currentDuplicateIndex] && (
         <DuplicateUserModal
           opened={duplicateModalOpened}

@@ -36,6 +36,7 @@ import {
   IconSettings,
   IconArrowRight,
   IconDeviceMobile,
+  IconMusic,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
@@ -233,7 +234,7 @@ export function EventScannerPage() {
     if (!adminProfile) return;
 
     // Vérifier que la config est complète
-    const modeNeedsEvent = config.mode !== ScanMode.SUBSCRIPTION_ONLY;
+    const modeNeedsEvent = config.mode !== ScanMode.SUBSCRIPTION_ONLY && config.mode !== ScanMode.INKIPIT_EVENT;
     if (modeNeedsEvent && !config.eventId) {
       notifications.show({
         title: 'Configuration incomplète',
@@ -379,6 +380,8 @@ export function EventScannerPage() {
         return 'Présence événement';
       case ScanMode.EVENT_WITH_TICKET:
         return 'Événement + Billet';
+      case ScanMode.INKIPIT_EVENT:
+        return 'Soirée Inkipit';
       default:
         return mode;
     }
@@ -391,7 +394,8 @@ export function EventScannerPage() {
     setConfig((prev) => ({ ...prev, mode, eventId: undefined }));
 
     // Si le mode nécessite un événement, aller à l'étape de sélection d'événement
-    if (mode !== ScanMode.SUBSCRIPTION_ONLY) {
+    // INKIPIT_EVENT ne nécessite pas d'événement (comme SUBSCRIPTION_ONLY)
+    if (mode !== ScanMode.SUBSCRIPTION_ONLY && mode !== ScanMode.INKIPIT_EVENT) {
       setScannerStep('selectEvent');
     } else {
       // Sinon, aller directement au scanner
@@ -576,6 +580,58 @@ export function EventScannerPage() {
                   </Group>
                   <Text size="sm">
                     Vérifiez l'abonnement ET la possession d'un billet valide pour l'événement. Pour les événements payants avec réservation.
+                  </Text>
+                </Stack>
+                <IconArrowRight size={24} color="var(--mantine-color-gray-5)" />
+              </Group>
+            </Paper>
+
+            {/* Carte Mode Soirée Inkipit */}
+            <Paper
+              p="xl"
+              radius="md"
+              withBorder
+              shadow="sm"
+              style={{
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                border: '2px solid var(--mantine-color-gray-3)',
+              }}
+              onClick={() => handleSelectMode(ScanMode.INKIPIT_EVENT)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--mantine-color-pink-5)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--mantine-color-gray-3)';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '';
+              }}
+            >
+              <Group justify="space-between" align="flex-start">
+                <Stack gap="sm" style={{ flex: 1 }}>
+                  <Group gap="md">
+                    <Box
+                      style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, var(--mantine-color-pink-5), var(--mantine-color-pink-7))',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <IconMusic size={32} color="white" />
+                    </Box>
+                    <div>
+                      <Text size="xl" fw={700}>Soiree Inkipit</Text>
+                      <Text size="sm" c="dimmed">PACK PARTY HARDER</Text>
+                    </div>
+                  </Group>
+                  <Text size="sm">
+                    Verifiez l'abonnement ET la possession d'un billet PACK PARTY HARDER pour la soiree Inkipit.
                   </Text>
                 </Stack>
                 <IconArrowRight size={24} color="var(--mantine-color-gray-5)" />

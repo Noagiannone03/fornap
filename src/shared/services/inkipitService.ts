@@ -181,6 +181,12 @@ export async function getInkipitParticipants(): Promise<InkipitParticipant[]> {
                     }
                 }
 
+                // Ignorer les utilisateurs fusionnés (soft deleted)
+                if (userData.isMergedDuplicate === true) {
+                    console.log(`⏭️ User ${userId} ignoré (doublon fusionné)`);
+                    continue;
+                }
+
                 participants.push({
                     userId,
                     firstName: userData.firstName || '',
@@ -241,6 +247,13 @@ export async function getInkipitTicket(userId: string): Promise<InkipitParticipa
         if (!userDoc.exists()) return null;
 
         const userData = userDoc.data();
+
+        // Si l'utilisateur a été fusionné, chercher le billet chez l'utilisateur cible
+        if (userData.isMergedDuplicate === true && userData.mergedIntoUserId) {
+            console.log(`🔄 User ${userId} fusionné, redirection vers ${userData.mergedIntoUserId}`);
+            return getInkipitTicket(userData.mergedIntoUserId);
+        }
+
         const purchasesRef = collection(db, USERS_COLLECTION, userId, PURCHASES_SUBCOLLECTION);
         // Essayer de trouver un achat avec l'une des variantes du nom
         let purchasesSnap = await getDocs(query(purchasesRef, where('itemName', '==', INKIPIT_ITEM_NAMES[0])));
@@ -306,6 +319,12 @@ export async function scanInkipitTicket(
             };
         }
         const userData = userDoc.data();
+
+        // 1.5. Si utilisateur fusionné, rediriger vers le compte cible
+        if (userData.isMergedDuplicate === true && userData.mergedIntoUserId) {
+            console.log(`🔄 Scan: User ${userId} fusionné, redirection vers ${userData.mergedIntoUserId}`);
+            return scanInkipitTicket(userData.mergedIntoUserId, scannerId);
+        }
 
         // 2. Vérifier l'abonnement actif
         if (!isSubscriptionActive(userData)) {

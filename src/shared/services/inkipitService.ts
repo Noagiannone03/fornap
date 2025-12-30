@@ -302,6 +302,10 @@ export async function getInkipitTicket(userId: string): Promise<InkipitParticipa
             hasActiveSubscription: isSubscriptionActive(userData),
             membershipType: userData.currentMembership?.planType,
             membershipExpiry: toTimestamp(userData.currentMembership?.expiryDate),
+
+            // Info d'invitation
+            isInvite: purchaseData.isInvite || false,
+            inviteReason: purchaseData.inviteReason,
         };
     } catch (error) {
         console.error('❌ Erreur lors de la récupération du billet Inkipit:', error);

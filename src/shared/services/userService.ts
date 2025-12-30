@@ -150,6 +150,104 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 }
 
 /**
+ * Interface pour le résultat de vérification de doublons
+ */
+export interface DuplicateCheckResult {
+  hasDuplicate: boolean;
+  duplicateType?: 'email' | 'phone' | 'both';
+  existingUser?: {
+    uid: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+  };
+}
+
+/**
+ * Vérifie si un email ou téléphone existe déjà dans la base de données
+ * Utilisé pour la validation en temps réel lors de la création d'utilisateur
+ */
+export async function checkUserDuplicates(
+  email?: string,
+  phone?: string,
+  excludeUserId?: string // Pour exclure l'utilisateur en cours d'édition
+): Promise<DuplicateCheckResult> {
+  try {
+    const usersRef = collection(db, USERS_COLLECTION);
+
+    // Vérifier l'email
+    if (email && email.trim()) {
+      const emailQuery = query(usersRef, where('email', '==', email.toLowerCase().trim()), limit(1));
+      const emailSnapshot = await getDocs(emailQuery);
+
+      if (!emailSnapshot.empty) {
+        const existingDoc = emailSnapshot.docs[0];
+        // Exclure l'utilisateur en cours d'édition
+        if (excludeUserId && existingDoc.id === excludeUserId) {
+          // Continuer à vérifier le téléphone
+        } else {
+          const data = existingDoc.data();
+          // Ignorer les utilisateurs fusionnés (soft deleted)
+          if (!data.isMergedDuplicate) {
+            return {
+              hasDuplicate: true,
+              duplicateType: 'email',
+              existingUser: {
+                uid: existingDoc.id,
+                firstName: data.firstName || '',
+                lastName: data.lastName || '',
+                email: data.email || '',
+                phone: data.phone,
+              },
+            };
+          }
+        }
+      }
+    }
+
+    // Vérifier le téléphone
+    if (phone && phone.trim()) {
+      // Normaliser le numéro de téléphone (enlever espaces, tirets, etc.)
+      const normalizedPhone = phone.replace(/[\s\-\.]/g, '').trim();
+      if (normalizedPhone.length >= 8) {
+        const phoneQuery = query(usersRef, where('phone', '==', phone.trim()), limit(1));
+        const phoneSnapshot = await getDocs(phoneQuery);
+
+        if (!phoneSnapshot.empty) {
+          const existingDoc = phoneSnapshot.docs[0];
+          // Exclure l'utilisateur en cours d'édition
+          if (excludeUserId && existingDoc.id === excludeUserId) {
+            return { hasDuplicate: false };
+          }
+          const data = existingDoc.data();
+          // Ignorer les utilisateurs fusionnés (soft deleted)
+          if (!data.isMergedDuplicate) {
+            return {
+              hasDuplicate: true,
+              duplicateType: 'phone',
+              existingUser: {
+                uid: existingDoc.id,
+                firstName: data.firstName || '',
+                lastName: data.lastName || '',
+                email: data.email || '',
+                phone: data.phone,
+              },
+            };
+          }
+        }
+      }
+    }
+
+    return { hasDuplicate: false };
+  } catch (error) {
+    console.error('Error checking user duplicates:', error);
+    // En cas d'erreur, on ne bloque pas la création
+    return { hasDuplicate: false };
+  }
+}
+
+/**
  * Convertit un MembershipPeriod en MembershipType
  * ⚠️ TOUJOURS utiliser cette fonction lors de la création d'un user à partir d'un plan !
  */
@@ -380,6 +478,27 @@ export async function createUserByAdmin(
       deviceType: 'web',
       notes: userData.adminNotes,
     });
+
+    // Si l'utilisateur est invité à la soirée Inkipit, créer un achat "PACK PARTY HARDER"
+    if (userData.isInkipitGuest) {
+      await addPurchase(userId, {
+        type: 'event_ticket',
+        source: 'admin',
+        itemName: 'PACK PARTY HARDER', // Doit correspondre à INKIPIT_ITEM_NAMES dans inkipitService
+        itemDescription: userData.inkipitInviteReason || 'Invitation soiree Inkipit',
+        amount: 0, // Invitation gratuite
+        eventName: 'Soiree Inkipit',
+        paymentId: `INVITE-${Date.now()}`,
+        paymentStatus: 'completed',
+        purchasedAt: now,
+        // Champs d'invitation
+        isInvite: true,
+        inviteReason: userData.inkipitInviteReason || 'Invitation admin',
+        invitedBy: adminUserId,
+      });
+
+      console.log(`✅ Invitation Inkipit créée pour l'utilisateur ${userId}`);
+    }
 
     return userId;
   } catch (error) {

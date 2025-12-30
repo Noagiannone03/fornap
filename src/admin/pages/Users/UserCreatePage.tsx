@@ -23,6 +23,8 @@ import {
   Progress,
   ThemeIcon,
   Alert,
+  Anchor,
+  Loader,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -36,11 +38,12 @@ import {
   IconMessage,
   IconUsers,
   IconMail,
+  IconTicket,
   IconAlertCircle,
   IconMailCheck,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { createUserByAdmin, sendMembershipCard } from '../../../shared/services/userService';
+import { createUserByAdmin, sendMembershipCard, checkUserDuplicates, type DuplicateCheckResult } from '../../../shared/services/userService';
 import { getAllMembershipPlans } from '../../../shared/services/membershipService';
 import type {
   AdminCreateUserData,
@@ -89,6 +92,14 @@ export function UserCreatePage() {
   // Form state - Notes admin
   const [adminNotes, setAdminNotes] = useState('');
 
+  // Duplicate checking states
+  const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheckResult | null>(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+
+  // Form state - Invitation Inkipit
+  const [isInkipitGuest, setIsInkipitGuest] = useState(false);
+  const [inkipitInviteReason, setInkipitInviteReason] = useState('');
+
   // Form state - Profil étendu (pour abonnement annuel)
   const [showExtendedProfile, setShowExtendedProfile] = useState(false);
 
@@ -128,6 +139,37 @@ export function UserCreatePage() {
     loadPlans();
     loadAllTags();
   }, []);
+
+  // Debounced duplicate check for email and phone
+  useEffect(() => {
+    const checkDuplicates = async () => {
+      // Only check if we have a valid email or phone
+      const hasValidEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const hasValidPhone = phone && phone.trim().length >= 8;
+
+      if (!hasValidEmail && !hasValidPhone) {
+        setDuplicateCheck(null);
+        return;
+      }
+
+      setCheckingDuplicate(true);
+      try {
+        const result = await checkUserDuplicates(
+          hasValidEmail ? email : undefined,
+          hasValidPhone ? phone : undefined
+        );
+        setDuplicateCheck(result);
+      } catch (error) {
+        console.error('Error checking duplicates:', error);
+        setDuplicateCheck(null);
+      } finally {
+        setCheckingDuplicate(false);
+      }
+    };
+
+    const timer = setTimeout(checkDuplicates, 500); // 500ms debounce
+    return () => clearTimeout(timer);
+  }, [email, phone]);
 
   const loadAllTags = async () => {
     try {
@@ -171,6 +213,16 @@ export function UserCreatePage() {
   };
 
   const validateForm = (): { isValid: boolean; userData?: AdminCreateUserData; birthDateObj?: Date; startDateObj?: Date } => {
+    // Check for duplicates first
+    if (duplicateCheck?.hasDuplicate) {
+      notifications.show({
+        title: 'Doublon detecte',
+        message: `Un utilisateur avec cet ${duplicateCheck.duplicateType === 'email' ? 'email' : 'telephone'} existe deja`,
+        color: 'red',
+      });
+      return { isValid: false };
+    }
+
     // Validation
     if (!firstName || !lastName || !email || !phone || !postalCode || !birthDate || !planId || !startDate) {
       notifications.show({
@@ -229,6 +281,8 @@ export function UserCreatePage() {
       isAccountBlocked,
       isCardBlocked,
       adminNotes: adminNotes || undefined,
+      isInkipitGuest,
+      inkipitInviteReason: isInkipitGuest ? inkipitInviteReason : undefined,
     };
 
     // Ajouter le profil étendu si abonnement annuel ou à vie
@@ -425,15 +479,41 @@ export function UserCreatePage() {
                       value={email}
                       onChange={(e) => setEmail(e.currentTarget.value)}
                       required
+                      error={
+                        duplicateCheck?.hasDuplicate && duplicateCheck.duplicateType === 'email' ? (
+                          <Text size="xs">
+                            Email deja utilise par{' '}
+                            <Anchor href={`/admin/users/${duplicateCheck.existingUser?.uid}`} target="_blank" size="xs">
+                              {duplicateCheck.existingUser?.firstName} {duplicateCheck.existingUser?.lastName}
+                            </Anchor>
+                          </Text>
+                        ) : undefined
+                      }
+                      rightSection={
+                        checkingDuplicate && email ? <Loader size="xs" /> : undefined
+                      }
                     />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, md: 6 }}>
                     <TextInput
-                      label="Téléphone"
+                      label="Telephone"
                       placeholder="+33 6 12 34 56 78"
                       value={phone}
                       onChange={(e) => setPhone(e.currentTarget.value)}
                       required
+                      error={
+                        duplicateCheck?.hasDuplicate && duplicateCheck.duplicateType === 'phone' ? (
+                          <Text size="xs">
+                            Telephone deja utilise par{' '}
+                            <Anchor href={`/admin/users/${duplicateCheck.existingUser?.uid}`} target="_blank" size="xs">
+                              {duplicateCheck.existingUser?.firstName} {duplicateCheck.existingUser?.lastName}
+                            </Anchor>
+                          </Text>
+                        ) : undefined
+                      }
+                      rightSection={
+                        checkingDuplicate && phone ? <Loader size="xs" /> : undefined
+                      }
                     />
                   </Grid.Col>
                 </Grid>
@@ -476,10 +556,10 @@ export function UserCreatePage() {
                   data={plans.map((plan) => ({
                     value: plan.id,
                     label: `${plan.name} - ${plan.price}€ (${plan.period === 'month'
-                        ? 'Mensuel'
-                        : plan.period === 'year'
-                          ? 'Annuel'
-                          : 'À vie'
+                      ? 'Mensuel'
+                      : plan.period === 'year'
+                        ? 'Annuel'
+                        : 'À vie'
                       })`,
                   }))}
                   value={planId}
@@ -902,6 +982,43 @@ export function UserCreatePage() {
             </Accordion.Panel>
           </Accordion.Item>
         </Accordion>
+
+        {/* Invitation Soirée Inkipit */}
+        <Paper withBorder p="md" radius="md" bg="pink.0">
+          <Group gap="md" align="flex-start">
+            <ThemeIcon size="lg" radius="xl" color="pink" variant="light">
+              <IconTicket size={20} />
+            </ThemeIcon>
+            <Box style={{ flex: 1 }}>
+              <Text fw={600} size="md" c="pink.8">
+                Invitation Soiree Inkipit
+              </Text>
+              <Text size="sm" c="dimmed" mb="sm">
+                Cochez cette case pour inviter l'utilisateur a la soiree Inkipit du 31 decembre 2024.
+                Un billet gratuit "PACK PARTY HARDER" sera automatiquement cree.
+              </Text>
+              <Checkbox
+                label="Inviter a la soiree Inkipit"
+                checked={isInkipitGuest}
+                onChange={(e) => setIsInkipitGuest(e.currentTarget.checked)}
+                color="pink"
+                styles={{
+                  label: { fontWeight: 600 },
+                }}
+              />
+              {isInkipitGuest && (
+                <TextInput
+                  mt="sm"
+                  label="Raison de l'invitation"
+                  placeholder="Ex: Invite VIP, Partenaire media, Artiste..."
+                  value={inkipitInviteReason}
+                  onChange={(e) => setInkipitInviteReason(e.currentTarget.value)}
+                  description="Decrivez pourquoi cette personne est invitee"
+                />
+              )}
+            </Box>
+          </Group>
+        </Paper>
 
         {/* Actions */}
         <Paper withBorder p="md" radius="md">

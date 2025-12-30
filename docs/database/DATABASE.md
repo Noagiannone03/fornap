@@ -477,8 +477,30 @@ interface Purchase {
   // Timestamps
   purchasedAt: Timestamp;
   createdAt: Timestamp;
+
+  // Annulation (si annule)
+  cancelledAt?: Timestamp;
+  cancelledBy?: string;
+  cancellationReason?: string;
+
+  // Invitation (pour les invites gratuits)
+  isInvite?: boolean;           // True si c'est une invitation gratuite
+  inviteReason?: string;        // Raison/description (ex: "Invite VIP", "Partenaire media")
+  invitedBy?: string;           // UID de l'admin qui a cree l'invitation
 }
 ```
+
+### Champs d'invitation
+
+Quand un admin invite quelqu'un a un evenement (ex: soiree Inkipit), un achat est cree avec:
+
+| Champ | Valeur | Description |
+|-------|--------|-------------|
+| `isInvite` | `true` | Marque l'achat comme une invitation |
+| `inviteReason` | texte libre | Raison de l'invitation |
+| `invitedBy` | UID admin | Admin qui a cree l'invitation |
+| `amount` | `0` | Les invitations sont gratuites |
+| `paymentStatus` | `'completed'` | Toujours valide |
 
 ### Fonctions disponibles (`userService.ts`)
 

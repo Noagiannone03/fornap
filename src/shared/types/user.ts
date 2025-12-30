@@ -270,6 +270,11 @@ export interface Purchase {
   cancelledAt?: Timestamp;
   cancelledBy?: string;  // UID de l'admin
   cancellationReason?: string;
+
+  // Invitation info (pour les invites gratuits)
+  isInvite?: boolean;           // True si c'est une invitation gratuite
+  inviteReason?: string;        // Raison/description de l'invitation (ex: "Invite VIP soiree Inkipit")
+  invitedBy?: string;           // UID de l'admin qui a cree l'invitation
 }
 
 // ============================================================================
@@ -400,6 +405,10 @@ export interface AdminCreateUserData {
 
   // Notes admin
   adminNotes?: string;
+
+  // Invitation soirée Inkipit
+  isInkipitGuest?: boolean;
+  inkipitInviteReason?: string;  // Raison/description de l'invitation (ex: "Invite VIP", "Partenaire media")
 }
 
 /**

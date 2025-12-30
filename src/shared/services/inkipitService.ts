@@ -66,6 +66,10 @@ export interface InkipitParticipant {
     hasActiveSubscription: boolean;
     membershipType?: string;
     membershipExpiry?: Timestamp;
+
+    // Invitation (pour les invites gratuits)
+    isInvite?: boolean;
+    inviteReason?: string;
 }
 
 export interface InkipitStats {
@@ -400,9 +404,14 @@ export async function scanInkipitTicket(
         console.log(`✅ Scan Inkipit réussi pour ${userData.firstName} ${userData.lastName}`);
 
         // 8. Retourner le succès avec les infos du participant
+        const isInvite = purchaseData.isInvite === true;
+        const inviteReason = purchaseData.inviteReason || '';
+
         return {
             status: 'SUCCESS',
-            message: `Bienvenue ${userData.firstName} ! Accès autorisé.`,
+            message: isInvite
+                ? `Bienvenue ${userData.firstName} ! (INVITE${inviteReason ? ': ' + inviteReason : ''})`
+                : `Bienvenue ${userData.firstName} ! Acces autorise.`,
             scannedAt: now,
             participant: {
                 userId,
@@ -420,6 +429,8 @@ export async function scanInkipitTicket(
                 cancelled: false,
                 hasActiveSubscription: true,
                 membershipType: userData.currentMembership?.planType,
+                isInvite,
+                inviteReason,
             },
         };
     } catch (error: any) {

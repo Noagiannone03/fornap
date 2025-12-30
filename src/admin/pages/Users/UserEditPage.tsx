@@ -16,10 +16,14 @@ import {
   TagsInput,
   MultiSelect,
   Textarea,
+  Box,
+  Text,
+  ThemeIcon,
+  Checkbox,
 } from '@mantine/core';
-import { IconArrowLeft, IconCheck } from '@tabler/icons-react';
+import { IconArrowLeft, IconCheck, IconTicket } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { getUserById, updateUser, getAllUniqueTags } from '../../../shared/services/userService';
+import { getUserById, updateUser, getAllUniqueTags, addPurchase, getUserPurchases } from '../../../shared/services/userService';
 import { getAllMembershipPlans } from '../../../shared/services/membershipService';
 import { getTagNames } from '../../../shared/services/tagService';
 import { Timestamp } from 'firebase/firestore';
@@ -106,6 +110,12 @@ export function UserEditPage() {
   const [suggestions, setSuggestions] = useState('');
   const [participationInterested, setParticipationInterested] = useState(false);
   const [participationDomains, setParticipationDomains] = useState<string[]>([]);
+
+  // Invitation Inkipit
+  const [hasExistingInkipitInvite, setHasExistingInkipitInvite] = useState(false);
+  const [existingInkipitInviteReason, setExistingInkipitInviteReason] = useState('');
+  const [isInkipitGuest, setIsInkipitGuest] = useState(false);
+  const [inkipitInviteReason, setInkipitInviteReason] = useState('');
 
   // Helper function pour convertir n'importe quelle valeur en Date
   // Gère tous les formats: Timestamp Firestore, {seconds, nanoseconds}, Date, string, number
@@ -301,6 +311,21 @@ export function UserEditPage() {
         setParticipationInterested(engagement.participationInterest?.interested || false);
         setParticipationDomains(engagement.participationInterest?.domains || []);
       }
+
+      // Vérifier si l'utilisateur a déjà une invitation Inkipit
+      try {
+        const purchases = await getUserPurchases(uid, 100);
+        const inkipitInvite = purchases.find(
+          (p) => p.isInvite === true && p.eventName === 'Soiree Inkipit'
+        );
+        if (inkipitInvite) {
+          setHasExistingInkipitInvite(true);
+          setExistingInkipitInviteReason(inkipitInvite.inviteReason || inkipitInvite.itemDescription || '');
+        }
+      } catch (purchaseError) {
+        console.error('Error loading purchases:', purchaseError);
+        // Ne pas bloquer si on ne peut pas charger les achats
+      }
     } catch (error) {
       console.error('Error loading user:', error);
       notifications.show({
@@ -403,9 +428,30 @@ export function UserEditPage() {
 
       await updateUser(uid, updates, 'current-admin-id'); // TODO: Utiliser l'ID de l'admin connecté
 
+      // Si l'utilisateur est invité à la soirée Inkipit (et n'a pas déjà une invitation)
+      if (isInkipitGuest && !hasExistingInkipitInvite) {
+        await addPurchase(uid, {
+          type: 'event_ticket',
+          source: 'admin',
+          itemName: 'PACK PARTY HARDER',
+          itemDescription: inkipitInviteReason || 'Invitation soiree Inkipit',
+          amount: 0,
+          eventName: 'Soiree Inkipit',
+          paymentId: `INVITE-${Date.now()}`,
+          paymentStatus: 'completed',
+          purchasedAt: Timestamp.now(),
+          isInvite: true,
+          inviteReason: inkipitInviteReason || 'Invitation admin',
+          invitedBy: 'current-admin-id', // TODO: Utiliser l'ID de l'admin connecté
+        });
+        console.log(`✅ Invitation Inkipit créée pour l'utilisateur ${uid}`);
+      }
+
       notifications.show({
         title: 'Succès',
-        message: 'Utilisateur mis à jour avec succès',
+        message: isInkipitGuest && !hasExistingInkipitInvite
+          ? 'Utilisateur mis à jour et invitation Inkipit créée'
+          : 'Utilisateur mis à jour avec succès',
         color: 'green',
       });
 
@@ -947,6 +993,57 @@ export function UserEditPage() {
           </>
         )}
       </Accordion>
+
+      {/* Invitation Soirée Inkipit */}
+      <Paper withBorder p="md" radius="md" bg={hasExistingInkipitInvite ? 'green.0' : 'pink.0'} mt="xl">
+        <Group gap="md" align="flex-start">
+          <ThemeIcon size="lg" radius="xl" color={hasExistingInkipitInvite ? 'green' : 'pink'} variant="light">
+            <IconTicket size={20} />
+          </ThemeIcon>
+          <Box style={{ flex: 1 }}>
+            <Text fw={600} size="md" c={hasExistingInkipitInvite ? 'green.8' : 'pink.8'}>
+              Invitation Soiree Inkipit
+            </Text>
+            {hasExistingInkipitInvite ? (
+              <>
+                <Text size="sm" c="green.7" mb="sm">
+                  Cet utilisateur a deja une invitation pour la soiree Inkipit.
+                </Text>
+                <Paper p="sm" bg="white" radius="md">
+                  <Text size="sm" fw={500}>Raison de l'invitation :</Text>
+                  <Text size="sm" c="dimmed">{existingInkipitInviteReason || 'Non specifiee'}</Text>
+                </Paper>
+              </>
+            ) : (
+              <>
+                <Text size="sm" c="dimmed" mb="sm">
+                  Cochez cette case pour inviter l'utilisateur a la soiree Inkipit du 31 decembre 2024.
+                  Un billet gratuit "PACK PARTY HARDER" sera automatiquement cree.
+                </Text>
+                <Checkbox
+                  label="Inviter a la soiree Inkipit"
+                  checked={isInkipitGuest}
+                  onChange={(e) => setIsInkipitGuest(e.currentTarget.checked)}
+                  color="pink"
+                  styles={{
+                    label: { fontWeight: 600 },
+                  }}
+                />
+                {isInkipitGuest && (
+                  <TextInput
+                    mt="sm"
+                    label="Raison de l'invitation"
+                    placeholder="Ex: Invite VIP, Partenaire media, Artiste..."
+                    value={inkipitInviteReason}
+                    onChange={(e) => setInkipitInviteReason(e.currentTarget.value)}
+                    description="Decrivez pourquoi cette personne est invitee"
+                  />
+                )}
+              </>
+            )}
+          </Box>
+        </Group>
+      </Paper>
 
       {/* Boutons d'action */}
       <Group justify="flex-end" mt="xl">

@@ -41,9 +41,11 @@ import {
   IconTicket,
   IconAlertCircle,
   IconMailCheck,
+  IconShoppingCart,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { createUserByAdmin, sendMembershipCard, checkUserDuplicates, type DuplicateCheckResult } from '../../../shared/services/userService';
+import { createUserByAdmin, sendMembershipCard, checkUserDuplicates, addPurchase, type DuplicateCheckResult } from '../../../shared/services/userService';
+import { Timestamp } from 'firebase/firestore';
 import { getAllMembershipPlans } from '../../../shared/services/membershipService';
 import type {
   AdminCreateUserData,
@@ -56,6 +58,28 @@ import type { MembershipPlan } from '../../../shared/types/membership';
 import { AVAILABLE_TAGS } from '../../../shared/types/user';
 import { getAllUniqueTags } from '../../../shared/services/userService';
 import { getTagNames } from '../../../shared/services/tagService';
+
+// Définition des packs crowdfunding avec leurs prix et types
+interface CrowdfundingPack {
+  name: string;
+  price: number;
+  membershipType: 'monthly' | 'annual';
+  description: string;
+}
+
+const CROWDFUNDING_PACKS: CrowdfundingPack[] = [
+  { name: 'PASS Love', price: 2, membershipType: 'monthly', description: 'Adhesion mensuelle' },
+  { name: 'PASS PIONNIER', price: 12, membershipType: 'annual', description: 'Adhesion annuelle' },
+  { name: 'PASS SUMMER', price: 35, membershipType: 'annual', description: 'Pack ete' },
+  { name: 'PACK WINTER', price: 55, membershipType: 'annual', description: 'Pack hiver' },
+  { name: 'PACK PARTY HARDER', price: 25, membershipType: 'annual', description: 'Soiree Inkipit' },
+  { name: 'PACK AMBASSADEUR', price: 60, membershipType: 'annual', description: 'Pack ambassadeur' },
+  { name: 'MEETING PASS', price: 100, membershipType: 'annual', description: 'Pass reunion' },
+  { name: 'COWORK PASS', price: 150, membershipType: 'annual', description: 'Pass coworking' },
+  { name: 'MANUFACTURE PASS', price: 200, membershipType: 'annual', description: 'Pass manufacture' },
+  { name: 'PRIVATE PASS', price: 400, membershipType: 'annual', description: 'Pass prive' },
+  { name: 'LES BÂTISSEURS du FORT', price: 1000, membershipType: 'annual', description: 'Pack batisseurs' },
+];
 
 export function UserCreatePage() {
   const navigate = useNavigate();
@@ -99,6 +123,11 @@ export function UserCreatePage() {
   // Form state - Invitation Inkipit
   const [isInkipitGuest, setIsInkipitGuest] = useState(false);
   const [inkipitInviteReason, setInkipitInviteReason] = useState('');
+
+  // Form state - Achat crowdfunding
+  const [addCrowdfundingPurchase, setAddCrowdfundingPurchase] = useState(false);
+  const [selectedPackName, setSelectedPackName] = useState<string | null>(null);
+  const [purchaseNotes, setPurchaseNotes] = useState('');
 
   // Form state - Profil étendu (pour abonnement annuel)
   const [showExtendedProfile, setShowExtendedProfile] = useState(false);
@@ -340,9 +369,29 @@ export function UserCreatePage() {
       setSaving(true);
       const userId = await createUserByAdmin('current-admin-id', validation.userData);
 
+      // Si un achat crowdfunding est demandé, le créer
+      if (addCrowdfundingPurchase && selectedPackName) {
+        const selectedPack = CROWDFUNDING_PACKS.find(p => p.name === selectedPackName);
+        if (selectedPack) {
+          await addPurchase(userId, {
+            type: 'event_ticket',
+            source: 'admin',
+            itemName: selectedPack.name,
+            itemDescription: purchaseNotes || `Achat ${selectedPack.name} via admin`,
+            amount: selectedPack.price,
+            paymentId: `ADMIN-${Date.now()}`,
+            paymentStatus: 'completed',
+            purchasedAt: Timestamp.now(),
+          });
+          console.log(`✅ Achat ${selectedPack.name} créé pour l'utilisateur ${userId}`);
+        }
+      }
+
       notifications.show({
         title: 'Succès',
-        message: 'Utilisateur créé avec succès',
+        message: addCrowdfundingPurchase && selectedPackName
+          ? `Utilisateur créé avec achat ${selectedPackName}`
+          : 'Utilisateur créé avec succès',
         color: 'green',
       });
 
@@ -373,6 +422,24 @@ export function UserCreatePage() {
       // Étape 1: Créer l'utilisateur
       const userId = await createUserByAdmin('current-admin-id', validation.userData);
       setCreatedUserId(userId);
+
+      // Si un achat crowdfunding est demandé, le créer
+      if (addCrowdfundingPurchase && selectedPackName) {
+        const selectedPack = CROWDFUNDING_PACKS.find(p => p.name === selectedPackName);
+        if (selectedPack) {
+          await addPurchase(userId, {
+            type: 'event_ticket',
+            source: 'admin',
+            itemName: selectedPack.name,
+            itemDescription: purchaseNotes || `Achat ${selectedPack.name} via admin`,
+            amount: selectedPack.price,
+            paymentId: `ADMIN-${Date.now()}`,
+            paymentStatus: 'completed',
+            purchasedAt: Timestamp.now(),
+          });
+          console.log(`✅ Achat ${selectedPack.name} créé pour l'utilisateur ${userId}`);
+        }
+      }
 
       // Attendre un peu pour que la création soit bien finalisée
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -982,6 +1049,71 @@ export function UserCreatePage() {
             </Accordion.Panel>
           </Accordion.Item>
         </Accordion>
+
+        {/* Achat Crowdfunding */}
+        <Paper withBorder p="md" radius="md" bg="blue.0">
+          <Group gap="md" align="flex-start">
+            <ThemeIcon size="lg" radius="xl" color="blue" variant="light">
+              <IconShoppingCart size={20} />
+            </ThemeIcon>
+            <Box style={{ flex: 1 }}>
+              <Text fw={600} size="md" c="blue.8">
+                Ajouter un achat crowdfunding
+              </Text>
+              <Text size="sm" c="dimmed" mb="sm">
+                Ajoutez un achat de pack crowdfunding pour cet utilisateur (sans passer par le paiement).
+                Utile pour les invitations, les partenaires, ou les achats faits en dehors de la plateforme.
+              </Text>
+              <Checkbox
+                label="Ajouter un achat"
+                checked={addCrowdfundingPurchase}
+                onChange={(e) => {
+                  setAddCrowdfundingPurchase(e.currentTarget.checked);
+                  if (!e.currentTarget.checked) {
+                    setSelectedPackName(null);
+                    setPurchaseNotes('');
+                  }
+                }}
+                color="blue"
+                styles={{
+                  label: { fontWeight: 600 },
+                }}
+              />
+              {addCrowdfundingPurchase && (
+                <Stack gap="sm" mt="sm">
+                  <Select
+                    label="Pack a ajouter"
+                    placeholder="Selectionner un pack"
+                    data={CROWDFUNDING_PACKS.map((pack) => ({
+                      value: pack.name,
+                      label: `${pack.name} - ${pack.price}€ (${pack.description})`,
+                    }))}
+                    value={selectedPackName}
+                    onChange={setSelectedPackName}
+                    required
+                  />
+                  {selectedPackName && (
+                    <Paper p="xs" bg="white" radius="md">
+                      <Group justify="space-between">
+                        <Text size="sm" fw={500}>Prix du pack :</Text>
+                        <Text size="sm" c="blue.7" fw={600}>
+                          {CROWDFUNDING_PACKS.find(p => p.name === selectedPackName)?.price}€
+                        </Text>
+                      </Group>
+                    </Paper>
+                  )}
+                  <TextInput
+                    label="Notes (optionnel)"
+                    placeholder="Ex: Achat fait en especes, Partenaire media..."
+                    value={purchaseNotes}
+                    onChange={(e) => setPurchaseNotes(e.currentTarget.value)}
+                    description="Notes internes sur cet achat"
+                  />
+                </Stack>
+              )}
+            </Box>
+          </Group>
+        </Paper>
 
         {/* Invitation Soirée Inkipit */}
         <Paper withBorder p="md" radius="md" bg="pink.0">

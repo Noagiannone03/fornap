@@ -219,6 +219,10 @@ export async function getInkipitParticipants(): Promise<InkipitParticipant[]> {
                     hasActiveSubscription: isSubscriptionActive(userData),
                     membershipType: userData.currentMembership?.planType,
                     membershipExpiry: toTimestamp(userData.currentMembership?.expiryDate),
+
+                    // Info d'invitation
+                    isInvite: purchaseData.isInvite || false,
+                    inviteReason: purchaseData.inviteReason,
                 });
             }
         }

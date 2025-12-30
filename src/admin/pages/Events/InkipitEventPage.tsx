@@ -472,6 +472,12 @@ export function InkipitEventPage() {
                                                         Annulé
                                                     </Badge>
                                                 </Tooltip>
+                                            ) : participant.isInvite ? (
+                                                <Tooltip label={participant.inviteReason || 'Invitation admin'}>
+                                                    <Badge color="pink" variant="filled">
+                                                        INVITE
+                                                    </Badge>
+                                                </Tooltip>
                                             ) : (
                                                 <Badge color="blue" variant="light">
                                                     {participant.amount}EUR

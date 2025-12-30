@@ -503,7 +503,7 @@ export function InkipitEventPage() {
                                                     <ActionIcon
                                                         variant="subtle"
                                                         color="blue"
-                                                        onClick={() => navigate(`/admin/users/${participant.userId}`)}
+                                                        onClick={() => navigate(`/admin/users/${participant.userId}?from=inkipit`)}
                                                     >
                                                         <IconExternalLink size={16} />
                                                     </ActionIcon>
@@ -519,7 +519,7 @@ export function InkipitEventPage() {
                                                         <Menu.Label>Actions</Menu.Label>
                                                         <Menu.Item
                                                             leftSection={<IconExternalLink size={14} />}
-                                                            onClick={() => navigate(`/admin/users/${participant.userId}`)}
+                                                            onClick={() => navigate(`/admin/users/${participant.userId}?from=inkipit`)}
                                                         >
                                                             Voir le profil
                                                         </Menu.Item>

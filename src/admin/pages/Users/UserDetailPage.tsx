@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Container,
   Title,
@@ -114,6 +114,7 @@ function toDate(timestamp: any): Date | null {
 export function UserDetailPage() {
   const { uid } = useParams<{ uid: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [actionHistory, setActionHistory] = useState<ActionHistory[]>([]);
@@ -275,6 +276,16 @@ export function UserDetailPage() {
   // Note: La regeneration du QR code n'est plus necessaire car le QR code
   // est maintenant base directement sur l'UID de l'utilisateur, qui ne change jamais.
 
+  // Gérer le bouton retour en fonction de la provenance
+  const handleGoBack = () => {
+    const from = searchParams.get('from');
+    if (from === 'inkipit') {
+      navigate('/admin/events/inkipit');
+    } else {
+      navigate('/admin/users');
+    }
+  };
+
   if (loading || !user) {
     return (
       <Container size="xl" pos="relative">
@@ -293,7 +304,7 @@ export function UserDetailPage() {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={() => navigate('/admin/users')}
+            onClick={handleGoBack}
           >
             Retour
           </Button>

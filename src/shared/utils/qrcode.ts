@@ -86,6 +86,149 @@ export const downloadQRCode = async (
 };
 
 /**
+ * Interface pour les données de l'utilisateur nécessaires à la génération de la carte
+ */
+interface MembershipCardUserData {
+  uid: string;
+  firstName: string;
+  lastName: string;
+  membershipType: 'monthly' | 'annual' | 'lifetime';
+  expiryDate?: Date | null;
+}
+
+/**
+ * Charge une police de façon async
+ */
+const loadFont = async (fontName: string, fontUrl: string): Promise<void> => {
+  try {
+    const font = new FontFace(fontName, `url(${fontUrl})`);
+    await font.load();
+    document.fonts.add(font);
+  } catch (error) {
+    console.warn(`Impossible de charger la police ${fontName}:`, error);
+  }
+};
+
+/**
+ * Charge une image de façon async
+ */
+const loadImage = (src: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Impossible de charger l'image: ${src}`));
+    img.src = src;
+  });
+};
+
+/**
+ * Génère et télécharge la carte d'adhérent complète (comme celle envoyée par email)
+ */
+export const downloadMembershipCard = async (
+  userData: MembershipCardUserData
+): Promise<void> => {
+  try {
+    // Charger les polices AcherusFeral
+    await Promise.all([
+      loadFont('AcherusFeral-Bold', '/fonts/AcherusFeral-Bold.otf'),
+      loadFont('AcherusFeral-Light', '/fonts/AcherusFeral-Light.otf'),
+    ]);
+
+    // Charger l'image de fond
+    const backgroundImage = await loadImage('/membership-card-base.png');
+
+    // Générer le QR code
+    const qrCodeDataURL = await generateQRCodeDataURL(userData.uid, {
+      width: 380,
+      margin: 1,
+    });
+    const qrImage = await loadImage(qrCodeDataURL);
+
+    // Type d'abonnement
+    const membershipTypeLabel =
+      userData.membershipType === 'monthly' ? 'membre mensuel' :
+        userData.membershipType === 'annual' ? 'membre annuel' :
+          'membre honoraire';
+
+    // Date d'expiration
+    let expiryText = 'expire le 31/12/25';
+    if (userData.expiryDate) {
+      expiryText = `expire le ${userData.expiryDate.toLocaleDateString('fr-FR')}`;
+    }
+
+    const fullName = `${userData.firstName} ${userData.lastName}`;
+
+    // Code membre (7 premiers caractères de l'UID en majuscules)
+    const memberCode = userData.uid.substring(0, 7).toUpperCase();
+
+    // Créer le canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = 450;
+    canvas.height = 800;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('Impossible de créer le contexte canvas');
+    }
+
+    // Activer l'antialiasing
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Dessiner l'image de fond
+    ctx.drawImage(backgroundImage, 0, 0, 450, 800);
+
+    // Dessiner le QR code
+    ctx.drawImage(qrImage, 130, 340, 190, 190);
+
+    // Ajouter une ombre pour le texte
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 2;
+
+    // Configurer le texte
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+
+    // Ligne 1: "CODE :" (Light, 17px)
+    ctx.font = '300 17px "AcherusFeral-Light", Arial, sans-serif';
+    ctx.fillText('CODE :', 225, 595);
+
+    // Ligne 2: Code membre (Bold, 17px)
+    ctx.font = '700 17px "AcherusFeral-Bold", Arial, sans-serif';
+    ctx.fillText(memberCode, 225, 620);
+
+    // Ligne 3: Type d'abonnement (Bold, 17px)
+    ctx.font = '700 17px "AcherusFeral-Bold", Arial, sans-serif';
+    ctx.fillText(membershipTypeLabel, 225, 645);
+
+    // Ligne 4: Date d'expiration (Light, 15px)
+    ctx.font = '300 15px "AcherusFeral-Light", Arial, sans-serif';
+    ctx.fillText(expiryText, 225, 670);
+
+    // Ligne 5: Nom complet (Bold, 19px)
+    ctx.font = '700 19px "AcherusFeral-Bold", Arial, sans-serif';
+    ctx.fillText(fullName, 225, 700);
+
+    // Convertir en Data URL et télécharger
+    const dataURL = canvas.toDataURL('image/png');
+
+    const link = document.createElement('a');
+    link.href = dataURL;
+    link.download = `FOR+NAP-Carte-Membre-${userData.firstName}-${userData.lastName}.png`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Erreur lors de la génération de la carte d\'adhérent:', error);
+    throw new Error('Impossible de générer la carte d\'adhérent');
+  }
+};
+
+/**
  * Valide si une chaîne correspond au format de QR code Fornap
  */
 export const isValidQRCodeContent = (content: string): boolean => {

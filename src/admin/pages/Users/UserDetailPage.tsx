@@ -447,6 +447,8 @@ export function UserDetailPage() {
                   size={200}
                   showDownloadButton={true}
                   showUserInfo={false}
+                  membershipType={user.currentMembership?.planType || 'annual'}
+                  expiryDate={user.currentMembership?.expiryDate ? toDate(user.currentMembership.expiryDate) : null}
                 />
               </Center>
 

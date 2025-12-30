@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Box, Button, Stack, Text, Loader, Center } from '@mantine/core';
 import { IconDownload } from '@tabler/icons-react';
-import { generateQRCodeDataURL, downloadQRCode } from '../../../shared/utils/qrcode';
+import { generateQRCodeDataURL, downloadMembershipCard } from '../../../shared/utils/qrcode';
 
 interface QRCodeDisplayProps {
   uid: string;
@@ -10,6 +10,8 @@ interface QRCodeDisplayProps {
   size?: number;
   showDownloadButton?: boolean;
   showUserInfo?: boolean;
+  membershipType?: 'monthly' | 'annual' | 'lifetime';
+  expiryDate?: Date | null;
 }
 
 export const QRCodeDisplay = ({
@@ -19,6 +21,8 @@ export const QRCodeDisplay = ({
   size = 300,
   showDownloadButton = true,
   showUserInfo = true,
+  membershipType = 'annual',
+  expiryDate = null,
 }: QRCodeDisplayProps) => {
   const [qrCodeDataURL, setQRCodeDataURL] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,10 +52,16 @@ export const QRCodeDisplay = ({
   const handleDownload = async () => {
     try {
       setDownloading(true);
-      await downloadQRCode(uid, firstName, lastName);
+      await downloadMembershipCard({
+        uid,
+        firstName,
+        lastName,
+        membershipType,
+        expiryDate,
+      });
     } catch (err) {
-      console.error('Erreur téléchargement QR code:', err);
-      setError('Impossible de télécharger le QR code');
+      console.error('Erreur téléchargement carte d\'adhérent:', err);
+      setError('Impossible de télécharger la carte');
     } finally {
       setDownloading(false);
     }
@@ -127,7 +137,7 @@ export const QRCodeDisplay = ({
             },
           }}
         >
-          TÉLÉCHARGER LE QR CODE
+          TELECHARGER LA CARTE
         </Button>
       )}
     </Stack>

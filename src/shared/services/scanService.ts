@@ -461,7 +461,7 @@ export async function performScan(
       };
     }
 
-    // 8. Mode INKIPIT_EVENT - vérifier abonnement + billet PACK PARTY HARDER
+    // 8. Mode INKIPIT_EVENT - vérifier UNIQUEMENT le billet PACK PARTY HARDER (pas d'abonnement requis)
     if (config.mode === ScanMode.INKIPIT_EVENT) {
       // Utiliser le service Inkipit existant
       const inkipitResult = await scanInkipitTicket(uid, scannerId);

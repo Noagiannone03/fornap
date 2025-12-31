@@ -338,13 +338,8 @@ export async function scanInkipitTicket(
             return scanInkipitTicket(userData.mergedIntoUserId, scannerId);
         }
 
-        // 2. Vérifier l'abonnement actif
-        if (!isSubscriptionActive(userData)) {
-            return {
-                status: 'SUBSCRIPTION_INACTIVE',
-                message: 'Abonnement inactif ou expiré',
-            };
-        }
+        // 2. Pour la soirée Inkipit, on ne vérifie PAS l'abonnement actif
+        // On vérifie UNIQUEMENT l'achat du PACK PARTY HARDER
 
         // 3. Chercher le billet PACK PARTY HARDER
         const purchasesRef = collection(db, USERS_COLLECTION, userId, PURCHASES_SUBCOLLECTION);

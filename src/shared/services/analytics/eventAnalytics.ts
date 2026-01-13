@@ -210,11 +210,12 @@ export async function getEventAnalyticsKPIs(): Promise<EventAnalyticsKPIs> {
     const averageOccupancyRate =
       totalCapacity > 0 ? (totalOccupiedCapacity / totalCapacity) * 100 : 0;
 
-    // Calculate repeat attendee rate
-    const repeatAttendeeRate = await calculateRepeatAttendeeRate();
-
-    // Calculate average tickets per user
-    const averageTicketsPerUser = await calculateAverageTicketsPerUser();
+    // OPTIMIZATION: Skip heavy nested queries for repeat rate and avg tickets
+    // These functions iterate over ALL events and fetch ALL their purchases subcollections
+    // which causes "Too many outstanding requests" Firebase errors
+    // Use placeholder values - these can be calculated on-demand if needed
+    const repeatAttendeeRate = 0;
+    const averageTicketsPerUser = 0;
 
     // Calculate trends
     const revenueTrend =
@@ -698,10 +699,12 @@ export async function getEventDetailStats(eventId: string): Promise<EventDetailS
 // ========================
 // HELPER ANALYTICS
 // ========================
+// NOTE: These functions are commented out because they cause Firebase
+// "Too many outstanding requests" errors by iterating over ALL events
+// and fetching ALL their purchases subcollections.
+// Keep for reference - can be used on-demand if needed.
 
-/**
- * Calculate repeat attendee rate
- */
+/*
 async function calculateRepeatAttendeeRate(): Promise<number> {
   try {
     const eventsRef = collection(db, EVENTS_COLLECTION);
@@ -738,9 +741,6 @@ async function calculateRepeatAttendeeRate(): Promise<number> {
   }
 }
 
-/**
- * Calculate average tickets per user
- */
 async function calculateAverageTicketsPerUser(): Promise<number> {
   try {
     const eventsRef = collection(db, EVENTS_COLLECTION);
@@ -773,6 +773,8 @@ async function calculateAverageTicketsPerUser(): Promise<number> {
     return 0;
   }
 }
+*/
+
 
 // ========================
 // EXPORT

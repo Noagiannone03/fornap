@@ -59,32 +59,91 @@ export function DashboardPage() {
       setLoading(true);
       setError(null);
 
-      // Charger toutes les données en parallèle
-      const [overview, financial, contributions, events, engagement, dist] = await Promise.all([
-        getOverviewKPIs(),
-        getFinancialKPIs(),
-        getContributionKPIs(),
-        getEventAnalyticsKPIs(),
-        getEngagementKPIs(),
-        getMembershipDistribution(),
-      ]);
+      // IMPORTANT: Charger les donnees SEQUENTIELLEMENT pour eviter
+      // "Too many outstanding requests" de Firebase
+      // Chaque service fait un getDocs(users) donc on doit limiter les requetes concurrentes
 
-      setOverviewKpis(overview);
-      setFinancialKpis(financial);
-      setContributionKpis(contributions);
-      setEventKpis(events);
-      setEngagementKpis(engagement);
-      setDistribution(dist);
+      // 1. Overview KPIs (utilise le cache si dispo)
+      try {
+        const overview = await getOverviewKPIs();
+        setOverviewKpis(overview);
+      } catch (e) {
+        console.error('Error loading overview KPIs:', e);
+      }
 
-      // Charger l'évolution sur les 12 derniers mois
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - 12);
-      const evolution = await getMembersEvolution(startDate, endDate, 'month');
-      setEvolutionData(evolution);
+      // 2. Financial KPIs
+      try {
+        const financial = await getFinancialKPIs();
+        setFinancialKpis(financial);
+      } catch (e) {
+        console.error('Error loading financial KPIs:', e);
+      }
+
+      // 3. Contribution KPIs
+      try {
+        const contributions = await getContributionKPIs();
+        setContributionKpis(contributions);
+      } catch (e) {
+        console.error('Error loading contribution KPIs:', e);
+      }
+
+      // 4. Event KPIs - SKIP si le dashboard est deja lourd
+      // Cette fonction fait des requetes imbriquees sur toutes les subcollections purchases
+      try {
+        const events = await getEventAnalyticsKPIs();
+        setEventKpis(events);
+      } catch (e) {
+        console.error('Error loading event KPIs:', e);
+        // Fallback avec des valeurs par defaut
+        setEventKpis({
+          totalEvents: 0,
+          activeEvents: 0,
+          upcomingEvents: 0,
+          completedEvents: 0,
+          totalRevenue: 0,
+          monthlyRevenue: 0,
+          averageRevenuePerEvent: 0,
+          totalTicketsSold: 0,
+          monthlyTicketsSold: 0,
+          averageTicketPrice: 0,
+          totalAttendees: 0,
+          averageAttendanceRate: 0,
+          averageOccupancyRate: 0,
+          repeatAttendeeRate: 0,
+          averageTicketsPerUser: 0,
+          trends: { revenue: 0, ticketsSold: 0, attendanceRate: 0, events: 0 },
+        });
+      }
+
+      // 5. Engagement KPIs
+      try {
+        const engagement = await getEngagementKPIs();
+        setEngagementKpis(engagement);
+      } catch (e) {
+        console.error('Error loading engagement KPIs:', e);
+      }
+
+      // 6. Membership Distribution
+      try {
+        const dist = await getMembershipDistribution();
+        setDistribution(dist);
+      } catch (e) {
+        console.error('Error loading distribution:', e);
+      }
+
+      // 7. Evolution sur les 12 derniers mois
+      try {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 12);
+        const evolution = await getMembersEvolution(startDate, endDate, 'month');
+        setEvolutionData(evolution);
+      } catch (e) {
+        console.error('Error loading evolution:', e);
+      }
     } catch (err) {
       console.error('Error loading dashboard data:', err);
-      setError('Erreur lors du chargement des données du tableau de bord');
+      setError('Erreur lors du chargement des donnees du tableau de bord');
     } finally {
       setLoading(false);
     }
@@ -93,9 +152,9 @@ export function DashboardPage() {
   // Préparer les données pour le pie chart
   const distributionData = distribution
     ? [
-        { name: 'Mensuel', value: distribution.byType.monthly, color: '#339AF0' },
-        { name: 'Annuel', value: distribution.byType.annual, color: '#51CF66' },
-      ]
+      { name: 'Mensuel', value: distribution.byType.monthly, color: '#339AF0' },
+      { name: 'Annuel', value: distribution.byType.annual, color: '#51CF66' },
+    ]
     : [];
 
   return (

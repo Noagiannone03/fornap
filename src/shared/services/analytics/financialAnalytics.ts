@@ -1,17 +1,16 @@
-import {
-  collection,
-  getDocs,
-} from 'firebase/firestore';
+import { doc, setDoc, getDoc, Timestamp, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import type { FinancialKPIs, RevenueEvolutionData, TransactionData } from '../../types/user';
 import { getUserMembershipHistory } from '../userService';
+import { getUsers, type CachedUser } from './usersDataCache';
 
+const FINANCIAL_CACHE_DOC = 'analytics/financial';
 const USERS_COLLECTION = 'users';
 
 /**
- * Normalise le type de plan pour gérer les variations
- * @param planType - Le type de plan brut de la base de données
- * @returns Le type normalisé ('monthly', 'annual', 'lifetime') ou null
+ * Normalise le type de plan pour gerer les variations
+ * @param planType - Le type de plan brut de la base de donnees
+ * @returns Le type normalise ('monthly', 'annual', 'lifetime') ou null
  */
 function normalizePlanType(planType: any): 'monthly' | 'annual' | 'lifetime' | null {
   if (!planType || planType === 'null' || planType === 'undefined') return null;
@@ -21,6 +20,7 @@ function normalizePlanType(planType: any): 'monthly' | 'annual' | 'lifetime' | n
   // Mapping des variations
   if (type === 'monthly' || type === 'month') return 'monthly';
   if (type === 'annual' || type === 'year' || type === 'yearly') return 'annual';
+  if (type === 'lifetime') return 'lifetime';
 
   return null;
 }
@@ -31,10 +31,10 @@ function normalizePlanType(planType: any): 'monthly' | 'annual' | 'lifetime' | n
 function toDate(value: any): Date | null {
   if (!value) return null;
 
-  // Si c'est déjà un objet Date
+  // Si c'est deja un objet Date
   if (value instanceof Date) return value;
 
-  // Si c'est un Timestamp Firestore avec la méthode toDate()
+  // Si c'est un Timestamp Firestore avec la methode toDate()
   if (value.toDate && typeof value.toDate === 'function') {
     return value.toDate();
   }
@@ -54,105 +54,154 @@ function toDate(value: any): Date | null {
 }
 
 /**
- * Calcule les KPIs financiers
+ * Recupere les KPIs financiers caches s'ils sont recents (< 1 heure)
  */
-export async function getFinancialKPIs(): Promise<FinancialKPIs> {
+async function getCachedFinancialKPIs(): Promise<FinancialKPIs | null> {
   try {
-    const usersRef = collection(db, USERS_COLLECTION);
-    const snapshot = await getDocs(usersRef);
+    const [col, docId] = FINANCIAL_CACHE_DOC.split('/');
+    const docRef = doc(db, col, docId);
+    const docSnap = await getDoc(docRef);
 
-    let totalRevenue = 0;
-    let mrr = 0; // Monthly Recurring Revenue
-    let activeUsers = 0;
-    const revenueByType = { monthly: 0, annual: 0, lifetime: 0 };
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const updatedAt = data.updatedAt?.toDate();
+      const now = new Date();
 
-    // Calculer le churn (utilisateurs qui ont annulé ou expiré dans le dernier mois)
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-    let churnedUsers = 0;
-
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      const membership = data.currentMembership;
-
-      // Vérifier que membership existe
-      if (!membership) return;
-
-      // Revenu total (tous les paiements)
-      if (membership.paymentStatus === 'paid') {
-        totalRevenue += membership.price || 0;
-
-        // Répartition par type (normaliser)
-        const normalizedType = normalizePlanType(membership.planType);
-        if (normalizedType === 'monthly') {
-          revenueByType.monthly += membership.price || 0;
-        } else if (normalizedType === 'annual') {
-          revenueByType.annual += membership.price || 0;
-        } else if (normalizedType === 'lifetime') {
-          revenueByType.lifetime += membership.price || 0;
-        }
+      if (updatedAt && (now.getTime() - updatedAt.getTime()) < 60 * 60 * 1000) {
+        return data.kpis as FinancialKPIs;
       }
+    }
+    return null;
+  } catch (e) {
+    console.warn('Failed to fetch cached financial KPIs', e);
+    return null;
+  }
+}
 
-      // MRR : calculer le revenu mensuel récurrent
-      if (membership.status === 'active' && membership.paymentStatus === 'paid') {
-        activeUsers++;
-
-        const normalizedType = normalizePlanType(membership.planType);
-        if (normalizedType === 'monthly') {
-          mrr += membership.price || 0;
-        } else if (normalizedType === 'annual') {
-          // Diviser le prix annuel par 12
-          mrr += (membership.price || 0) / 12;
-        }
-        // Lifetime ne compte pas dans le MRR (paiement unique)
-      }
-
-      // Churn : utilisateurs qui ont annulé ou expiré récemment
-      if (
-        (membership.status === 'expired' || membership.status === 'cancelled') &&
-        membership.expiryDate
-      ) {
-        const expiryDate = toDate(membership.expiryDate);
-        if (expiryDate && expiryDate >= oneMonthAgo) {
-          churnedUsers++;
-        }
-      }
+/**
+ * Sauvegarde les KPIs financiers dans le cache
+ */
+async function cacheFinancialKPIs(kpis: FinancialKPIs): Promise<void> {
+  try {
+    const [col, docId] = FINANCIAL_CACHE_DOC.split('/');
+    const docRef = doc(db, col, docId);
+    await setDoc(docRef, {
+      kpis,
+      updatedAt: Timestamp.now()
     });
+  } catch (e) {
+    console.warn('Failed to cache financial KPIs', e);
+  }
+}
 
-    // ARR (Annual Recurring Revenue)
-    const arr = mrr * 12;
+/**
+ * Calcule les KPIs financiers depuis les donnees users
+ */
+function calculateFinancialKPIsFromUsers(users: CachedUser[]): FinancialKPIs {
+  let totalRevenue = 0;
+  let mrr = 0;
+  let activeUsers = 0;
+  const revenueByType = { monthly: 0, annual: 0, lifetime: 0 };
 
-    // ARPU (Average Revenue Per User)
-    const arpu = activeUsers > 0 ? totalRevenue / activeUsers : 0;
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+  let churnedUsers = 0;
 
-    // Churn Rate (en pourcentage)
-    const churnRate = snapshot.size > 0 ? (churnedUsers / snapshot.size) * 100 : 0;
+  for (const user of users) {
+    const data = user.data;
+    const membership = data.currentMembership;
 
-    // LTV (Lifetime Value) = ARPU / Churn Rate (formule simplifiée)
-    // Si churn rate est très faible, on cap le LTV à une valeur raisonnable
-    let ltv = 0;
-    if (churnRate > 0) {
-      ltv = (arpu / churnRate) * 100;
-      // Cap à 10x ARPU pour éviter des valeurs irréalistes
-      ltv = Math.min(ltv, arpu * 10);
-    } else if (activeUsers > 0) {
-      // Si pas de churn, LTV = ARPU * durée de vie estimée (ex: 36 mois)
-      ltv = arpu * 3;
+    if (!membership) continue;
+
+    if (membership.paymentStatus === 'paid') {
+      totalRevenue += membership.price || 0;
+
+      const normalizedType = normalizePlanType(membership.planType);
+      if (normalizedType === 'monthly') {
+        revenueByType.monthly += membership.price || 0;
+      } else if (normalizedType === 'annual') {
+        revenueByType.annual += membership.price || 0;
+      } else if (normalizedType === 'lifetime') {
+        revenueByType.lifetime += membership.price || 0;
+      }
     }
 
-    return {
-      totalRevenue: Math.round(totalRevenue * 100) / 100,
-      mrr: Math.round(mrr * 100) / 100,
-      arr: Math.round(arr * 100) / 100,
-      arpu: Math.round(arpu * 100) / 100,
-      ltv: Math.round(ltv * 100) / 100,
-      churnRate: Math.round(churnRate * 10) / 10,
-      revenueByType: {
-        monthly: Math.round(revenueByType.monthly * 100) / 100,
-        annual: Math.round(revenueByType.annual * 100) / 100,
-        lifetime: Math.round(revenueByType.lifetime * 100) / 100,
-      },
-    };
+    if (membership.status === 'active' && membership.paymentStatus === 'paid') {
+      activeUsers++;
+
+      const normalizedType = normalizePlanType(membership.planType);
+      if (normalizedType === 'monthly') {
+        mrr += membership.price || 0;
+      } else if (normalizedType === 'annual') {
+        mrr += (membership.price || 0) / 12;
+      }
+    }
+
+    if (
+      (membership.status === 'expired' || membership.status === 'cancelled') &&
+      membership.expiryDate
+    ) {
+      const expiryDate = toDate(membership.expiryDate);
+      if (expiryDate && expiryDate >= oneMonthAgo) {
+        churnedUsers++;
+      }
+    }
+  }
+
+  const arr = mrr * 12;
+  const arpu = activeUsers > 0 ? totalRevenue / activeUsers : 0;
+  const churnRate = users.length > 0 ? (churnedUsers / users.length) * 100 : 0;
+
+  let ltv = 0;
+  if (churnRate > 0) {
+    ltv = (arpu / churnRate) * 100;
+    ltv = Math.min(ltv, arpu * 10);
+  } else if (activeUsers > 0) {
+    ltv = arpu * 3;
+  }
+
+  return {
+    totalRevenue: Math.round(totalRevenue * 100) / 100,
+    mrr: Math.round(mrr * 100) / 100,
+    arr: Math.round(arr * 100) / 100,
+    arpu: Math.round(arpu * 100) / 100,
+    ltv: Math.round(ltv * 100) / 100,
+    churnRate: Math.round(churnRate * 10) / 10,
+    revenueByType: {
+      monthly: Math.round(revenueByType.monthly * 100) / 100,
+      annual: Math.round(revenueByType.annual * 100) / 100,
+      lifetime: Math.round(revenueByType.lifetime * 100) / 100,
+    },
+  };
+}
+
+/**
+ * Calcule les KPIs financiers
+ * OPTIMISE: Utilise le cache de donnees users partage
+ */
+export async function getFinancialKPIs(forceRefresh = false): Promise<FinancialKPIs> {
+  try {
+    // Essayer le cache Firestore d'abord
+    if (!forceRefresh) {
+      const cached = await getCachedFinancialKPIs();
+      if (cached) {
+        console.log('[FinancialKPIs] Returning cached KPIs');
+        return cached;
+      }
+    }
+
+    console.log('[FinancialKPIs] Calculating from users cache...');
+
+    // Utiliser le cache de donnees users partage
+    const users = await getUsers(forceRefresh);
+
+    // Calculer les KPIs depuis les donnees cachees
+    const result = calculateFinancialKPIsFromUsers(users);
+
+    // Mettre a jour le cache Firestore en arriere-plan
+    cacheFinancialKPIs(result);
+
+    return result;
   } catch (error) {
     console.error('Error getting financial KPIs:', error);
     throw error;

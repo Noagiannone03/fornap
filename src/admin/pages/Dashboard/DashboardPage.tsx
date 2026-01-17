@@ -59,41 +59,59 @@ export function DashboardPage() {
       setLoading(true);
       setError(null);
 
-      // IMPORTANT: Charger les donnees SEQUENTIELLEMENT pour eviter
-      // "Too many outstanding requests" de Firebase
-      // Chaque service fait un getDocs(users) donc on doit limiter les requetes concurrentes
+      console.log('[Dashboard] Starting optimized parallel load...');
+      const startTime = performance.now();
 
-      // 1. Overview KPIs (utilise le cache si dispo)
-      try {
-        const overview = await getOverviewKPIs();
-        setOverviewKpis(overview);
-      } catch (e) {
-        console.error('Error loading overview KPIs:', e);
+      // OPTIMIZATION: Charger toutes les donnees EN PARALLELE
+      // Les services analyticsService et financialAnalytics utilisent maintenant
+      // un cache partage (usersDataCache) donc ils ne font plus de requetes redondantes
+
+      const [
+        overviewResult,
+        financialResult,
+        contributionResult,
+        eventResult,
+        engagementResult,
+        distributionResult,
+        evolutionResult,
+      ] = await Promise.allSettled([
+        getOverviewKPIs(),
+        getFinancialKPIs(),
+        getContributionKPIs(),
+        getEventAnalyticsKPIs(),
+        getEngagementKPIs(),
+        getMembershipDistribution(),
+        (async () => {
+          const endDate = new Date();
+          const startDate = new Date();
+          startDate.setMonth(startDate.getMonth() - 12);
+          return getMembersEvolution(startDate, endDate, 'month');
+        })(),
+      ]);
+
+      // Appliquer les resultats
+      if (overviewResult.status === 'fulfilled') {
+        setOverviewKpis(overviewResult.value);
+      } else {
+        console.error('Error loading overview KPIs:', overviewResult.reason);
       }
 
-      // 2. Financial KPIs
-      try {
-        const financial = await getFinancialKPIs();
-        setFinancialKpis(financial);
-      } catch (e) {
-        console.error('Error loading financial KPIs:', e);
+      if (financialResult.status === 'fulfilled') {
+        setFinancialKpis(financialResult.value);
+      } else {
+        console.error('Error loading financial KPIs:', financialResult.reason);
       }
 
-      // 3. Contribution KPIs
-      try {
-        const contributions = await getContributionKPIs();
-        setContributionKpis(contributions);
-      } catch (e) {
-        console.error('Error loading contribution KPIs:', e);
+      if (contributionResult.status === 'fulfilled') {
+        setContributionKpis(contributionResult.value);
+      } else {
+        console.error('Error loading contribution KPIs:', contributionResult.reason);
       }
 
-      // 4. Event KPIs - SKIP si le dashboard est deja lourd
-      // Cette fonction fait des requetes imbriquees sur toutes les subcollections purchases
-      try {
-        const events = await getEventAnalyticsKPIs();
-        setEventKpis(events);
-      } catch (e) {
-        console.error('Error loading event KPIs:', e);
+      if (eventResult.status === 'fulfilled') {
+        setEventKpis(eventResult.value);
+      } else {
+        console.error('Error loading event KPIs:', eventResult.reason);
         // Fallback avec des valeurs par defaut
         setEventKpis({
           totalEvents: 0,
@@ -115,32 +133,27 @@ export function DashboardPage() {
         });
       }
 
-      // 5. Engagement KPIs
-      try {
-        const engagement = await getEngagementKPIs();
-        setEngagementKpis(engagement);
-      } catch (e) {
-        console.error('Error loading engagement KPIs:', e);
+      if (engagementResult.status === 'fulfilled') {
+        setEngagementKpis(engagementResult.value);
+      } else {
+        console.error('Error loading engagement KPIs:', engagementResult.reason);
       }
 
-      // 6. Membership Distribution
-      try {
-        const dist = await getMembershipDistribution();
-        setDistribution(dist);
-      } catch (e) {
-        console.error('Error loading distribution:', e);
+      if (distributionResult.status === 'fulfilled') {
+        setDistribution(distributionResult.value);
+      } else {
+        console.error('Error loading distribution:', distributionResult.reason);
       }
 
-      // 7. Evolution sur les 12 derniers mois
-      try {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setMonth(startDate.getMonth() - 12);
-        const evolution = await getMembersEvolution(startDate, endDate, 'month');
-        setEvolutionData(evolution);
-      } catch (e) {
-        console.error('Error loading evolution:', e);
+      if (evolutionResult.status === 'fulfilled') {
+        setEvolutionData(evolutionResult.value);
+      } else {
+        console.error('Error loading evolution:', evolutionResult.reason);
       }
+
+      const duration = Math.round(performance.now() - startTime);
+      console.log(`[Dashboard] All data loaded in ${duration}ms`);
+
     } catch (err) {
       console.error('Error loading dashboard data:', err);
       setError('Erreur lors du chargement des donnees du tableau de bord');

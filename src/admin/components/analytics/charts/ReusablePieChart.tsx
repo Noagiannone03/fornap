@@ -60,14 +60,14 @@ export function ReusablePieChart({
               cx="50%"
               cy="50%"
               innerRadius={innerRadius}
-              outerRadius={80}
+              outerRadius={innerRadius > 0 ? innerRadius + 40 : 100}
               fill="#8884d8"
               dataKey="value"
               label={(props: any) => {
                 const { name, percent } = props;
                 return `${name}: ${(percent * 100).toFixed(0)}%`;
               }}
-              labelLine={false}
+              labelLine={true}
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />

@@ -1,12 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
   Container,
-  Title,
-  Paper,
-  TextInput,
-  Group,
-  Button,
-  Select,
   Table,
   Badge,
   ActionIcon,
@@ -14,7 +8,6 @@ import {
   Avatar,
   Text,
   Stack,
-  Pagination,
   TagsInput,
   LoadingOverlay,
   Tooltip,
@@ -22,14 +15,11 @@ import {
   Progress,
   Alert,
   Modal,
+  Group,
+  Paper,
+  Button,
 } from '@mantine/core';
-import { DatePickerInput } from '@mantine/dates';
 import {
-  IconSearch,
-  IconDownload,
-  IconUpload,
-  IconPlus,
-  IconDots,
   IconEye,
   IconEdit,
   IconTrash,
@@ -39,17 +29,13 @@ import {
   IconCreditCard,
   IconCreditCardOff,
   IconArrowRight,
-  IconUsers,
-  IconAlertTriangle,
+  IconDots,
   IconMailCheck,
   IconMailX,
   IconSend,
-  IconTags,
   IconCheck,
   IconX,
-  IconDatabaseImport,
-  IconUsersGroup,
-  IconWand,
+  IconTags,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -100,6 +86,19 @@ import { DuplicateUserModal } from '../../components/DuplicateUserModal';
 import { DuplicateReviewModal } from '../../components/DuplicateReviewModal';
 import { ItemNormalizationModal } from '../../components/ItemNormalizationModal';
 
+// Import new components
+import {
+  UsersPageHeader,
+  UsersStatsCards,
+  UsersFiltersPanel,
+  UsersTableSection,
+  LegacyMembersSection,
+} from './components';
+
+// ============================================================================
+// Constants
+// ============================================================================
+
 const membershipTypeColors: Record<MembershipType, string> = {
   monthly: 'blue',
   annual: 'green',
@@ -113,46 +112,38 @@ const membershipStatusColors: Record<MembershipStatus, string> = {
   cancelled: 'gray',
 };
 
-// Fonction pour parser la date de création (gère tous les formats Firestore, millisecondes, nanosecondes, etc.)
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
 function parseCreatedAtDate(createdAt: any): Date {
   if (!createdAt) return new Date(0);
 
   try {
-    // Si c'est un Timestamp Firestore avec toDate()
     if (typeof createdAt.toDate === 'function') {
       return createdAt.toDate();
     }
 
-    // Si c'est un objet avec seconds (format Firestore serialized)
     if (typeof createdAt === 'object' && ('seconds' in createdAt || '_seconds' in createdAt)) {
       const seconds = createdAt.seconds || createdAt._seconds || 0;
       const nanoseconds = createdAt.nanoseconds || createdAt._nanoseconds || 0;
-      // Convertir en millisecondes (seconds * 1000 + nanoseconds / 1000000)
       const milliseconds = seconds * 1000 + Math.floor(nanoseconds / 1000000);
       return new Date(milliseconds);
     }
 
-    // Si c'est déjà un objet Date
     if (createdAt instanceof Date) {
       return createdAt;
     }
 
-    // Si c'est un timestamp en millisecondes ou en secondes
     if (typeof createdAt === 'number') {
-      // Si le nombre est trop petit, c'est probablement en secondes (avant 2001 en millisecondes = 978307200000)
-      // Tout timestamp en secondes avant 2030 sera < 2000000000
       if (createdAt < 10000000000) {
-        // C'est en secondes, convertir en millisecondes
         return new Date(createdAt * 1000);
       }
-      // C'est déjà en millisecondes
       return new Date(createdAt);
     }
 
-    // Si c'est une string ISO ou un format date standard
     if (typeof createdAt === 'string') {
       const parsed = new Date(createdAt);
-      // Vérifier que la date est valide
       if (!isNaN(parsed.getTime())) {
         return parsed;
       }
@@ -166,7 +157,26 @@ function parseCreatedAtDate(createdAt: any): Date {
   }
 }
 
-// Composant pour rendre une ligne de tableau
+// ============================================================================
+// UserTableRow Component
+// ============================================================================
+
+interface UserTableRowProps {
+  user: UserListItem;
+  isLegacy: boolean;
+  tagsConfig: TagConfig[];
+  isSelected?: boolean;
+  onSelect?: (uid: string, checked: boolean) => void;
+  onView?: (uid: string) => void;
+  onEdit?: (uid: string) => void;
+  onDelete?: (uid: string, name: string) => void;
+  onSendEmail?: (email: string) => void;
+  onToggleAccountBlock?: (uid: string, current: boolean) => void;
+  onToggleCardBlock?: (uid: string, current: boolean) => void;
+  onMigrate?: (uid: string, name: string) => void;
+  onSendMembershipCard?: (uid: string, userName: string, isResend: boolean) => void;
+}
+
 function UserTableRow({
   user,
   isLegacy,
@@ -181,21 +191,7 @@ function UserTableRow({
   onToggleCardBlock,
   onMigrate,
   onSendMembershipCard,
-}: {
-  user: UserListItem;
-  isLegacy: boolean;
-  tagsConfig: TagConfig[];
-  isSelected?: boolean;
-  onSelect?: (uid: string, checked: boolean) => void;
-  onView?: (uid: string) => void;
-  onEdit?: (uid: string) => void;
-  onDelete?: (uid: string, name: string) => void;
-  onSendEmail?: (email: string) => void;
-  onToggleAccountBlock?: (uid: string, current: boolean) => void;
-  onToggleCardBlock?: (uid: string, current: boolean) => void;
-  onMigrate?: (uid: string, name: string) => void;
-  onSendMembershipCard?: (uid: string, userName: string, isResend: boolean) => void;
-}) {
+}: UserTableRowProps) {
   const hasDataAnomaly = user.tags.includes('DATA_ANOMALY');
   const emailSent = user.emailStatus?.membershipCardSent || false;
   const emailSentCount = user.emailStatus?.membershipCardSentCount || 0;
@@ -223,15 +219,15 @@ function UserTableRow({
             {!isLegacy && (
               <Group gap={4} mt={4}>
                 {emailSent ? (
-                  <Tooltip label={`Email envoyé ${emailSentCount} fois - Dernière fois: ${user.emailStatus?.membershipCardSentAt?.toDate().toLocaleDateString('fr-FR') || 'N/A'}`}>
+                  <Tooltip label={`Email envoye ${emailSentCount} fois - Derniere fois: ${user.emailStatus?.membershipCardSentAt?.toDate().toLocaleDateString('fr-FR') || 'N/A'}`}>
                     <Badge size="xs" variant="light" color="green" leftSection={<IconMailCheck size={12} />}>
-                      Email envoyé {emailSentCount > 1 ? `(x${emailSentCount})` : ''}
+                      Email envoye {emailSentCount > 1 ? `(x${emailSentCount})` : ''}
                     </Badge>
                   </Tooltip>
                 ) : (
-                  <Tooltip label="Email de carte d'adhérent non envoyé">
+                  <Tooltip label="Email de carte d'adherent non envoye">
                     <Badge size="xs" variant="light" color="red" leftSection={<IconMailX size={12} />}>
-                      Email non envoyé
+                      Email non envoye
                     </Badge>
                   </Tooltip>
                 )}
@@ -338,7 +334,7 @@ function UserTableRow({
                     color="blue"
                     onClick={() => onMigrate?.(user.uid, `${user.firstName} ${user.lastName}`)}
                   >
-                    Migrer vers nouveau système
+                    Migrer vers nouveau systeme
                   </Menu.Item>
                   <Menu.Divider />
                   <Menu.Item
@@ -365,7 +361,7 @@ function UserTableRow({
                     color={emailSent ? 'blue' : 'green'}
                     onClick={() => onSendMembershipCard?.(user.uid, `${user.firstName} ${user.lastName}`, emailSent)}
                   >
-                    {emailSent ? 'Renvoyer' : 'Envoyer'} la carte d'adhérent
+                    {emailSent ? 'Renvoyer' : 'Envoyer'} la carte d'adherent
                   </Menu.Item>
                   <Menu.Divider />
                   <Menu.Item
@@ -375,7 +371,7 @@ function UserTableRow({
                     color={user.isAccountBlocked ? 'green' : 'orange'}
                     onClick={() => onToggleAccountBlock?.(user.uid, user.isAccountBlocked)}
                   >
-                    {user.isAccountBlocked ? 'Débloquer' : 'Bloquer'} le compte
+                    {user.isAccountBlocked ? 'Debloquer' : 'Bloquer'} le compte
                   </Menu.Item>
                   <Menu.Item
                     leftSection={
@@ -384,7 +380,7 @@ function UserTableRow({
                     color={user.isCardBlocked ? 'green' : 'orange'}
                     onClick={() => onToggleCardBlock?.(user.uid, user.isCardBlocked)}
                   >
-                    {user.isCardBlocked ? 'Débloquer' : 'Bloquer'} la carte
+                    {user.isCardBlocked ? 'Debloquer' : 'Bloquer'} la carte
                   </Menu.Item>
                   <Menu.Divider />
                   <Menu.Item
@@ -404,7 +400,10 @@ function UserTableRow({
   );
 }
 
-// Interface pour le suivi de la migration
+// ============================================================================
+// Migration Progress Interface
+// ============================================================================
+
 interface MigrationProgress {
   uid: string;
   name: string;
@@ -412,21 +411,29 @@ interface MigrationProgress {
   error?: string;
 }
 
+// ============================================================================
+// Main Component
+// ============================================================================
+
 export function EnhancedUsersListPage() {
   const navigate = useNavigate();
   const { currentUser } = useAdminAuth();
+
+  // Data state
   const [legacyMembers, setLegacyMembers] = useState<UserListItem[]>([]);
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [filteredLegacyMembers, setFilteredLegacyMembers] = useState<UserListItem[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
+  const [tagsConfig, setTagsConfig] = useState<TagConfig[]>([]);
+
+  // Modal states
   const [csvImportModalOpened, setCsvImportModalOpened] = useState(false);
   const [quickAddModalOpened, setQuickAddModalOpened] = useState(false);
   const [sendMassiveCardsModalOpened, setSendMassiveCardsModalOpened] = useState(false);
   const [forceResend, setForceResend] = useState(false);
   const [onlyUnsent, setOnlyUnsent] = useState(false);
-  const [allTags, setAllTags] = useState<string[]>(AVAILABLE_TAGS);
-  const [tagsConfig, setTagsConfig] = useState<TagConfig[]>([]);
   const [tagsManagerOpened, setTagsManagerOpened] = useState(false);
   const [exordeCheckerOpened, setExordeCheckerOpened] = useState(false);
   const [exportModalOpened, setExportModalOpened] = useState(false);
@@ -435,51 +442,52 @@ export function EnhancedUsersListPage() {
   const [itemNormalizationOpened, setItemNormalizationOpened] = useState(false);
   const [contributionFixOpened, setContributionFixOpened] = useState(false);
 
-  // États pour la detection des doublons
+  // Duplicate detection states
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [currentDuplicateIndex, setCurrentDuplicateIndex] = useState(0);
   const [duplicateModalOpened, setDuplicateModalOpened] = useState(false);
   const [duplicateReviewOpened, setDuplicateReviewOpened] = useState(false);
   const [loadingDuplicates, setLoadingDuplicates] = useState(false);
 
-  // États pour la migration multiple
+  // Bulk operations states
   const [selectedLegacyUsers, setSelectedLegacyUsers] = useState<Set<string>>(new Set());
   const [bulkMigrationModalOpened, setBulkMigrationModalOpened] = useState(false);
   const [migrationInProgress, setMigrationInProgress] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState<MigrationProgress[]>([]);
-
-  // États pour la sélection multiple des nouveaux utilisateurs
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [bulkAddTagsModalOpened, setBulkAddTagsModalOpened] = useState(false);
   const [addingTags, setAddingTags] = useState(false);
 
-  // États pour le filtre par plage de dates des NOUVEAUX utilisateurs
-  const [dateRangeStart, setDateRangeStart] = useState<Date | null>(null);
-  const [dateRangeEnd, setDateRangeEnd] = useState<Date | null>(null);
-
-  // États pour le filtre par plage de dates des LEGACY MEMBERS (indépendant)
-  const [legacyDateRangeStart, setLegacyDateRangeStart] = useState<Date | null>(null);
-  const [legacyDateRangeEnd, setLegacyDateRangeEnd] = useState<Date | null>(null);
-
-  const adminUserId = currentUser?.uid || 'system';
-
-  // Calculer le nombre d'utilisateurs qui n'ont pas reçu leur email
-  const unsentUsersCount = users.filter(
-    (u) => !u.emailStatus || !u.emailStatus.membershipCardSent
-  ).length;
-
-  // Filtres
+  // Filter states
   const [search, setSearch] = useState('');
   const [membershipType, setMembershipType] = useState<MembershipType | null>(null);
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [blockedFilter, setBlockedFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>('date_desc');
+  const [dateRangeStart, setDateRangeStart] = useState<Date | null>(null);
+  const [dateRangeEnd, setDateRangeEnd] = useState<Date | null>(null);
+  const [legacyDateRangeStart, setLegacyDateRangeStart] = useState<Date | null>(null);
+  const [legacyDateRangeEnd, setLegacyDateRangeEnd] = useState<Date | null>(null);
 
-  // Pagination
+  // Pagination states
   const [legacyPage, setLegacyPage] = useState(1);
   const [usersPage, setUsersPage] = useState(1);
   const itemsPerPage = 20;
+
+  const adminUserId = currentUser?.uid || 'system';
+
+  // Computed values
+  const unsentUsersCount = users.filter(
+    (u) => !u.emailStatus || !u.emailStatus.membershipCardSent
+  ).length;
+  const emailsSentCount = users.length - unsentUsersCount;
+  const activeSubscriptionsCount = users.filter((u) => u.membership.status === 'active').length;
+  const blockedAccountsCount = users.filter((u) => u.isAccountBlocked).length;
+
+  // ============================================================================
+  // Data Loading
+  // ============================================================================
 
   useEffect(() => {
     loadUsers();
@@ -491,40 +499,6 @@ export function EnhancedUsersListPage() {
     try {
       setLoading(true);
       const data = await getAllUsersForListSeparated();
-
-      // Logs pour debug - afficher les données brutes récupérées
-      console.log('=== DONNÉES BRUTES RÉCUPÉRÉES ===');
-      console.log('Nombre de legacy members:', data.legacyMembers.length);
-      console.log('Nombre d\'utilisateurs:', data.users.length);
-
-      // Afficher TOUS les utilisateurs créés AUJOURD'HUI (5 décembre 2025)
-      const todayStart = new Date('2025-12-05T00:00:00').getTime();
-      const todayEnd = new Date('2025-12-05T23:59:59').getTime();
-
-      const todayUsers = data.users.filter(u => {
-        const timestamp = u.createdAt?.seconds ? u.createdAt.seconds * 1000 : 0;
-        return timestamp >= todayStart && timestamp <= todayEnd;
-      });
-
-      if (todayUsers.length > 0) {
-        console.log(`\n=== ${todayUsers.length} UTILISATEURS CRÉÉS AUJOURD'HUI (05/12/2025) ===`);
-        todayUsers.forEach((user, i) => {
-          const date = user.createdAt?.seconds ? new Date(user.createdAt.seconds * 1000) : new Date(0);
-          console.log(`${i + 1}. ${user.firstName} ${user.lastName} - Timestamp: ${user.createdAt?.seconds || 0} - Date: ${date.toLocaleString('fr-FR')} - Source: ${user.registrationSource}`);
-        });
-      }
-
-      // Afficher les 10 premiers utilisateurs (peu importe la date)
-      const usersToLog = Math.min(10, data.users.length);
-      if (usersToLog > 0) {
-        console.log(`\n=== ${usersToLog} PREMIERS UTILISATEURS (ordre brut de Firestore) ===`);
-        for (let i = 0; i < usersToLog; i++) {
-          const user = data.users[i];
-          const date = user.createdAt?.seconds ? new Date(user.createdAt.seconds * 1000) : new Date(0);
-          console.log(`${i + 1}. ${user.firstName} ${user.lastName} - Timestamp: ${user.createdAt?.seconds || 0} - Date: ${date.toLocaleString('fr-FR')}`);
-        }
-      }
-
       setLegacyMembers(data.legacyMembers);
       setUsers(data.users);
       setFilteredLegacyMembers(data.legacyMembers);
@@ -545,7 +519,6 @@ export function EnhancedUsersListPage() {
     try {
       const config = await getAllTags();
       setTagsConfig(config);
-      // Also update allTags with tag names
       const tagNames = config.map(t => t.name);
       const uniqueTags = await getAllUniqueTags();
       const mergedTags = Array.from(new Set([...AVAILABLE_TAGS, ...tagNames, ...uniqueTags]));
@@ -562,7 +535,6 @@ export function EnhancedUsersListPage() {
         getAllTags(),
       ]);
       const configTagNames = configTags.map(t => t.name);
-      // Merge predefined tags, config tags, and unique tags from users
       const mergedTags = Array.from(new Set([...AVAILABLE_TAGS, ...configTagNames, ...uniqueTags]));
       setAllTags(mergedTags.sort((a, b) => a.localeCompare(b)));
     } catch (error) {
@@ -572,14 +544,15 @@ export function EnhancedUsersListPage() {
   };
 
   const handleTagsUpdated = () => {
-    // Reload tags from Firebase when tags are updated
     loadTagsConfig();
     loadAllTags();
   };
 
-  // Appliquer les filtres et le tri
+  // ============================================================================
+  // Filtering Logic
+  // ============================================================================
+
   useEffect(() => {
-    // Filtres pour les NOUVEAUX UTILISATEURS (tous les filtres disponibles)
     const applyUsersFilters = (userList: UserListItem[]) => {
       let filtered = [...userList];
 
@@ -602,27 +575,19 @@ export function EnhancedUsersListPage() {
         filtered = filtered.filter((user) => user.membership.status === membershipStatus);
       }
 
-      // Filtre par plage de dates pour les nouveaux utilisateurs
       if (dateRangeStart || dateRangeEnd) {
         filtered = filtered.filter((user) => {
           const userDate = parseCreatedAtDate(user.createdAt);
-
           if (dateRangeStart) {
             const startOfDay = new Date(dateRangeStart);
             startOfDay.setHours(0, 0, 0, 0);
-            if (userDate < startOfDay) {
-              return false;
-            }
+            if (userDate < startOfDay) return false;
           }
-
           if (dateRangeEnd) {
             const endOfDay = new Date(dateRangeEnd);
             endOfDay.setHours(23, 59, 59, 999);
-            if (userDate > endOfDay) {
-              return false;
-            }
+            if (userDate > endOfDay) return false;
           }
-
           return true;
         });
       }
@@ -630,41 +595,29 @@ export function EnhancedUsersListPage() {
       return filtered;
     };
 
-    // Filtres pour les LEGACY MEMBERS (SEULEMENT le filtre par plage de dates)
     const applyLegacyFilters = (userList: UserListItem[]) => {
       let filtered = [...userList];
-
-      // SEULEMENT le filtre par plage de dates pour les legacy members
       if (legacyDateRangeStart || legacyDateRangeEnd) {
         filtered = filtered.filter((user) => {
           const userDate = parseCreatedAtDate(user.createdAt);
-
           if (legacyDateRangeStart) {
             const startOfDay = new Date(legacyDateRangeStart);
             startOfDay.setHours(0, 0, 0, 0);
-            if (userDate < startOfDay) {
-              return false;
-            }
+            if (userDate < startOfDay) return false;
           }
-
           if (legacyDateRangeEnd) {
             const endOfDay = new Date(legacyDateRangeEnd);
             endOfDay.setHours(23, 59, 59, 999);
-            if (userDate > endOfDay) {
-              return false;
-            }
+            if (userDate > endOfDay) return false;
           }
-
           return true;
         });
       }
-
       return filtered;
     };
 
     const applySorting = (userList: UserListItem[]) => {
       const sorted = [...userList];
-
       switch (sortBy) {
         case 'name_asc':
           sorted.sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
@@ -673,26 +626,10 @@ export function EnhancedUsersListPage() {
           sorted.sort((a, b) => `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`));
           break;
         case 'date_asc':
-          sorted.sort((a, b) => {
-            const dateA = parseCreatedAtDate(a.createdAt);
-            const dateB = parseCreatedAtDate(b.createdAt);
-            return dateA.getTime() - dateB.getTime();
-          });
+          sorted.sort((a, b) => parseCreatedAtDate(a.createdAt).getTime() - parseCreatedAtDate(b.createdAt).getTime());
           break;
         case 'date_desc':
-          console.log('\n=== TRI PAR DATE (PLUS RÉCENT EN HAUT) ===');
-          sorted.sort((a, b) => {
-            const dateA = parseCreatedAtDate(a.createdAt);
-            const dateB = parseCreatedAtDate(b.createdAt);
-            return dateB.getTime() - dateA.getTime();
-          });
-          // Afficher les 10 premiers utilisateurs triés avec leurs dates
-          console.log('10 premiers utilisateurs après tri par date (desc):');
-          sorted.slice(0, 10).forEach((user, index) => {
-            const date = parseCreatedAtDate(user.createdAt);
-            console.log(`${index + 1}. ${user.firstName} ${user.lastName} - Date: ${date.toLocaleString('fr-FR')} - Timestamp: ${date.getTime()}`);
-            console.log(`   createdAt brut:`, user.createdAt);
-          });
+          sorted.sort((a, b) => parseCreatedAtDate(b.createdAt).getTime() - parseCreatedAtDate(a.createdAt).getTime());
           break;
         case 'points_asc':
           sorted.sort((a, b) => a.loyaltyPoints - b.loyaltyPoints);
@@ -703,14 +640,10 @@ export function EnhancedUsersListPage() {
         case 'tags_count':
           sorted.sort((a, b) => b.tags.length - a.tags.length);
           break;
-        default:
-          break;
       }
-
       return sorted;
     };
 
-    // Appliquer les filtres pour les NOUVEAUX UTILISATEURS
     let filteredUsersData = applyUsersFilters(users);
 
     if (selectedTags.length > 0) {
@@ -724,17 +657,11 @@ export function EnhancedUsersListPage() {
     } else if (blockedFilter === 'card_blocked') {
       filteredUsersData = filteredUsersData.filter((user) => user.isCardBlocked);
     } else if (blockedFilter === 'not_blocked') {
-      filteredUsersData = filteredUsersData.filter(
-        (user) => !user.isAccountBlocked && !user.isCardBlocked
-      );
+      filteredUsersData = filteredUsersData.filter((user) => !user.isAccountBlocked && !user.isCardBlocked);
     }
 
-    // Appliquer le tri pour les nouveaux utilisateurs
     filteredUsersData = applySorting(filteredUsersData);
-
-    // Appliquer les filtres pour les LEGACY MEMBERS (SEULEMENT le filtre par date)
     let filteredLegacyData = applyLegacyFilters(legacyMembers);
-    // Appliquer le tri pour les legacy members
     filteredLegacyData = applySorting(filteredLegacyData);
 
     setFilteredLegacyMembers(filteredLegacyData);
@@ -756,37 +683,34 @@ export function EnhancedUsersListPage() {
     usersPage * itemsPerPage
   );
 
+  // ============================================================================
+  // Action Handlers
+  // ============================================================================
+
   const handleViewUser = (uid: string) => navigate(`/admin/users/${uid}`);
   const handleEditUser = (uid: string) => navigate(`/admin/users/${uid}/edit`);
+  const handleNewUser = () => navigate('/admin/users/new');
 
   const handleDeleteUser = (uid: string, userName: string) => {
     modals.openConfirmModal({
-      title: "Supprimer définitivement l'utilisateur",
+      title: "Supprimer definitivement l'utilisateur",
       centered: true,
       children: (
         <Text size="sm">
-          Êtes-vous sûr de vouloir supprimer <strong>{userName}</strong> ?<br />
+          Etes-vous sur de vouloir supprimer <strong>{userName}</strong> ?<br />
           <br />
-          ⚠️ <strong>Cette action est irréversible.</strong>
+          ⚠️ <strong>Cette action est irreversible.</strong>
         </Text>
       ),
-      labels: { confirm: 'Supprimer définitivement', cancel: 'Annuler' },
+      labels: { confirm: 'Supprimer definitivement', cancel: 'Annuler' },
       confirmProps: { color: 'red' },
       onConfirm: async () => {
         try {
           await deleteUser(uid, adminUserId);
-          notifications.show({
-            title: 'Succès',
-            message: 'Utilisateur supprimé',
-            color: 'green',
-          });
+          notifications.show({ title: 'Succes', message: 'Utilisateur supprime', color: 'green' });
           loadUsers();
         } catch (error) {
-          notifications.show({
-            title: 'Erreur',
-            message: "Impossible de supprimer l'utilisateur",
-            color: 'red',
-          });
+          notifications.show({ title: 'Erreur', message: "Impossible de supprimer l'utilisateur", color: 'red' });
         }
       },
     });
@@ -794,7 +718,7 @@ export function EnhancedUsersListPage() {
 
   const handleSendEmail = (_email: string) => {
     notifications.show({
-      title: 'Fonction à venir',
+      title: 'Fonction a venir',
       message: "L'envoi d'email sera disponible prochainement",
       color: 'blue',
     });
@@ -802,153 +726,86 @@ export function EnhancedUsersListPage() {
 
   const handleToggleAccountBlock = async (userId: string, currentState: boolean) => {
     try {
-      await toggleAccountBlocked(
-        userId,
-        !currentState,
-        currentState ? '' : 'Bloqué via interface admin',
-        adminUserId
-      );
-      notifications.show({
-        title: 'Succès',
-        message: `Compte ${!currentState ? 'bloqué' : 'débloqué'}`,
-        color: 'green',
-      });
+      await toggleAccountBlocked(userId, !currentState, currentState ? '' : 'Bloque via interface admin', adminUserId);
+      notifications.show({ title: 'Succes', message: `Compte ${!currentState ? 'bloque' : 'debloque'}`, color: 'green' });
       loadUsers();
     } catch (error) {
-      notifications.show({
-        title: 'Erreur',
-        message: 'Impossible de modifier le statut du compte',
-        color: 'red',
-      });
+      notifications.show({ title: 'Erreur', message: 'Impossible de modifier le statut du compte', color: 'red' });
     }
   };
 
   const handleToggleCardBlock = async (userId: string, currentState: boolean) => {
     try {
-      await toggleCardBlocked(
-        userId,
-        !currentState,
-        currentState ? '' : 'Carte bloquée via interface admin',
-        adminUserId
-      );
-      notifications.show({
-        title: 'Succès',
-        message: `Carte ${!currentState ? 'bloquée' : 'débloquée'}`,
-        color: 'green',
-      });
+      await toggleCardBlocked(userId, !currentState, currentState ? '' : 'Carte bloquee via interface admin', adminUserId);
+      notifications.show({ title: 'Succes', message: `Carte ${!currentState ? 'bloquee' : 'debloquee'}`, color: 'green' });
       loadUsers();
     } catch (error) {
-      notifications.show({
-        title: 'Erreur',
-        message: 'Impossible de modifier le statut de la carte',
-        color: 'red',
-      });
+      notifications.show({ title: 'Erreur', message: 'Impossible de modifier le statut de la carte', color: 'red' });
     }
   };
 
-  // Note: La régénération du QR code n'est plus nécessaire car le QR code
-  // est maintenant basé directement sur l'UID de l'utilisateur, qui ne change jamais.
-
   const handleSendMembershipCard = (uid: string, userName: string, isResend: boolean) => {
-    // Étape 1: Modal de choix du type d'email
     modals.open({
       title: 'Choisissez le type d\'email',
       centered: true,
       children: (
         <Stack gap="md">
           <Text size="sm">
-            Sélectionnez le type de carte d'adhérent à envoyer à <strong>{userName}</strong> :
+            Selectionnez le type de carte d'adherent a envoyer a <strong>{userName}</strong> :
           </Text>
           <Group grow>
-            <Button
-              variant="light"
-              color="blue"
-              onClick={() => {
-                modals.closeAll();
-                confirmAndSendCard(uid, userName, isResend, false);
-              }}
-            >
+            <Button variant="light" color="blue" onClick={() => { modals.closeAll(); confirmAndSendCard(uid, userName, isResend, false); }}>
               Carte classique
             </Button>
-            <Button
-              variant="light"
-              color="grape"
-              onClick={() => {
-                modals.closeAll();
-                confirmAndSendCard(uid, userName, isResend, true);
-              }}
-            >
-              Carte avec entête EXORDE
+            <Button variant="light" color="grape" onClick={() => { modals.closeAll(); confirmAndSendCard(uid, userName, isResend, true); }}>
+              Carte avec entete EXORDE
             </Button>
           </Group>
           <Text size="xs" c="dimmed" ta="center">
-            L'entête EXORDE mentionne la soirée du 31 décembre 2024
+            L'entete EXORDE mentionne la soiree du 31 decembre 2024
           </Text>
         </Stack>
       ),
     });
   };
 
-  // Fonction de confirmation et d'envoi
   const confirmAndSendCard = (uid: string, userName: string, isResend: boolean, includeExordeHeader: boolean) => {
     modals.openConfirmModal({
-      title: isResend ? 'Renvoyer la carte d\'adhérent' : 'Envoyer la carte d\'adhérent',
+      title: isResend ? 'Renvoyer la carte d\'adherent' : 'Envoyer la carte d\'adherent',
       centered: true,
       children: (
         <Stack gap="xs">
           {isResend ? (
             <>
-              <Text size="sm">
-                Êtes-vous sûr de vouloir <strong>renvoyer</strong> la carte d'adhérent à <strong>{userName}</strong> ?
-              </Text>
-              <Text size="sm">
-                L'email a déjà été envoyé précédemment. Cette action enverra un nouvel email avec la carte.
-              </Text>
+              <Text size="sm">Etes-vous sur de vouloir <strong>renvoyer</strong> la carte d'adherent a <strong>{userName}</strong> ?</Text>
+              <Text size="sm">L'email a deja ete envoye precedemment.</Text>
             </>
           ) : (
             <>
-              <Text size="sm">
-                Êtes-vous sûr de vouloir envoyer la carte d'adhérent à <strong>{userName}</strong> ?
-              </Text>
-              <Text size="sm">
-                L'utilisateur recevra un email avec :
-              </Text>
+              <Text size="sm">Etes-vous sur de vouloir envoyer la carte d'adherent a <strong>{userName}</strong> ?</Text>
               <div style={{ paddingLeft: '20px' }}>
-                <Text size="sm">• Sa carte d'adhérent personnalisée</Text>
+                <Text size="sm">• Sa carte d'adherent personnalisee</Text>
                 <Text size="sm">• Son QR code unique</Text>
                 <Text size="sm">• Les informations sur son abonnement</Text>
-                {includeExordeHeader && <Text size="sm" c="grape">• L'entête mentionnant la soirée EXORDE</Text>}
+                {includeExordeHeader && <Text size="sm" c="grape">• L'entete mentionnant la soiree EXORDE</Text>}
               </div>
             </>
           )}
         </Stack>
       ),
       labels: { confirm: isResend ? 'Renvoyer' : 'Envoyer', cancel: 'Annuler' },
-      confirmProps: { color: isResend ? 'blue' : 'green', loading: false },
+      confirmProps: { color: isResend ? 'blue' : 'green' },
       onConfirm: async () => {
         try {
           const result = await sendMembershipCard(uid, isResend, includeExordeHeader);
-
           if (result.success) {
-            notifications.show({
-              title: 'Succès',
-              message: result.message || 'Carte d\'adhérent envoyée avec succès',
-              color: 'green',
-            });
-            loadUsers(); // Recharger pour mettre à jour l'indicateur
+            notifications.show({ title: 'Succes', message: result.message || 'Carte d\'adherent envoyee', color: 'green' });
+            loadUsers();
           } else {
-            notifications.show({
-              title: 'Erreur',
-              message: result.error || 'Impossible d\'envoyer la carte d\'adhérent',
-              color: 'red',
-            });
+            notifications.show({ title: 'Erreur', message: result.error || 'Impossible d\'envoyer', color: 'red' });
           }
         } catch (error: any) {
-          notifications.show({
-            title: 'Erreur',
-            message: error.message || 'Une erreur est survenue lors de l\'envoi',
-            color: 'red',
-          });
+          notifications.show({ title: 'Erreur', message: error.message || 'Une erreur est survenue', color: 'red' });
         }
       },
     });
@@ -956,102 +813,59 @@ export function EnhancedUsersListPage() {
 
   const handleMigrateLegacyMember = (uid: string, userName: string) => {
     let migrationTags: string[] = [];
-
     modals.open({
-      title: 'Migrer vers le nouveau système',
+      title: 'Migrer vers le nouveau systeme',
       centered: true,
       children: (
         <Stack gap="md">
           <Text size="sm">
-            Êtes-vous sûr de vouloir migrer <strong>{userName}</strong> vers le nouveau système ?
-            <br />
-            <br />
-            Les informations suivantes seront conservées :
-            <ul>
-              <li>Nom et prénom</li>
-              <li>Email et téléphone</li>
-              <li>Code postal</li>
-              <li>Type d'abonnement</li>
-              <li>Date de fin d'abonnement</li>
-            </ul>
+            Etes-vous sur de vouloir migrer <strong>{userName}</strong> vers le nouveau systeme ?
           </Text>
           <TagsInput
-            label="Tags à ajouter (optionnel)"
-            placeholder="Sélectionnez ou créez des tags"
+            label="Tags a ajouter (optionnel)"
+            placeholder="Selectionnez ou creez des tags"
             data={allTags}
             defaultValue={[]}
             onChange={(value) => { migrationTags = value; }}
             clearable
-            description="Les tags sélectionnés seront ajoutés"
           />
           <Group justify="flex-end">
-            <Button variant="subtle" onClick={() => modals.closeAll()}>
-              Annuler
-            </Button>
-            <Button
-              color="blue"
-              onClick={async () => {
-                modals.closeAll();
-                try {
-                  await migrateLegacyMember(uid, adminUserId, undefined, migrationTags);
-                  notifications.show({
-                    title: 'Succès',
-                    message: 'Membre migré avec succès',
-                    color: 'green',
-                  });
-                  loadUsers();
-                } catch (error: any) {
-                  notifications.show({
-                    title: 'Erreur',
-                    message: error.message || 'Impossible de migrer le membre',
-                    color: 'red',
-                  });
-                }
-              }}
-            >
-              Migrer
-            </Button>
+            <Button variant="subtle" onClick={() => modals.closeAll()}>Annuler</Button>
+            <Button color="blue" onClick={async () => {
+              modals.closeAll();
+              try {
+                await migrateLegacyMember(uid, adminUserId, undefined, migrationTags);
+                notifications.show({ title: 'Succes', message: 'Membre migre avec succes', color: 'green' });
+                loadUsers();
+              } catch (error: any) {
+                notifications.show({ title: 'Erreur', message: error.message || 'Impossible de migrer', color: 'red' });
+              }
+            }}>Migrer</Button>
           </Group>
         </Stack>
       ),
     });
   };
 
-  const handleExport = () => {
-    setExportModalOpened(true);
-  };
-
-  // Gestion de la detection des doublons
+  // Duplicate detection handlers
   const handleStartDuplicateCheck = async () => {
     setLoadingDuplicates(true);
     try {
       const groups = await findDuplicateUsers();
       if (groups.length === 0) {
-        notifications.show({
-          title: 'Aucun doublon',
-          message: 'Aucun utilisateur en double n\'a ete detecte',
-          color: 'green',
-        });
+        notifications.show({ title: 'Aucun doublon', message: 'Aucun utilisateur en double n\'a ete detecte', color: 'green' });
         return;
       }
       setDuplicateGroups(groups);
       setCurrentDuplicateIndex(0);
-      // Ouvrir le modal de revue au lieu du modal de fusion directement
       setDuplicateReviewOpened(true);
     } catch (error) {
-      console.error('Error detecting duplicates:', error);
-      notifications.show({
-        title: 'Erreur',
-        message: 'Impossible de detecter les doublons',
-        color: 'red',
-      });
+      notifications.show({ title: 'Erreur', message: 'Impossible de detecter les doublons', color: 'red' });
     } finally {
       setLoadingDuplicates(false);
     }
   };
 
-
-  // Selectionner un groupe de doublons a traiter
   const handleSelectDuplicateGroup = (groupIndex: number) => {
     setCurrentDuplicateIndex(groupIndex);
     setDuplicateReviewOpened(false);
@@ -1061,39 +875,22 @@ export function EnhancedUsersListPage() {
   const handleMergeDuplicate = async (keepUserId: string, deleteUserId: string, mergeData: UserMergeData) => {
     try {
       await mergeUsers(keepUserId, deleteUserId, mergeData, adminUserId);
-      notifications.show({
-        title: 'Fusion reussie',
-        message: 'Les comptes ont ete fusionnes avec succes',
-        color: 'green',
-      });
-      // Fermer le modal de fusion et retourner a la liste
+      notifications.show({ title: 'Fusion reussie', message: 'Les comptes ont ete fusionnes', color: 'green' });
       setDuplicateModalOpened(false);
-      // Recharger les utilisateurs et la liste des doublons
       await loadUsers();
-      // Relancer la detection pour avoir la liste a jour
       const groups = await findDuplicateUsers();
       setDuplicateGroups(groups);
       if (groups.length > 0) {
         setDuplicateReviewOpened(true);
       } else {
-        notifications.show({
-          title: 'Termine',
-          message: 'Tous les doublons ont ete traites',
-          color: 'green',
-        });
+        notifications.show({ title: 'Termine', message: 'Tous les doublons ont ete traites', color: 'green' });
       }
     } catch (error) {
-      console.error('Error merging users:', error);
-      notifications.show({
-        title: 'Erreur',
-        message: 'Impossible de fusionner les comptes',
-        color: 'red',
-      });
+      notifications.show({ title: 'Erreur', message: 'Impossible de fusionner les comptes', color: 'red' });
     }
   };
 
   const handleSkipDuplicate = () => {
-    // Fermer le modal de fusion et retourner a la liste
     setDuplicateModalOpened(false);
     setDuplicateReviewOpened(true);
   };
@@ -1105,122 +902,75 @@ export function EnhancedUsersListPage() {
     setCurrentDuplicateIndex(0);
   };
 
+  // Mass send handlers
   const handleOpenMassiveSendModal = (mode: 'all' | 'force' | 'unsent') => {
     setForceResend(mode === 'force');
     setOnlyUnsent(mode === 'unsent');
     setSendMassiveCardsModalOpened(true);
   };
 
-  // Gestion de la sélection multiple des legacy users
+  // Selection handlers
   const handleSelectLegacyUser = (uid: string, checked: boolean) => {
     setSelectedLegacyUsers((prev) => {
       const newSet = new Set(prev);
-      if (checked) {
-        newSet.add(uid);
-      } else {
-        newSet.delete(uid);
-      }
+      checked ? newSet.add(uid) : newSet.delete(uid);
       return newSet;
     });
   };
 
   const handleSelectAllLegacyUsers = (checked: boolean) => {
-    if (checked) {
-      // Ajouter les users de la page courante aux sélections existantes
-      setSelectedLegacyUsers((prev) => {
-        const newSet = new Set(prev);
-        paginatedLegacyMembers.forEach((m) => newSet.add(m.uid));
-        return newSet;
-      });
-    } else {
-      // Retirer SEULEMENT les users de la page courante
-      setSelectedLegacyUsers((prev) => {
-        const newSet = new Set(prev);
-        paginatedLegacyMembers.forEach((m) => newSet.delete(m.uid));
-        return newSet;
-      });
-    }
+    setSelectedLegacyUsers((prev) => {
+      const newSet = new Set(prev);
+      paginatedLegacyMembers.forEach((m) => checked ? newSet.add(m.uid) : newSet.delete(m.uid));
+      return newSet;
+    });
   };
 
-  // Gestion de la sélection multiple des nouveaux utilisateurs
   const handleSelectUser = (uid: string, checked: boolean) => {
     setSelectedUsers((prev) => {
       const newSet = new Set(prev);
-      if (checked) {
-        newSet.add(uid);
-      } else {
-        newSet.delete(uid);
-      }
+      checked ? newSet.add(uid) : newSet.delete(uid);
       return newSet;
     });
   };
 
   const handleSelectAllUsers = (checked: boolean) => {
-    if (checked) {
-      // Ajouter les users de la page courante aux sélections existantes
-      setSelectedUsers((prev) => {
-        const newSet = new Set(prev);
-        paginatedUsers.forEach((u) => newSet.add(u.uid));
-        return newSet;
-      });
-    } else {
-      // Retirer SEULEMENT les users de la page courante
-      setSelectedUsers((prev) => {
-        const newSet = new Set(prev);
-        paginatedUsers.forEach((u) => newSet.delete(u.uid));
-        return newSet;
-      });
-    }
+    setSelectedUsers((prev) => {
+      const newSet = new Set(prev);
+      paginatedUsers.forEach((u) => checked ? newSet.add(u.uid) : newSet.delete(u.uid));
+      return newSet;
+    });
   };
 
-  // Gestion de l'ajout de tags en masse
+  // Bulk operations
   const handleBulkAddTags = () => {
     if (selectedUsers.size === 0) return;
-
-    let selectedTags: string[] = [];
-
+    let tagsToAdd: string[] = [];
     modals.open({
       title: 'Ajouter des tags',
       centered: true,
       size: 'lg',
       children: (
         <Stack gap="md">
-          <Text size="sm">
-            Vous allez ajouter des tags à <strong>{selectedUsers.size} utilisateur{selectedUsers.size > 1 ? 's' : ''}</strong>.
-          </Text>
-
+          <Text size="sm">Vous allez ajouter des tags a <strong>{selectedUsers.size} utilisateur{selectedUsers.size > 1 ? 's' : ''}</strong>.</Text>
           <TagsInput
-            label="Tags à ajouter"
-            placeholder="Sélectionnez ou créez des tags"
+            label="Tags a ajouter"
+            placeholder="Selectionnez ou creez des tags"
             data={allTags}
             defaultValue={[]}
-            onChange={(value) => { selectedTags = value; }}
+            onChange={(value) => { tagsToAdd = value; }}
             clearable
-            description="Les tags seront ajoutés aux tags existants (pas de remplacement)"
           />
-
           <Group justify="flex-end" mt="md">
-            <Button variant="subtle" onClick={() => modals.closeAll()}>
-              Annuler
-            </Button>
-            <Button
-              color="blue"
-              leftSection={<IconTags size={16} />}
-              onClick={() => {
-                if (selectedTags.length === 0) {
-                  notifications.show({
-                    title: 'Attention',
-                    message: 'Veuillez sélectionner au moins un tag',
-                    color: 'orange',
-                  });
-                  return;
-                }
-                modals.closeAll();
-                handleStartBulkAddTags(selectedTags);
-              }}
-            >
-              Ajouter les tags
-            </Button>
+            <Button variant="subtle" onClick={() => modals.closeAll()}>Annuler</Button>
+            <Button color="blue" leftSection={<IconTags size={16} />} onClick={() => {
+              if (tagsToAdd.length === 0) {
+                notifications.show({ title: 'Attention', message: 'Veuillez selectionner au moins un tag', color: 'orange' });
+                return;
+              }
+              modals.closeAll();
+              handleStartBulkAddTags(tagsToAdd);
+            }}>Ajouter les tags</Button>
           </Group>
         </Stack>
       ),
@@ -1230,86 +980,48 @@ export function EnhancedUsersListPage() {
   const handleStartBulkAddTags = async (tags: string[]) => {
     setBulkAddTagsModalOpened(true);
     setAddingTags(true);
-
     try {
       const userIds = Array.from(selectedUsers);
       const result = await bulkAddTagsToUsers(userIds, tags, adminUserId);
-
-      setAddingTags(false);
-
-      if (result.success === result.total) {
-        notifications.show({
-          title: 'Succès',
-          message: `Tags ajoutés à ${result.success} utilisateur${result.success > 1 ? 's' : ''}`,
-          color: 'green',
-        });
-      } else {
-        notifications.show({
-          title: 'Terminé avec erreurs',
-          message: `${result.success} succès, ${result.errors} erreurs`,
-          color: 'orange',
-        });
-      }
-
-      // Recharger les utilisateurs
-      await loadUsers();
-
-      // Réinitialiser la sélection
-      setSelectedUsers(new Set());
-
-      // Fermer le modal après un délai
-      setTimeout(() => {
-        setBulkAddTagsModalOpened(false);
-      }, 2000);
-    } catch (error: any) {
       setAddingTags(false);
       notifications.show({
-        title: 'Erreur',
-        message: error.message || 'Impossible d\'ajouter les tags',
-        color: 'red',
+        title: result.success === result.total ? 'Succes' : 'Termine avec erreurs',
+        message: `${result.success} succes, ${result.errors} erreurs`,
+        color: result.success === result.total ? 'green' : 'orange',
       });
+      await loadUsers();
+      setSelectedUsers(new Set());
+      setTimeout(() => setBulkAddTagsModalOpened(false), 2000);
+    } catch (error: any) {
+      setAddingTags(false);
+      notifications.show({ title: 'Erreur', message: error.message || 'Impossible d\'ajouter les tags', color: 'red' });
     }
   };
 
   const handleBulkMigration = () => {
     if (selectedLegacyUsers.size === 0) return;
-
-    let selectedTags: string[] = [];
-
+    let tagsToAdd: string[] = [];
     modals.open({
-      title: 'Migration groupée',
+      title: 'Migration groupee',
       centered: true,
       size: 'lg',
       children: (
         <Stack gap="md">
-          <Text size="sm">
-            Vous allez migrer <strong>{selectedLegacyUsers.size} utilisateur{selectedLegacyUsers.size > 1 ? 's' : ''}</strong> vers le nouveau système.
-          </Text>
-
+          <Text size="sm">Vous allez migrer <strong>{selectedLegacyUsers.size} utilisateur{selectedLegacyUsers.size > 1 ? 's' : ''}</strong>.</Text>
           <TagsInput
-            label="Tags à ajouter à tous les utilisateurs (optionnel)"
-            placeholder="Sélectionnez ou créez des tags"
+            label="Tags a ajouter a tous (optionnel)"
+            placeholder="Selectionnez ou creez des tags"
             data={allTags}
             defaultValue={[]}
-            onChange={(value) => { selectedTags = value; }}
+            onChange={(value) => { tagsToAdd = value; }}
             clearable
-            description="Les tags sélectionnés seront ajoutés"
           />
-
           <Group justify="flex-end" mt="md">
-            <Button variant="subtle" onClick={() => modals.closeAll()}>
-              Annuler
-            </Button>
-            <Button
-              color="blue"
-              leftSection={<IconArrowRight size={16} />}
-              onClick={() => {
-                modals.closeAll();
-                handleStartBulkMigration(selectedTags);
-              }}
-            >
-              Lancer la migration
-            </Button>
+            <Button variant="subtle" onClick={() => modals.closeAll()}>Annuler</Button>
+            <Button color="blue" leftSection={<IconArrowRight size={16} />} onClick={() => {
+              modals.closeAll();
+              handleStartBulkMigration(tagsToAdd);
+            }}>Lancer la migration</Button>
           </Group>
         </Stack>
       ),
@@ -1319,671 +1031,155 @@ export function EnhancedUsersListPage() {
   const handleStartBulkMigration = async (tags: string[]) => {
     setBulkMigrationModalOpened(true);
     setMigrationInProgress(true);
-    const selectedUsers = legacyMembers.filter((u) => selectedLegacyUsers.has(u.uid));
+    const usersToMigrate = legacyMembers.filter((u) => selectedLegacyUsers.has(u.uid));
 
-    // Initialiser le tableau de progression
-    const progressArray: MigrationProgress[] = selectedUsers.map((user) => ({
+    const progressArray: MigrationProgress[] = usersToMigrate.map((user) => ({
       uid: user.uid,
       name: `${user.firstName} ${user.lastName}`,
       status: 'pending' as const,
     }));
     setMigrationProgress(progressArray);
 
-    // Migrer chaque utilisateur un par un
-    for (let i = 0; i < selectedUsers.length; i++) {
-      const user = selectedUsers[i];
-
-      // Marquer comme "en cours"
-      setMigrationProgress((prev) =>
-        prev.map((item, idx) =>
-          idx === i ? { ...item, status: 'processing' as const } : item
-        )
-      );
-
+    for (let i = 0; i < usersToMigrate.length; i++) {
+      const user = usersToMigrate[i];
+      setMigrationProgress((prev) => prev.map((item, idx) => idx === i ? { ...item, status: 'processing' as const } : item));
       try {
         await migrateLegacyMember(user.uid, adminUserId, undefined, tags);
-
-        // Marquer comme "succès"
-        setMigrationProgress((prev) =>
-          prev.map((item, idx) =>
-            idx === i ? { ...item, status: 'success' as const } : item
-          )
-        );
+        setMigrationProgress((prev) => prev.map((item, idx) => idx === i ? { ...item, status: 'success' as const } : item));
       } catch (error: any) {
-        // Marquer comme "erreur"
-        setMigrationProgress((prev) =>
-          prev.map((item, idx) =>
-            idx === i
-              ? {
-                ...item,
-                status: 'error' as const,
-                error: error.message || 'Erreur inconnue',
-              }
-              : item
-          )
-        );
+        setMigrationProgress((prev) => prev.map((item, idx) => idx === i ? { ...item, status: 'error' as const, error: error.message || 'Erreur inconnue' } : item));
       }
-
-      // Petit délai pour éviter de surcharger le serveur
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    // Migration terminée
     setMigrationInProgress(false);
-
-    // Recharger les utilisateurs
     await loadUsers();
-
-    // Réinitialiser la sélection
     setSelectedLegacyUsers(new Set());
   };
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setMembershipType(null);
+    setMembershipStatus(null);
+    setSelectedTags([]);
+    setBlockedFilter(null);
+    setSortBy('date_desc');
+    setDateRangeStart(null);
+    setDateRangeEnd(null);
+  };
+
+  // ============================================================================
+  // Render
+  // ============================================================================
 
   return (
     <Container size="xl" pos="relative">
       <LoadingOverlay visible={loading} />
 
-      <Group justify="space-between" mb="xl">
-        <Title order={1}>Gestion des Utilisateurs</Title>
-        <Group>
-          <Button
-            leftSection={<IconTags size={16} />}
-            variant="light"
-            color="grape"
-            onClick={() => setTagsManagerOpened(true)}
-          >
-            Gerer les tags
-          </Button>
-          <Button
-            leftSection={<IconDatabaseImport size={16} />}
-            variant="light"
-            color="orange"
-            onClick={() => setPurchaseMigrationOpened(true)}
-          >
-            Migrer Achats
-          </Button>
-          <Button
-            leftSection={<IconCreditCard size={16} />}
-            variant="light"
-            color="teal"
-            onClick={() => setPaymentFixOpened(true)}
-          >
-            Fix Paiements
-          </Button>
-          <Button
-            leftSection={<IconWand size={16} />}
-            variant="light"
-            color="pink"
-            onClick={() => setItemNormalizationOpened(true)}
-          >
-            Normaliser Items
-          </Button>
-          <Button
-            leftSection={<IconAlertTriangle size={16} />}
-            variant="light"
-            color="red"
-            onClick={() => setContributionFixOpened(true)}
-          >
-            Fix Bug Inkipit
-          </Button>
-          <Button
-            leftSection={<IconUsersGroup size={16} />}
-            variant="light"
-            color="yellow"
-            onClick={handleStartDuplicateCheck}
-            loading={loadingDuplicates}
-          >
-            Detecter doublons
-            {duplicateGroups.length > 0 && (
-              <Badge size="xs" color="red" ml={6}>
-                {duplicateGroups.length}
-              </Badge>
-            )}
-          </Button>
-          <Button leftSection={<IconDownload size={16} />} variant="light" onClick={handleExport}>
-            Exporter
-          </Button>
-          <Button
-            leftSection={<IconUpload size={16} />}
-            variant="light"
-            color="blue"
-            onClick={() => setCsvImportModalOpened(true)}
-          >
-            Importer CSV
-          </Button>
-          <Button
-            leftSection={<IconSearch size={16} />}
-            variant="light"
-            color="cyan"
-            onClick={() => setExordeCheckerOpened(true)}
-          >
-            Checker EXORDE
-          </Button>
-          <Button
-            leftSection={<IconPlus size={16} />}
-            variant="light"
-            color="cyan"
-            onClick={() => setQuickAddModalOpened(true)}
-          >
-            Ajout rapide
-          </Button>
-          <Menu shadow="md" width={300}>
-            <Menu.Target>
-              <Button
-                leftSection={<IconSend size={16} />}
-                variant="light"
-                color="green"
-              >
-                Envoyer cartes
-              </Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Label>Envoi massif de cartes d'adhérent</Menu.Label>
-              <Menu.Item
-                leftSection={<IconSend size={14} />}
-                color="orange"
-                onClick={() => handleOpenMassiveSendModal('unsent')}
-              >
-                Envoyer aux non-destinataires ({unsentUsersCount})
-              </Menu.Item>
-              <Menu.Divider />
-              <Menu.Item
-                leftSection={<IconSend size={14} />}
-                color="green"
-                onClick={() => handleOpenMassiveSendModal('all')}
-              >
-                Envoyer à tous ({users.length})
-              </Menu.Item>
-              <Menu.Item
-                leftSection={<IconSend size={14} />}
-                color="blue"
-                onClick={() => handleOpenMassiveSendModal('force')}
-              >
-                Renvoyer à tous (force) ({users.length})
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
-          <Button leftSection={<IconPlus size={16} />} onClick={() => navigate('/admin/users/new')}>
-            Nouvel Utilisateur
-          </Button>
-        </Group>
-      </Group>
+      {/* Header */}
+      <UsersPageHeader
+        duplicateGroupsCount={duplicateGroups.length}
+        loadingDuplicates={loadingDuplicates}
+        unsentUsersCount={unsentUsersCount}
+        totalUsersCount={users.length}
+        onTagsManager={() => setTagsManagerOpened(true)}
+        onPurchaseMigration={() => setPurchaseMigrationOpened(true)}
+        onPaymentFix={() => setPaymentFixOpened(true)}
+        onItemNormalization={() => setItemNormalizationOpened(true)}
+        onContributionFix={() => setContributionFixOpened(true)}
+        onDuplicateCheck={handleStartDuplicateCheck}
+        onExport={() => setExportModalOpened(true)}
+        onCsvImport={() => setCsvImportModalOpened(true)}
+        onExordeChecker={() => setExordeCheckerOpened(true)}
+        onQuickAdd={() => setQuickAddModalOpened(true)}
+        onMassiveSend={handleOpenMassiveSendModal}
+        onNewUser={handleNewUser}
+      />
 
-      {/* Statistiques */}
-      <Group mb="xl" grow>
-        <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="dimmed">
-            Total Utilisateurs
-          </Text>
-          <Text size="xl" fw={700}>
-            {legacyMembers.length + users.length}
-          </Text>
-        </Paper>
-        <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="dimmed">
-            Membres Non Migrés
-          </Text>
-          <Text size="xl" fw={700} c="orange">
-            {legacyMembers.length}
-          </Text>
-        </Paper>
-        <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="dimmed">
-            Abonnements Actifs
-          </Text>
-          <Text size="xl" fw={700} c="green">
-            {users.filter((u) => u.membership.status === 'active').length}
-          </Text>
-        </Paper>
-        <Paper withBorder p="md" radius="md">
-          <Text size="sm" c="dimmed">
-            Comptes Bloqués
-          </Text>
-          <Text size="xl" fw={700} c="red">
-            {users.filter((u) => u.isAccountBlocked).length}
-          </Text>
-        </Paper>
-      </Group>
+      {/* Stats */}
+      <UsersStatsCards
+        totalUsers={legacyMembers.length + users.length}
+        legacyMembersCount={legacyMembers.length}
+        activeSubscriptionsCount={activeSubscriptionsCount}
+        blockedAccountsCount={blockedAccountsCount}
+        emailsSentCount={emailsSentCount}
+        emailsNotSentCount={unsentUsersCount}
+      />
 
-      {/* Filtres pour les NOUVEAUX UTILISATEURS */}
-      <Paper withBorder p="md" mb="xl" radius="md">
-        <Stack gap="md">
-          <Group>
-            <Title order={3} size="h4">Filtres pour les utilisateurs</Title>
-            <Text size="sm" c="dimmed">(Ces filtres n'affectent que les nouveaux utilisateurs)</Text>
-          </Group>
-          <TextInput
-            placeholder="Rechercher par nom, email, UID..."
-            leftSection={<IconSearch size={16} />}
-            value={search}
-            onChange={(e) => setSearch(e.currentTarget.value)}
-          />
+      {/* Filters */}
+      <UsersFiltersPanel
+        search={search}
+        membershipType={membershipType}
+        membershipStatus={membershipStatus}
+        selectedTags={selectedTags}
+        blockedFilter={blockedFilter}
+        sortBy={sortBy}
+        dateRangeStart={dateRangeStart}
+        dateRangeEnd={dateRangeEnd}
+        allTags={allTags}
+        filteredLegacyCount={filteredLegacyMembers.length}
+        filteredUsersCount={filteredUsers.length}
+        onSearchChange={setSearch}
+        onMembershipTypeChange={setMembershipType}
+        onMembershipStatusChange={setMembershipStatus}
+        onSelectedTagsChange={setSelectedTags}
+        onBlockedFilterChange={setBlockedFilter}
+        onSortByChange={setSortBy}
+        onDateRangeStartChange={setDateRangeStart}
+        onDateRangeEndChange={setDateRangeEnd}
+        onResetFilters={handleResetFilters}
+      />
 
-          <Group>
-            <Select
-              placeholder="Type d'abonnement"
-              data={[
-                { value: '', label: 'Tous' },
-                { value: 'monthly', label: MEMBERSHIP_TYPE_LABELS.monthly },
-                { value: 'annual', label: MEMBERSHIP_TYPE_LABELS.annual },
-                { value: 'lifetime', label: MEMBERSHIP_TYPE_LABELS.lifetime },
-              ]}
-              value={membershipType || ''}
-              onChange={(value) => setMembershipType((value as MembershipType) || null)}
-              clearable
-              style={{ flex: 1 }}
-            />
+      {/* Users Table */}
+      <UsersTableSection
+        users={filteredUsers}
+        paginatedUsers={paginatedUsers}
+        tagsConfig={tagsConfig}
+        selectedUsers={selectedUsers}
+        currentPage={usersPage}
+        totalPages={usersTotalPages}
+        itemsPerPage={itemsPerPage}
+        loading={loading}
+        onSelectUser={handleSelectUser}
+        onSelectAllUsers={handleSelectAllUsers}
+        onPageChange={setUsersPage}
+        onBulkAddTags={handleBulkAddTags}
+        onViewUser={handleViewUser}
+        onEditUser={handleEditUser}
+        onDeleteUser={handleDeleteUser}
+        onSendEmail={handleSendEmail}
+        onToggleAccountBlock={handleToggleAccountBlock}
+        onToggleCardBlock={handleToggleCardBlock}
+        onSendMembershipCard={handleSendMembershipCard}
+        UserRowComponent={UserTableRow}
+      />
 
-            <Select
-              placeholder="Statut"
-              data={[
-                { value: '', label: 'Tous' },
-                { value: 'active', label: MEMBERSHIP_STATUS_LABELS.active },
-                { value: 'expired', label: MEMBERSHIP_STATUS_LABELS.expired },
-                { value: 'pending', label: MEMBERSHIP_STATUS_LABELS.pending },
-                { value: 'cancelled', label: MEMBERSHIP_STATUS_LABELS.cancelled },
-              ]}
-              value={membershipStatus || ''}
-              onChange={(value) => setMembershipStatus((value as MembershipStatus) || null)}
-              clearable
-              style={{ flex: 1 }}
-            />
+      {/* Legacy Members Section */}
+      <LegacyMembersSection
+        legacyMembers={filteredLegacyMembers}
+        paginatedLegacyMembers={paginatedLegacyMembers}
+        tagsConfig={tagsConfig}
+        selectedLegacyUsers={selectedLegacyUsers}
+        currentPage={legacyPage}
+        totalPages={legacyTotalPages}
+        itemsPerPage={itemsPerPage}
+        legacyDateRangeStart={legacyDateRangeStart}
+        legacyDateRangeEnd={legacyDateRangeEnd}
+        onLegacyDateRangeStartChange={setLegacyDateRangeStart}
+        onLegacyDateRangeEndChange={setLegacyDateRangeEnd}
+        onSelectLegacyUser={handleSelectLegacyUser}
+        onSelectAllLegacyUsers={handleSelectAllLegacyUsers}
+        onPageChange={setLegacyPage}
+        onBulkMigration={handleBulkMigration}
+        onSendEmail={handleSendEmail}
+        onMigrateLegacyMember={handleMigrateLegacyMember}
+        UserRowComponent={UserTableRow}
+      />
 
-            <Select
-              placeholder="État de blocage"
-              data={[
-                { value: '', label: 'Tous' },
-                { value: 'not_blocked', label: 'Non bloqués' },
-                { value: 'account_blocked', label: 'Compte bloqué' },
-                { value: 'card_blocked', label: 'Carte bloquée' },
-              ]}
-              value={blockedFilter || ''}
-              onChange={setBlockedFilter}
-              clearable
-              style={{ flex: 1 }}
-            />
+      {/* ================================================================== */}
+      {/* Modals */}
+      {/* ================================================================== */}
 
-            <TagsInput
-              placeholder="Filtrer par tags"
-              data={allTags}
-              value={selectedTags}
-              onChange={setSelectedTags}
-              clearable
-              style={{ flex: 1 }}
-              description={`${allTags.length} tags disponibles`}
-            />
-          </Group>
-
-          <Group>
-            <Select
-              label="Trier par"
-              data={[
-                { value: 'date_desc', label: 'Date d\'inscription (plus récent)' },
-                { value: 'date_asc', label: 'Date d\'inscription (plus ancien)' },
-                { value: 'name_asc', label: 'Nom (A-Z)' },
-                { value: 'name_desc', label: 'Nom (Z-A)' },
-                { value: 'points_desc', label: 'Points de fidélité (plus élevé)' },
-                { value: 'points_asc', label: 'Points de fidélité (plus bas)' },
-                { value: 'tags_count', label: 'Nombre de tags' },
-              ]}
-              value={sortBy}
-              onChange={(value) => setSortBy(value || 'date_desc')}
-              style={{ flex: 1 }}
-            />
-          </Group>
-
-          <Group>
-            <DatePickerInput
-              label="Date de début"
-              placeholder="Sélectionnez une date"
-              value={dateRangeStart}
-              onChange={(value) => {
-                if (typeof value === 'string') {
-                  setDateRangeStart(value ? new Date(value) : null);
-                } else {
-                  setDateRangeStart(value);
-                }
-              }}
-              clearable
-              style={{ flex: 1 }}
-              valueFormat="DD/MM/YYYY"
-            />
-            <DatePickerInput
-              label="Date de fin"
-              placeholder="Sélectionnez une date"
-              value={dateRangeEnd}
-              onChange={(value) => {
-                if (typeof value === 'string') {
-                  setDateRangeEnd(value ? new Date(value) : null);
-                } else {
-                  setDateRangeEnd(value);
-                }
-              }}
-              clearable
-              style={{ flex: 1 }}
-              valueFormat="DD/MM/YYYY"
-              minDate={dateRangeStart || undefined}
-            />
-            {(dateRangeStart || dateRangeEnd) && (
-              <Button
-                variant="subtle"
-                size="xs"
-                onClick={() => {
-                  setDateRangeStart(null);
-                  setDateRangeEnd(null);
-                }}
-                mt="xl"
-              >
-                Réinitialiser les dates
-              </Button>
-            )}
-          </Group>
-
-          {(search ||
-            membershipType ||
-            membershipStatus ||
-            selectedTags.length > 0 ||
-            blockedFilter ||
-            dateRangeStart ||
-            dateRangeEnd) && (
-              <Group justify="space-between">
-                <Text size="sm" c="dimmed">
-                  Anciens membres: {filteredLegacyMembers.length} | Utilisateurs: {filteredUsers.length}
-                  {(dateRangeStart || dateRangeEnd) && (
-                    <> | Période: {dateRangeStart ? dateRangeStart.toLocaleDateString('fr-FR') : '...'} - {dateRangeEnd ? dateRangeEnd.toLocaleDateString('fr-FR') : '...'}</>
-                  )}
-                </Text>
-                <Button
-                  variant="subtle"
-                  size="xs"
-                  onClick={() => {
-                    setSearch('');
-                    setMembershipType(null);
-                    setMembershipStatus(null);
-                    setSelectedTags([]);
-                    setBlockedFilter(null);
-                    setSortBy('date_desc');
-                    setDateRangeStart(null);
-                    setDateRangeEnd(null);
-                  }}
-                >
-                  Réinitialiser les filtres
-                </Button>
-              </Group>
-            )}
-        </Stack>
-      </Paper>
-
-      {/* SECTION 1: Utilisateurs (nouveau système) */}
-      <Stack gap="md" mb={filteredLegacyMembers.length > 0 ? 'xl' : undefined}>
-        <Paper withBorder p="md" radius="md" bg="blue.0">
-          <Group justify="space-between">
-            <Group>
-              <IconUsers size={28} />
-              <div>
-                <Title order={2}>Utilisateurs</Title>
-                <Text size="sm" c="dimmed">
-                  Membres du nouveau système
-                </Text>
-              </div>
-              <Badge size="lg" color="blue" variant="filled">
-                {filteredUsers.length}
-              </Badge>
-            </Group>
-            {selectedUsers.size > 0 && (
-              <Group>
-                <Badge size="lg" color="green" variant="filled">
-                  {selectedUsers.size} sélectionné{selectedUsers.size > 1 ? 's' : ''}
-                </Badge>
-                <Button
-                  leftSection={<IconTags size={16} />}
-                  color="green"
-                  onClick={handleBulkAddTags}
-                >
-                  Ajouter des tags
-                </Button>
-              </Group>
-            )}
-          </Group>
-        </Paper>
-
-        <Paper withBorder radius="md" shadow="sm">
-          <Table.ScrollContainer minWidth={1000}>
-            <Table striped highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>
-                    <Checkbox
-                      checked={
-                        paginatedUsers.length > 0 &&
-                        paginatedUsers.every((u) => selectedUsers.has(u.uid))
-                      }
-                      indeterminate={
-                        paginatedUsers.some((u) => selectedUsers.has(u.uid)) &&
-                        !paginatedUsers.every((u) => selectedUsers.has(u.uid))
-                      }
-                      onChange={(e) => handleSelectAllUsers(e.currentTarget.checked)}
-                    />
-                  </Table.Th>
-                  <Table.Th>Utilisateur</Table.Th>
-                  <Table.Th>Email</Table.Th>
-                  <Table.Th>Abonnement</Table.Th>
-                  <Table.Th>Statut</Table.Th>
-                  <Table.Th>Tags</Table.Th>
-                  <Table.Th>Source</Table.Th>
-                  <Table.Th>Inscription</Table.Th>
-                  <Table.Th>Actions</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {paginatedUsers.map((user) => (
-                  <UserTableRow
-                    key={user.uid}
-                    user={user}
-                    isLegacy={false}
-                    tagsConfig={tagsConfig}
-                    isSelected={selectedUsers.has(user.uid)}
-                    onSelect={handleSelectUser}
-                    onView={handleViewUser}
-                    onEdit={handleEditUser}
-                    onDelete={handleDeleteUser}
-                    onSendEmail={handleSendEmail}
-                    onToggleAccountBlock={handleToggleAccountBlock}
-                    onToggleCardBlock={handleToggleCardBlock}
-                    onSendMembershipCard={handleSendMembershipCard}
-                  />
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
-
-          {filteredUsers.length === 0 && !loading && (
-            <Text ta="center" c="dimmed" py="xl">
-              Aucun utilisateur trouvé
-            </Text>
-          )}
-
-          {filteredUsers.length > 0 && (
-            <Group justify="space-between" p="md">
-              <Text size="sm" c="dimmed">
-                Affichage de {(usersPage - 1) * itemsPerPage + 1} à{' '}
-                {Math.min(usersPage * itemsPerPage, filteredUsers.length)} sur {filteredUsers.length}{' '}
-                utilisateurs
-              </Text>
-              <Pagination
-                total={usersTotalPages}
-                value={usersPage}
-                onChange={setUsersPage}
-                size="sm"
-              />
-            </Group>
-          )}
-        </Paper>
-      </Stack>
-
-      {/* SECTION 2: Anciens membres non migrés */}
-      {filteredLegacyMembers.length > 0 && (
-        <Stack gap="md">
-          {/* Filtre par date pour les anciens membres - INDÉPENDANT des filtres du haut */}
-          <Paper withBorder p="md" radius="md" bg="orange.1">
-            <Stack gap="md">
-              <Group>
-                <Title order={3} size="h4">Filtrer les anciens membres par date</Title>
-              </Group>
-              <Group>
-                <DatePickerInput
-                  label="Date de début"
-                  placeholder="Sélectionnez une date"
-                  value={legacyDateRangeStart}
-                  onChange={(value) => {
-                    if (typeof value === 'string') {
-                      setLegacyDateRangeStart(value ? new Date(value) : null);
-                    } else {
-                      setLegacyDateRangeStart(value);
-                    }
-                  }}
-                  clearable
-                  style={{ flex: 1 }}
-                  valueFormat="DD/MM/YYYY"
-                />
-                <DatePickerInput
-                  label="Date de fin"
-                  placeholder="Sélectionnez une date"
-                  value={legacyDateRangeEnd}
-                  onChange={(value) => {
-                    if (typeof value === 'string') {
-                      setLegacyDateRangeEnd(value ? new Date(value) : null);
-                    } else {
-                      setLegacyDateRangeEnd(value);
-                    }
-                  }}
-                  clearable
-                  style={{ flex: 1 }}
-                  valueFormat="DD/MM/YYYY"
-                  minDate={legacyDateRangeStart || undefined}
-                />
-                {(legacyDateRangeStart || legacyDateRangeEnd) && (
-                  <Button
-                    variant="subtle"
-                    size="xs"
-                    onClick={() => {
-                      setLegacyDateRangeStart(null);
-                      setLegacyDateRangeEnd(null);
-                    }}
-                    mt="xl"
-                  >
-                    Réinitialiser
-                  </Button>
-                )}
-              </Group>
-              {(legacyDateRangeStart || legacyDateRangeEnd) && (
-                <Text size="sm" c="dimmed">
-                  Période: {legacyDateRangeStart ? legacyDateRangeStart.toLocaleDateString('fr-FR') : '...'} - {legacyDateRangeEnd ? legacyDateRangeEnd.toLocaleDateString('fr-FR') : '...'}
-                </Text>
-              )}
-            </Stack>
-          </Paper>
-
-          <Paper withBorder p="md" radius="md" bg="orange.0">
-            <Group justify="space-between">
-              <Group>
-                <IconAlertTriangle size={28} />
-                <div>
-                  <Title order={2}>Membres à migrer</Title>
-                  <Text size="sm" c="dimmed">
-                    Anciens membres non encore migrés vers le nouveau système
-                  </Text>
-                </div>
-                <Badge size="lg" color="orange" variant="filled">
-                  {filteredLegacyMembers.length}
-                </Badge>
-              </Group>
-              {selectedLegacyUsers.size > 0 && (
-                <Group>
-                  <Badge size="lg" color="blue" variant="filled">
-                    {selectedLegacyUsers.size} sélectionné{selectedLegacyUsers.size > 1 ? 's' : ''}
-                  </Badge>
-                  <Button
-                    leftSection={<IconArrowRight size={16} />}
-                    color="blue"
-                    onClick={handleBulkMigration}
-                  >
-                    Migrer les utilisateurs sélectionnés
-                  </Button>
-                </Group>
-              )}
-            </Group>
-          </Paper>
-
-          <Paper
-            withBorder
-            radius="md"
-            shadow="sm"
-            style={{ borderColor: 'var(--mantine-color-orange-6)', borderWidth: 2 }}
-          >
-            <Table.ScrollContainer minWidth={1000}>
-              <Table striped highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>
-                      <Checkbox
-                        checked={
-                          paginatedLegacyMembers.length > 0 &&
-                          paginatedLegacyMembers.every((m) => selectedLegacyUsers.has(m.uid))
-                        }
-                        indeterminate={
-                          paginatedLegacyMembers.some((m) => selectedLegacyUsers.has(m.uid)) &&
-                          !paginatedLegacyMembers.every((m) => selectedLegacyUsers.has(m.uid))
-                        }
-                        onChange={(e) => handleSelectAllLegacyUsers(e.currentTarget.checked)}
-                      />
-                    </Table.Th>
-                    <Table.Th>Membre</Table.Th>
-                    <Table.Th>Email</Table.Th>
-                    <Table.Th>Type</Table.Th>
-                    <Table.Th>Statut</Table.Th>
-                    <Table.Th>Tags</Table.Th>
-                    <Table.Th>Source</Table.Th>
-                    <Table.Th>Inscription</Table.Th>
-                    <Table.Th>Actions</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {paginatedLegacyMembers.map((member) => (
-                    <UserTableRow
-                      key={member.uid}
-                      user={member}
-                      isLegacy={true}
-                      tagsConfig={tagsConfig}
-                      isSelected={selectedLegacyUsers.has(member.uid)}
-                      onSelect={handleSelectLegacyUser}
-                      onSendEmail={handleSendEmail}
-                      onMigrate={handleMigrateLegacyMember}
-                    />
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-
-            {filteredLegacyMembers.length > 0 && (
-              <Group justify="space-between" p="md">
-                <Text size="sm" c="dimmed">
-                  Affichage de {(legacyPage - 1) * itemsPerPage + 1} à{' '}
-                  {Math.min(legacyPage * itemsPerPage, filteredLegacyMembers.length)} sur{' '}
-                  {filteredLegacyMembers.length} membres
-                </Text>
-                <Pagination
-                  total={legacyTotalPages}
-                  value={legacyPage}
-                  onChange={setLegacyPage}
-                  size="sm"
-                />
-              </Group>
-            )}
-          </Paper>
-        </Stack>
-      )}
-
-      {/* Modal d'import CSV */}
       <CsvImportModal
         opened={csvImportModalOpened}
         onClose={() => setCsvImportModalOpened(false)}
@@ -1991,7 +1187,6 @@ export function EnhancedUsersListPage() {
         onImportComplete={loadUsers}
       />
 
-      {/* Modal d'ajout rapide */}
       <QuickAddUserModal
         opened={quickAddModalOpened}
         onClose={() => setQuickAddModalOpened(false)}
@@ -1999,7 +1194,6 @@ export function EnhancedUsersListPage() {
         onAddComplete={loadUsers}
       />
 
-      {/* Modal d'envoi massif des cartes */}
       <SendMassiveCardsModal
         opened={sendMassiveCardsModalOpened}
         onClose={() => setSendMassiveCardsModalOpened(false)}
@@ -2009,7 +1203,6 @@ export function EnhancedUsersListPage() {
         onlyUnsent={onlyUnsent}
       />
 
-      {/* Modal de gestion des tags */}
       <TagsManagerModal
         opened={tagsManagerOpened}
         onClose={() => setTagsManagerOpened(false)}
@@ -2017,7 +1210,6 @@ export function EnhancedUsersListPage() {
         adminUserId={adminUserId}
       />
 
-      {/* Modal de verification EXORDE */}
       <ExordeTagCheckerModal
         opened={exordeCheckerOpened}
         onClose={() => setExordeCheckerOpened(false)}
@@ -2025,15 +1217,10 @@ export function EnhancedUsersListPage() {
         onComplete={loadUsers}
       />
 
-      {/* Modal d'ajout de tags en masse */}
       <Modal
         opened={bulkAddTagsModalOpened}
-        onClose={() => {
-          if (!addingTags) {
-            setBulkAddTagsModalOpened(false);
-          }
-        }}
-        title={addingTags ? 'Ajout de tags en cours...' : 'Tags ajoutés avec succès'}
+        onClose={() => { if (!addingTags) setBulkAddTagsModalOpened(false); }}
+        title={addingTags ? 'Ajout de tags en cours...' : 'Tags ajoutes avec succes'}
         centered
         size="md"
         closeOnClickOutside={!addingTags}
@@ -2044,33 +1231,21 @@ export function EnhancedUsersListPage() {
           {addingTags ? (
             <>
               <Progress value={100} size="lg" animated />
-              <Text size="sm" ta="center">
-                Ajout des tags en cours...
-              </Text>
+              <Text size="sm" ta="center">Ajout des tags en cours...</Text>
             </>
           ) : (
             <>
-              <Alert color="green" title="Succès">
-                Les tags ont été ajoutés avec succès aux utilisateurs sélectionnés.
-              </Alert>
-              <Button fullWidth onClick={() => setBulkAddTagsModalOpened(false)}>
-                Fermer
-              </Button>
+              <Alert color="green" title="Succes">Les tags ont ete ajoutes avec succes.</Alert>
+              <Button fullWidth onClick={() => setBulkAddTagsModalOpened(false)}>Fermer</Button>
             </>
           )}
         </Stack>
       </Modal>
 
-      {/* Modal de migration en masse - Affichage de la progression */}
       <Modal
         opened={bulkMigrationModalOpened}
-        onClose={() => {
-          if (!migrationInProgress) {
-            setBulkMigrationModalOpened(false);
-            setMigrationProgress([]);
-          }
-        }}
-        title={migrationInProgress ? 'Migration en cours...' : 'Migration terminée'}
+        onClose={() => { if (!migrationInProgress) { setBulkMigrationModalOpened(false); setMigrationProgress([]); } }}
+        title={migrationInProgress ? 'Migration en cours...' : 'Migration terminee'}
         centered
         size="lg"
         closeOnClickOutside={!migrationInProgress}
@@ -2078,30 +1253,18 @@ export function EnhancedUsersListPage() {
         withCloseButton={!migrationInProgress}
       >
         <Stack gap="md">
-          {/* Barre de progression globale */}
           <div>
             <Group justify="space-between" mb={8}>
-              <Text size="sm" fw={500}>
-                Progression globale
-              </Text>
-              <Text size="sm" c="dimmed">
-                {migrationProgress.filter((p) => p.status === 'success' || p.status === 'error').length} / {migrationProgress.length}
-              </Text>
+              <Text size="sm" fw={500}>Progression globale</Text>
+              <Text size="sm" c="dimmed">{migrationProgress.filter((p) => p.status === 'success' || p.status === 'error').length} / {migrationProgress.length}</Text>
             </Group>
             <Progress
-              value={
-                migrationProgress.length > 0
-                  ? (migrationProgress.filter((p) => p.status === 'success' || p.status === 'error').length /
-                    migrationProgress.length) *
-                  100
-                  : 0
-              }
+              value={migrationProgress.length > 0 ? (migrationProgress.filter((p) => p.status === 'success' || p.status === 'error').length / migrationProgress.length) * 100 : 0}
               size="lg"
               animated={migrationInProgress}
             />
           </div>
 
-          {/* Liste des utilisateurs avec leur statut */}
           <Stack gap="xs" mah={400} style={{ overflowY: 'auto' }}>
             {migrationProgress.map((progress, index) => (
               <Paper
@@ -2109,121 +1272,45 @@ export function EnhancedUsersListPage() {
                 withBorder
                 p="sm"
                 radius="md"
-                bg={
-                  progress.status === 'success'
-                    ? 'green.0'
-                    : progress.status === 'error'
-                      ? 'red.0'
-                      : progress.status === 'processing'
-                        ? 'blue.0'
-                        : undefined
-                }
+                bg={progress.status === 'success' ? 'green.0' : progress.status === 'error' ? 'red.0' : progress.status === 'processing' ? 'blue.0' : undefined}
               >
                 <Group justify="space-between">
                   <Group gap="sm">
-                    <Text size="sm" fw={500}>
-                      {index + 1}. {progress.name}
-                    </Text>
+                    <Text size="sm" fw={500}>{index + 1}. {progress.name}</Text>
                   </Group>
-                  {progress.status === 'pending' && (
-                    <Badge variant="light" color="gray">
-                      En attente
-                    </Badge>
-                  )}
-                  {progress.status === 'processing' && (
-                    <Badge variant="light" color="blue">
-                      En cours...
-                    </Badge>
-                  )}
-                  {progress.status === 'success' && (
-                    <Badge variant="light" color="green" leftSection={<IconCheck size={12} />}>
-                      Migré
-                    </Badge>
-                  )}
-                  {progress.status === 'error' && (
-                    <Badge variant="light" color="red" leftSection={<IconX size={12} />}>
-                      Erreur
-                    </Badge>
-                  )}
+                  {progress.status === 'pending' && <Badge variant="light" color="gray">En attente</Badge>}
+                  {progress.status === 'processing' && <Badge variant="light" color="blue">En cours...</Badge>}
+                  {progress.status === 'success' && <Badge variant="light" color="green" leftSection={<IconCheck size={12} />}>Migre</Badge>}
+                  {progress.status === 'error' && <Badge variant="light" color="red" leftSection={<IconX size={12} />}>Erreur</Badge>}
                 </Group>
                 {progress.status === 'error' && progress.error && (
-                  <Alert color="red" mt="xs" p="xs">
-                    <Text size="xs">{progress.error}</Text>
-                  </Alert>
+                  <Alert color="red" mt="xs" p="xs"><Text size="xs">{progress.error}</Text></Alert>
                 )}
               </Paper>
             ))}
           </Stack>
 
-          {/* Résumé final */}
           {!migrationInProgress && (
             <Paper withBorder p="md" radius="md" bg="blue.0" mt="md">
               <Group justify="space-between">
                 <div>
-                  <Text size="sm" fw={500}>
-                    Migration terminée
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    {migrationProgress.filter((p) => p.status === 'success').length} réussies,{' '}
-                    {migrationProgress.filter((p) => p.status === 'error').length} erreurs
-                  </Text>
+                  <Text size="sm" fw={500}>Migration terminee</Text>
+                  <Text size="xs" c="dimmed">{migrationProgress.filter((p) => p.status === 'success').length} reussies, {migrationProgress.filter((p) => p.status === 'error').length} erreurs</Text>
                 </div>
-                <Button
-                  onClick={() => {
-                    setBulkMigrationModalOpened(false);
-                    setMigrationProgress([]);
-                  }}
-                >
-                  Fermer
-                </Button>
+                <Button onClick={() => { setBulkMigrationModalOpened(false); setMigrationProgress([]); }}>Fermer</Button>
               </Group>
             </Paper>
           )}
         </Stack>
       </Modal>
 
-      {/* Export Users Modal */}
-      <UserExportModal
-        opened={exportModalOpened}
-        onClose={() => setExportModalOpened(false)}
-        users={users}
-      />
+      <UserExportModal opened={exportModalOpened} onClose={() => setExportModalOpened(false)} users={users} />
+      <PurchaseMigrationModal opened={purchaseMigrationOpened} onClose={() => setPurchaseMigrationOpened(false)} />
+      <PaymentFixModal opened={paymentFixOpened} onClose={() => setPaymentFixOpened(false)} />
+      <ContributionFixModal opened={contributionFixOpened} onClose={() => setContributionFixOpened(false)} onComplete={loadUsers} />
+      <ItemNormalizationModal opened={itemNormalizationOpened} onClose={() => setItemNormalizationOpened(false)} onComplete={loadUsers} />
+      <DuplicateReviewModal opened={duplicateReviewOpened} onClose={handleCloseDuplicateMode} duplicateGroups={duplicateGroups} onSelectGroup={handleSelectDuplicateGroup} />
 
-      {/* Modal de migration des achats */}
-      <PurchaseMigrationModal
-        opened={purchaseMigrationOpened}
-        onClose={() => setPurchaseMigrationOpened(false)}
-      />
-
-      {/* Modal de correction des paiements */}
-      <PaymentFixModal
-        opened={paymentFixOpened}
-        onClose={() => setPaymentFixOpened(false)}
-      />
-
-      {/* Modal de correction des contributions (Bug Inkipit) */}
-      <ContributionFixModal
-        opened={contributionFixOpened}
-        onClose={() => setContributionFixOpened(false)}
-        onComplete={loadUsers}
-      />
-
-      {/* Modal de normalisation des noms d'items */}
-      <ItemNormalizationModal
-        opened={itemNormalizationOpened}
-        onClose={() => setItemNormalizationOpened(false)}
-        onComplete={loadUsers}
-      />
-
-      {/* Modal de revue des doublons */}
-      <DuplicateReviewModal
-        opened={duplicateReviewOpened}
-        onClose={handleCloseDuplicateMode}
-        duplicateGroups={duplicateGroups}
-        onSelectGroup={handleSelectDuplicateGroup}
-      />
-
-      {/* Modal de fusion des doublons */}
       {duplicateGroups.length > 0 && duplicateGroups[currentDuplicateIndex] && (
         <DuplicateUserModal
           opened={duplicateModalOpened}

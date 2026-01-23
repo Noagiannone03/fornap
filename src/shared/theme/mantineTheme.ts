@@ -1,4 +1,5 @@
-import { createTheme, rem, alpha } from '@mantine/core';
+import { createTheme, rem } from '@mantine/core';
+import type { MantineTheme } from '@mantine/core';
 
 export const theme = createTheme({
   primaryColor: 'indigo',
@@ -27,7 +28,7 @@ export const theme = createTheme({
         fw: 600,
         radius: 'md',
       },
-      styles: (theme) => ({
+      styles: (theme: MantineTheme) => ({
         root: {
           transition: 'all 0.2s ease',
           boxShadow: theme.shadows.xs,
@@ -42,7 +43,7 @@ export const theme = createTheme({
         bg: 'white',
         radius: 'lg',
       },
-      styles: (theme) => ({
+      styles: (theme: MantineTheme) => ({
         root: {
           borderColor: theme.colors.gray[1],
           transition: 'box-shadow 0.3s ease',
@@ -57,7 +58,7 @@ export const theme = createTheme({
         bg: 'white',
         radius: 'lg',
       },
-      styles: (theme) => ({
+      styles: (theme: MantineTheme) => ({
         root: {
           borderColor: theme.colors.gray[1],
           transition: 'transform 0.2s ease, box-shadow 0.2s ease',
@@ -87,7 +88,7 @@ export const theme = createTheme({
       defaultProps: {
         radius: 'md',
       },
-      styles: (theme) => ({
+      styles: (theme: MantineTheme) => ({
         input: {
           backgroundColor: theme.colors.gray[0],
           borderColor: 'transparent',

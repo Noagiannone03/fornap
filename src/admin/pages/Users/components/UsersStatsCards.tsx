@@ -1,4 +1,4 @@
-import { SimpleGrid, Paper, Text, Group, Box, ThemeIcon, Button, RingProgress, Stack, Divider } from '@mantine/core';
+import { SimpleGrid, Paper, Text, Group, ThemeIcon, Button, Stack } from '@mantine/core';
 import {
     IconUsers,
     IconUserExclamation,
@@ -81,8 +81,8 @@ export function UsersStatsCards({
     totalUsers,
     legacyMembersCount,
     activeSubscriptionsCount,
-    blockedAccountsCount,
-    emailsSentCount,
+    blockedAccountsCount: _blockedAccountsCount,
+    emailsSentCount: _emailsSentCount,
     emailsNotSentCount,
 }: UsersStatsCardsProps) {
     // Only showing the most relevant actionable stats

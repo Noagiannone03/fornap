@@ -1,11 +1,9 @@
-import { AppShell, Burger, Group, Text, Avatar, Menu, ActionIcon, Indicator, ScrollArea, UnstyledButton, rem, Collapse, Badge, Box, NavLink, TextInput, Tooltip, ThemeIcon } from '@mantine/core';
+import { AppShell, Burger, Group, Text, Avatar, Menu, ActionIcon, Indicator, ScrollArea, UnstyledButton, Badge, Box, NavLink, Tooltip, ThemeIcon } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useMediaQuery } from '@mantine/hooks';
 import {
   IconSearch,
   IconBell,
-  IconChevronDown,
-  IconChevronRight,
   IconUser,
   IconSettings,
   IconLogout,
@@ -179,7 +177,7 @@ export function AdminLayout() {
             <Group gap="lg">
               <Burger opened={mobileOpened} onClick={handleToggleMobile} hiddenFrom="sm" size="sm" />
               <Burger opened={desktopOpened} onClick={handleToggleDesktop} visibleFrom="sm" size="sm" />
-              
+
               <Group gap="xs" align="baseline" style={{ userSelect: 'none' }}>
                 <Text
                   size="26px"
@@ -189,11 +187,11 @@ export function AdminLayout() {
                 >
                   FORNAP
                 </Text>
-                <Text 
-                  size="xs" 
-                  fw={700} 
-                  c="indigo.3" 
-                  tt="uppercase" 
+                <Text
+                  size="xs"
+                  fw={700}
+                  c="indigo.3"
+                  tt="uppercase"
                   style={{ letterSpacing: '1px' }}
                 >
                   Admin
@@ -240,8 +238,8 @@ export function AdminLayout() {
                   <IconSearch size={16} color="var(--mantine-color-dimmed)" />
                   <Text size="sm" c="dimmed" style={{ flex: 1 }}>Rechercher...</Text>
                   <Group gap={4}>
-                     <IconCommand size={12} color="var(--mantine-color-dimmed)" />
-                     <Text size="xs" c="dimmed" lh={1}>K</Text>
+                    <IconCommand size={12} color="var(--mantine-color-dimmed)" />
+                    <Text size="xs" c="dimmed" lh={1}>K</Text>
                   </Group>
                 </UnstyledButton>
               ) : (
@@ -252,7 +250,7 @@ export function AdminLayout() {
 
               <Tooltip label="Notifications">
                 <Indicator inline processing color="red" size={8} offset={4} withBorder>
-                  <ActionIcon variant="transparent" c="gray.6" size="xl" radius="md" 
+                  <ActionIcon variant="transparent" c="gray.6" size="xl" radius="md"
                     style={{ transition: 'color 0.2s' }}
                     onMouseEnter={(e) => e.currentTarget.style.color = 'var(--mantine-color-indigo-6)'}
                     onMouseLeave={(e) => e.currentTarget.style.color = 'var(--mantine-color-gray-6)'}
@@ -322,7 +320,7 @@ export function AdminLayout() {
                       }
                       leftSection={
                         <ThemeIcon variant={isActive ? 'light' : 'transparent'} color={isActive ? 'indigo' : 'gray'} size="md">
-                           <Icon size={18} stroke={1.5} />
+                          <Icon size={18} stroke={1.5} />
                         </ThemeIcon>
                       }
                       childrenOffset={32}
@@ -332,7 +330,7 @@ export function AdminLayout() {
                       onChange={(opened) => toggleSubmenu(opened ? item.label : '')}
                       color="indigo"
                       variant="light"
-                      style={{ 
+                      style={{
                         borderRadius: 'var(--mantine-radius-md)',
                         color: isActive ? 'var(--mantine-color-indigo-9)' : 'var(--mantine-color-gray-7)',
                       }}
@@ -344,8 +342,8 @@ export function AdminLayout() {
                           component="button"
                           onClick={() => handleNavigation(sub.path)}
                           active={location.pathname === sub.path}
-                          style={{ 
-                            borderRadius: 'var(--mantine-radius-md)', 
+                          style={{
+                            borderRadius: 'var(--mantine-radius-md)',
                             marginTop: 4,
                             fontSize: '0.9rem',
                             fontWeight: 500,
@@ -366,15 +364,15 @@ export function AdminLayout() {
                       </Text>
                     }
                     leftSection={
-                        <ThemeIcon variant={isActive ? 'light' : 'transparent'} color={isActive ? 'indigo' : 'gray'} size="md">
-                           <Icon size={18} stroke={1.5} />
-                        </ThemeIcon>
+                      <ThemeIcon variant={isActive ? 'light' : 'transparent'} color={isActive ? 'indigo' : 'gray'} size="md">
+                        <Icon size={18} stroke={1.5} />
+                      </ThemeIcon>
                     }
                     active={isActive}
                     onClick={() => handleNavigation(item.path)}
                     color="indigo"
                     variant="light"
-                    style={{ 
+                    style={{
                       borderRadius: 'var(--mantine-radius-md)',
                       color: isActive ? 'var(--mantine-color-indigo-9)' : 'var(--mantine-color-gray-7)',
                     }}
@@ -391,7 +389,7 @@ export function AdminLayout() {
 
           <Box pt="md" mt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-1)' }}>
             <Group justify="center">
-               <Text size="xs" c="dimmed" fw={500} style={{ letterSpacing: '1px' }}>FORNAP ADMIN</Text>
+              <Text size="xs" c="dimmed" fw={500} style={{ letterSpacing: '1px' }}>FORNAP ADMIN</Text>
             </Group>
           </Box>
         </AppShell.Navbar>

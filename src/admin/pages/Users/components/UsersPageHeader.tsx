@@ -11,7 +11,6 @@ import {
     Divider,
 } from '@mantine/core';
 import {
-    IconDownload,
     IconUpload,
     IconPlus,
     IconUsersGroup,
@@ -22,7 +21,6 @@ import {
     IconWand,
     IconAlertTriangle,
     IconTool,
-    IconFileTypeCsv,
     IconTableExport,
 } from '@tabler/icons-react';
 
@@ -58,8 +56,8 @@ export function UsersPageHeader({
     onDuplicateCheck,
     onExport,
     onCsvImport,
-    onExordeChecker,
-    onQuickAdd,
+    onExordeChecker: _onExordeChecker,
+    onQuickAdd: _onQuickAdd,
     onMassiveSend,
     onNewUser,
 }: UsersPageHeaderProps) {

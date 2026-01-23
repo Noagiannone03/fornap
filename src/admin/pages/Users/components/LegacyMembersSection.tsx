@@ -15,7 +15,6 @@ import {
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import {
-    IconAlertTriangle,
     IconArrowRight,
     IconChevronDown,
     IconChevronUp,

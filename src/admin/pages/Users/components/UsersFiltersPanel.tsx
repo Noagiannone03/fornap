@@ -8,16 +8,13 @@ import {
     TagsInput,
     Button,
     Collapse,
-    ActionIcon,
     Badge,
-    Divider,
     Text,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import {
     IconSearch,
     IconFilter,
-    IconFilterOff,
     IconChevronDown,
     IconChevronUp,
     IconCalendar,

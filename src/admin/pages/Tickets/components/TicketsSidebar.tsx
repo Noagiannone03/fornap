@@ -1,11 +1,7 @@
-import { Paper, Stack, NavLink, Text, Badge, Divider, Group, Checkbox, Box } from '@mantine/core';
+import { Stack, NavLink, Text, Badge, Divider, Checkbox, Box } from '@mantine/core';
 import {
     IconInbox,
     IconClock,
-    IconCheck,
-    IconAlertCircle,
-    IconFilter,
-    IconTag,
     IconArchive,
 } from '@tabler/icons-react';
 import { TicketPriority, TicketType, TICKET_PRIORITY_LABELS, TICKET_TYPE_LABELS } from '../../../../shared/types/ticket';
@@ -58,7 +54,6 @@ export function TicketsSidebar({
 
                 <NavLink
                     label="À Traiter"
-                    labelPosition="right"
                     leftSection={<IconInbox size={18} />}
                     active={activeView === 'active'}
                     onClick={() => onViewChange('active')}
@@ -72,7 +67,6 @@ export function TicketsSidebar({
 
                 <NavLink
                     label="En Attente"
-                    labelPosition="right"
                     leftSection={<IconClock size={18} />}
                     active={activeView === 'waiting'}
                     onClick={() => onViewChange('waiting')}
@@ -85,7 +79,6 @@ export function TicketsSidebar({
 
                 <NavLink
                     label="Résolus / Archivés"
-                    labelPosition="right"
                     leftSection={<IconArchive size={18} />}
                     active={activeView === 'processed'}
                     onClick={() => onViewChange('processed')}

@@ -59,7 +59,10 @@ interface TicketsStatsProps {
 export function TicketsStats({ stats }: TicketsStatsProps) {
     if (!stats) return null;
 
-    const toProcess = stats.openTickets + (stats.inProgressTickets || 0);
+    // Compute toProcess from byStatus since inProgressTickets doesn't exist
+    const toProcess = stats.openTickets + (stats.byStatus?.in_progress || 0);
+    // Compute waitingForUserCount from byStatus since it doesn't exist
+    const waitingCount = stats.byStatus?.waiting_for_user || 0;
 
     return (
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="xl">
@@ -83,7 +86,7 @@ export function TicketsStats({ stats }: TicketsStatsProps) {
 
             <StatItem
                 label="En attente"
-                value={stats.waitingForUserCount || 0}
+                value={waitingCount}
                 icon={<IconClock size={24} />}
                 color="orange"
                 description="En attente réponse client"

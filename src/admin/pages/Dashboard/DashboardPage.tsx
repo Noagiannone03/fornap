@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Container, Title, SimpleGrid, Grid, LoadingOverlay, Alert, Box, Text, Group, ThemeIcon } from '@mantine/core';
+import { Container, Title, SimpleGrid, Grid, LoadingOverlay, Alert, Box, Text, Group } from '@mantine/core';
 import {
   IconUsers,
   IconCurrencyEuro,
@@ -87,7 +87,7 @@ export function DashboardPage() {
       if (overviewResult.status === 'fulfilled') setOverviewKpis(overviewResult.value);
       if (financialResult.status === 'fulfilled') setFinancialKpis(financialResult.value);
       if (contributionResult.status === 'fulfilled') setContributionKpis(contributionResult.value);
-      
+
       if (eventResult.status === 'fulfilled') {
         setEventKpis(eventResult.value);
       } else {
@@ -114,7 +114,7 @@ export function DashboardPage() {
       if (engagementResult.status === 'fulfilled') setEngagementKpis(engagementResult.value);
       if (distributionResult.status === 'fulfilled') setDistribution(distributionResult.value);
       if (evolutionResult.status === 'fulfilled') setEvolutionData(evolutionResult.value);
-      
+
       setLastUpdated(new Date());
 
     } catch (err) {
@@ -152,7 +152,7 @@ export function DashboardPage() {
             {getGreeting()}, <span style={{ color: 'var(--mantine-color-indigo-6)' }}>{adminProfile?.firstName || 'Admin'}</span> 👋
           </Title>
           <Text size="lg" c="dimmed" mt={4}>
-             Voici un aperçu de l'activité aujourd'hui.
+            Voici un aperçu de l'activité aujourd'hui.
           </Text>
         </Box>
         <Text size="sm" c="dimmed" fw={500}>
@@ -257,7 +257,7 @@ export function DashboardPage() {
           description="Moyenne événements"
         />
       </SimpleGrid>
-      
+
     </Container>
   );
 }

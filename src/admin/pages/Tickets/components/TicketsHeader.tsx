@@ -14,7 +14,6 @@ import {
     IconFilter,
 } from '@tabler/icons-react';
 import {
-    TICKET_TYPE_LABELS,
     TICKET_PRIORITY_LABELS,
 } from '../../../../shared/types/ticket';
 
@@ -38,10 +37,10 @@ export function TicketsHeader({
     onSearchChange,
     activeTab,
     onTabChange,
-    typeFilter,
+    typeFilter: _typeFilter,
     priorityFilter,
     onPriorityChange,
-    onTypeChange // Not fully utilized in this simple header but prepared
+    onTypeChange: _onTypeChange
 }: TicketsHeaderProps) {
     return (
         <div style={{ marginBottom: 'var(--mantine-spacing-xl)' }}>

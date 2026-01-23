@@ -34,16 +34,15 @@ const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'contact@fornap.fr';
 
 /**
  * Récupère la base URL pour les liens dans les emails
- * Priorité: NEXT_PUBLIC_BASE_URL > VERCEL_URL > fallback
+ * On utilise toujours l'URL de production stable
  */
 const getBaseUrl = (): string => {
   if (process.env.NEXT_PUBLIC_BASE_URL) {
     return process.env.NEXT_PUBLIC_BASE_URL;
   }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  return 'https://fornap.fr';
+  // Toujours utiliser l'URL de production pour les emails
+  // (VERCEL_URL retourne les URLs de preview, pas la production)
+  return 'https://fornap.vercel.app';
 };
 
 const BASE_URL = getBaseUrl();

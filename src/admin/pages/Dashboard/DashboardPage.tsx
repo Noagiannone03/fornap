@@ -10,7 +10,6 @@ import {
   IconTicket,
   IconShoppingCart,
   IconAlertCircle,
-  IconSparkles
 } from '@tabler/icons-react';
 import { KPICard } from '../../components/analytics/stats/KPICard';
 import { ReusableLineChart } from '../../components/analytics/charts/ReusableLineChart';
@@ -126,6 +125,13 @@ export function DashboardPage() {
     }
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Bonjour';
+    if (hour < 18) return 'Bon après-midi';
+    return 'Bonsoir';
+  };
+
   const distributionData = distribution
     ? [
       { name: 'Mensuel', value: distribution.byType.monthly, color: '#6366f1' }, // Indigo-500
@@ -139,19 +145,14 @@ export function DashboardPage() {
 
       <Group justify="space-between" mb={40} align="flex-end">
         <Box>
-          <Group mb={8}>
-             <ThemeIcon variant="light" size="lg" radius="md" color="indigo">
-                <IconSparkles size={20} />
-             </ThemeIcon>
-             <Text size="sm" fw={600} c="indigo" tt="uppercase" style={{ letterSpacing: '1px' }}>
-                Vue d'ensemble
-             </Text>
-          </Group>
-          <Title order={1} fw={800} style={{ letterSpacing: '-1px', fontSize: '2.5rem' }}>
-            Bonjour, {adminProfile?.firstName || 'Admin'}
+          <Text size="sm" c="dimmed" fw={600} tt="uppercase" mb={4} style={{ letterSpacing: '0.5px' }}>
+            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </Text>
+          <Title order={1} fw={800} style={{ letterSpacing: '-1px', fontSize: '2.5rem', color: 'var(--mantine-color-dark-9)' }}>
+            {getGreeting()}, <span style={{ color: 'var(--mantine-color-indigo-6)' }}>{adminProfile?.firstName || 'Admin'}</span> 👋
           </Title>
-          <Text size="lg" c="dimmed" mt={4} maw={600}>
-             Voici ce qu'il se passe sur votre plateforme aujourd'hui.
+          <Text size="lg" c="dimmed" mt={4}>
+             Voici un aperçu de l'activité aujourd'hui.
           </Text>
         </Box>
         <Text size="sm" c="dimmed" fw={500}>
@@ -225,7 +226,7 @@ export function DashboardPage() {
       </Grid>
 
       {/* KPIs Secondaires */}
-      <Title order={3} mb="lg" fw={700}>Métriques d'engagement</Title>
+      <Title order={3} mb="lg" fw={700} c="dimmed" tt="uppercase" size="sm" style={{ letterSpacing: '1px' }}>Métriques d'engagement</Title>
       <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }} spacing="lg" mb={48}>
         <KPICard
           title="Actifs"
@@ -256,6 +257,7 @@ export function DashboardPage() {
           description="Moyenne événements"
         />
       </SimpleGrid>
+      
     </Container>
   );
 }

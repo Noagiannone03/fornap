@@ -10,7 +10,6 @@ import {
   IconSettings,
   IconLogout,
   IconCommand,
-  IconLayoutDashboard
 } from '@tabler/icons-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
@@ -181,18 +180,23 @@ export function AdminLayout() {
               <Burger opened={mobileOpened} onClick={handleToggleMobile} hiddenFrom="sm" size="sm" />
               <Burger opened={desktopOpened} onClick={handleToggleDesktop} visibleFrom="sm" size="sm" />
               
-              <Group gap="xs" align="center" style={{ userSelect: 'none' }}>
-                <ThemeIcon size="lg" radius="md" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
-                    <IconLayoutDashboard size={20} />
-                </ThemeIcon>
+              <Group gap="xs" align="baseline" style={{ userSelect: 'none' }}>
                 <Text
-                  size="xl"
-                  fw={800}
-                  variant="gradient"
-                  gradient={{ from: 'indigo.9', to: 'indigo.6', deg: 45 }}
-                  style={{ letterSpacing: '-0.5px' }}
+                  size="26px"
+                  fw={900}
+                  c="indigo.9"
+                  style={{ letterSpacing: '-1px', lineHeight: 1 }}
                 >
                   FORNAP
+                </Text>
+                <Text 
+                  size="xs" 
+                  fw={700} 
+                  c="indigo.3" 
+                  tt="uppercase" 
+                  style={{ letterSpacing: '1px' }}
+                >
+                  Admin
                 </Text>
               </Group>
 

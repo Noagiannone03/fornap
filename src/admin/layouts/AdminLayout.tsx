@@ -1,4 +1,4 @@
-import { AppShell, Burger, Group, Text, Avatar, Menu, ActionIcon, Indicator, ScrollArea, UnstyledButton, rem, Collapse, Badge, Box } from '@mantine/core';
+import { AppShell, Burger, Group, Text, Avatar, Menu, ActionIcon, Indicator, ScrollArea, UnstyledButton, rem, Collapse, Badge, Box, NavLink, TextInput, Tooltip, ThemeIcon } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useMediaQuery } from '@mantine/hooks';
 import {
@@ -9,6 +9,8 @@ import {
   IconUser,
   IconSettings,
   IconLogout,
+  IconCommand,
+  IconLayoutDashboard
 } from '@tabler/icons-react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
@@ -52,7 +54,6 @@ export function AdminLayout() {
   // Gérer l'ouverture de la sidebar gauche - ferme le panel IA
   const handleToggleDesktop = () => {
     if (!desktopOpened && aiSidebarOpened) {
-      // Si on ouvre la sidebar et que l'IA est ouverte, fermer l'IA
       setAiSidebarOpened(false);
     }
     toggleDesktop();
@@ -60,7 +61,6 @@ export function AdminLayout() {
 
   const handleToggleMobile = () => {
     if (!mobileOpened && aiSidebarOpened) {
-      // Si on ouvre la sidebar mobile et que l'IA est ouverte, fermer l'IA
       setAiSidebarOpened(false);
     }
     toggleMobile();
@@ -69,7 +69,6 @@ export function AdminLayout() {
   // Gérer l'ouverture du panel IA - ferme la sidebar gauche si besoin
   const handleAiSidebarChange = (opened: boolean) => {
     if (opened) {
-      // Si on ouvre l'IA, fermer les sidebars gauche
       if (desktopOpened) closeDesktop();
       if (mobileOpened) closeMobile();
     }
@@ -103,19 +102,16 @@ export function AdminLayout() {
     }
   };
 
-  // Récupérer les initiales de l'admin
   const getInitials = () => {
     if (!adminProfile) return 'A';
     return `${adminProfile.firstName.charAt(0)}${adminProfile.lastName.charAt(0)}`.toUpperCase();
   };
 
-  // Récupérer le nom complet
   const getFullName = () => {
     if (!adminProfile) return 'Admin';
     return `${adminProfile.firstName} ${adminProfile.lastName}`;
   };
 
-  // Récupérer la config du rôle
   const getRoleInfo = () => {
     if (!adminProfile) return null;
     return ADMIN_ROLES_CONFIG[adminProfile.role];
@@ -123,20 +119,15 @@ export function AdminLayout() {
 
   const roleInfo = getRoleInfo();
 
-  // Filtrer les éléments de navigation selon les permissions et exclusions de rôle
   const filteredNavigationItems = navigationItems.filter((item) => {
-    // Si l'item exclut le rôle actuel, ne pas l'afficher
     if (item.excludeRoles && adminProfile && item.excludeRoles.includes(adminProfile.role)) {
       return false;
     }
-    // Si l'item n'a pas de permission requise, il est accessible à tous
     if (!item.requiredPermission) {
       return true;
     }
-    // Sinon, vérifier que l'utilisateur a la permission
     return checkPermission(item.requiredPermission);
   }).map((item) => {
-    // Filtrer aussi les sous-menus si présents
     if (item.submenu) {
       return {
         ...item,
@@ -150,19 +141,16 @@ export function AdminLayout() {
     }
     return item;
   }).filter((item) => {
-    // Retirer les menus avec sous-menus vides
     if (item.submenu && item.submenu.length === 0) {
       return false;
     }
     return true;
   });
 
-  // Si mode maintenance actif et utilisateur n'est pas DEVELOPPEUR -> afficher écran maintenance
   if (shouldShowMaintenanceScreen && maintenanceConfig) {
     return <MaintenanceScreen config={maintenanceConfig} />;
   }
 
-  // Variable pour le banner de maintenance (visible par le DEVELOPPEUR)
   const isDevWithMaintenanceActive =
     maintenanceConfig?.enabled &&
     adminProfile?.role === AdminRole.DEVELOPPEUR;
@@ -171,160 +159,137 @@ export function AdminLayout() {
     <>
       <GlobalSearch />
       <AppShell
-        header={{ height: isMobile ? 56 : 60 }}
+        header={{ height: 68 }}
         navbar={{
-          width: isMobile ? 260 : 280,
+          width: 280,
           breakpoint: 'sm',
           collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
         }}
-        padding={isMobile ? "xs" : "md"}
+        padding={isMobile ? "md" : "xl"}
+        bg="gray.0"
       >
         {/* Header */}
-        <AppShell.Header>
-          <Group h="100%" px={isMobile ? "xs" : "md"} justify="space-between" wrap="nowrap" gap={isMobile ? "xs" : "md"}>
-            <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap">
+        <AppShell.Header
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+            backdropFilter: 'blur(12px)',
+            borderBottom: '1px solid var(--mantine-color-gray-1)',
+          }}
+        >
+          <Group h="100%" px="lg" justify="space-between" wrap="nowrap">
+            <Group gap="lg">
               <Burger opened={mobileOpened} onClick={handleToggleMobile} hiddenFrom="sm" size="sm" />
               <Burger opened={desktopOpened} onClick={handleToggleDesktop} visibleFrom="sm" size="sm" />
-              <Text
-                size={isMobile ? "md" : "xl"}
-                fw={700}
-                c="indigo"
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                {isMobile ? 'FORNAP' : 'FORNAP Admin'}
-              </Text>
+              
+              <Group gap="xs" align="center" style={{ userSelect: 'none' }}>
+                <ThemeIcon size="lg" radius="md" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
+                    <IconLayoutDashboard size={20} />
+                </ThemeIcon>
+                <Text
+                  size="xl"
+                  fw={800}
+                  variant="gradient"
+                  gradient={{ from: 'indigo.9', to: 'indigo.6', deg: 45 }}
+                  style={{ letterSpacing: '-0.5px' }}
+                >
+                  FORNAP
+                </Text>
+              </Group>
+
               {isDevWithMaintenanceActive && (
                 <Badge
                   color="orange"
-                  variant="filled"
-                  size={isMobile ? "xs" : "sm"}
-                  style={{
-                    animation: 'pulse 2s infinite',
-                    boxShadow: '0 0 10px rgba(253, 126, 20, 0.4)'
-                  }}
+                  variant="light"
+                  size="sm"
+                  leftSection="🔧"
                 >
-                  🔧 MAINTENANCE
+                  Maintenance Mode
                 </Badge>
               )}
             </Group>
 
-            <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap">
-              {/* Search Bar - Cachée sur mobile très petit, icône seulement sur tablette */}
+            <Group gap="sm">
               {!isMobile ? (
                 <UnstyledButton
                   onClick={() => spotlight.open()}
                   style={{
                     backgroundColor: 'var(--mantine-color-gray-0)',
-                    border: '1px solid var(--mantine-color-gray-3)',
-                    borderRadius: '10px',
-                    padding: '6px 16px',
+                    border: '1px solid transparent',
+                    borderRadius: 'var(--mantine-radius-md)',
+                    padding: '8px 16px',
                     height: '40px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '12px',
-                    width: isTablet ? '200px' : '320px',
+                    width: isTablet ? '200px' : '280px',
                     transition: 'all 0.2s ease',
-                    cursor: 'pointer',
-                    minWidth: isTablet ? '150px' : 'auto',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--mantine-color-indigo-3)';
-                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
-                    e.currentTarget.style.backgroundColor = 'var(--mantine-color-white)';
+                    e.currentTarget.style.backgroundColor = 'white';
+                    e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--mantine-color-gray-3)';
-                    e.currentTarget.style.boxShadow = 'none';
                     e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)';
+                    e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
-                  <IconSearch size={18} stroke={2} color="var(--mantine-color-indigo-5)" />
-                  {!isTablet && (
-                    <>
-                      <Text size="sm" c="dimmed" fw={500} style={{ flex: 1, userSelect: 'none', whiteSpace: 'nowrap' }}>
-                        Rechercher partout...
-                      </Text>
-                      <Badge
-                        variant="light"
-                        color="gray"
-                        size="sm"
-                        radius="sm"
-                        styles={{ root: { textTransform: 'none', fontSize: '10px', fontWeight: 700 } }}
-                      >
-                        ⌘ K
-                      </Badge>
-                    </>
-                  )}
+                  <IconSearch size={16} color="var(--mantine-color-dimmed)" />
+                  <Text size="sm" c="dimmed" style={{ flex: 1 }}>Rechercher...</Text>
+                  <Group gap={4}>
+                     <IconCommand size={12} color="var(--mantine-color-dimmed)" />
+                     <Text size="xs" c="dimmed" lh={1}>K</Text>
+                  </Group>
                 </UnstyledButton>
               ) : (
-                <ActionIcon
-                  variant="subtle"
-                  size="lg"
-                  onClick={() => spotlight.open()}
-                  aria-label="Rechercher"
-                >
+                <ActionIcon variant="light" size="lg" radius="md" onClick={() => spotlight.open()}>
                   <IconSearch size={20} />
                 </ActionIcon>
               )}
 
-              {/* Notifications */}
-              <Indicator inline processing color="red" size={8}>
-                <ActionIcon variant="subtle" size={isMobile ? "md" : "lg"} aria-label="Notifications">
-                  <IconBell style={{ width: rem(isMobile ? 18 : 20) }} />
-                </ActionIcon>
-              </Indicator>
+              <Tooltip label="Notifications">
+                <Indicator inline processing color="red" size={8} offset={4} withBorder>
+                  <ActionIcon variant="transparent" c="gray.6" size="xl" radius="md" 
+                    style={{ transition: 'color 0.2s' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--mantine-color-indigo-6)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--mantine-color-gray-6)'}
+                  >
+                    <IconBell size={22} />
+                  </ActionIcon>
+                </Indicator>
+              </Tooltip>
 
-              {/* User Menu */}
-              <Menu shadow="md" width={260} position={isMobile ? "bottom-end" : "bottom"}>
+              <Menu shadow="xl" width={240} position="bottom-end" transitionProps={{ transition: 'pop-top-right' }}>
                 <Menu.Target>
-                  <UnstyledButton style={{ cursor: 'pointer' }}>
-                    <Group gap="xs" wrap="nowrap">
-                      <Avatar color={roleInfo?.color || 'indigo'} radius="xl" size={isMobile ? "xs" : "sm"}>
-                        {getInitials()}
-                      </Avatar>
-                      {!isMobile && (
-                        <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
-                          <Text size="sm" fw={500} style={{ lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
-                            {getFullName()}
-                          </Text>
-                          {roleInfo && (
-                            <Badge size="xs" color={roleInfo.color} variant="light">
-                              {roleInfo.label}
-                            </Badge>
-                          )}
-                        </Box>
-                      )}
-                    </Group>
+                  <UnstyledButton
+                    style={{
+                      padding: '2px',
+                      borderRadius: '999px',
+                      border: '2px solid white',
+                      boxShadow: '0 0 0 2px var(--mantine-color-indigo-1)',
+                      transition: 'box-shadow 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px var(--mantine-color-indigo-3)'}
+                    onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px var(--mantine-color-indigo-1)'}
+                  >
+                    <Avatar src={null} color="indigo" radius="xl" size="md">
+                      {getInitials()}
+                    </Avatar>
                   </UnstyledButton>
                 </Menu.Target>
 
-                <Menu.Dropdown>
-                  <Menu.Label>
-                    <Group gap="xs">
-                      <Text size="xs" fw={700}>
-                        {adminProfile?.email}
-                      </Text>
-                    </Group>
-                  </Menu.Label>
-                  <Menu.Divider />
-                  <Menu.Item
-                    leftSection={<IconUser style={{ width: rem(14) }} />}
-                    onClick={() => handleNavigation('/admin/settings')}
-                  >
-                    Mon profil
+                <Menu.Dropdown p="xs">
+                  <Box px="sm" py="xs" mb="xs" style={{ backgroundColor: 'var(--mantine-color-gray-0)', borderRadius: '8px' }}>
+                    <Text size="sm" fw={700} c="dark.9">{getFullName()}</Text>
+                    <Text size="xs" c="indigo.6" fw={600}>{roleInfo?.label}</Text>
+                  </Box>
+                  <Menu.Item leftSection={<IconUser size={16} />} onClick={() => handleNavigation('/admin/settings')} style={{ borderRadius: '6px' }}>
+                    Profil
                   </Menu.Item>
-                  <Menu.Item
-                    leftSection={<IconSettings style={{ width: rem(14) }} />}
-                    onClick={() => handleNavigation('/admin/settings')}
-                  >
+                  <Menu.Item leftSection={<IconSettings size={16} />} onClick={() => handleNavigation('/admin/settings')} style={{ borderRadius: '6px' }}>
                     Paramètres
                   </Menu.Item>
                   <Menu.Divider />
-                  <Menu.Item
-                    color="red"
-                    leftSection={<IconLogout style={{ width: rem(14) }} />}
-                    onClick={handleLogout}
-                  >
+                  <Menu.Item color="red" leftSection={<IconLogout size={16} />} onClick={handleLogout} style={{ borderRadius: '6px' }}>
                     Déconnexion
                   </Menu.Item>
                 </Menu.Dropdown>
@@ -333,194 +298,112 @@ export function AdminLayout() {
           </Group>
         </AppShell.Header>
 
-        {/* Navbar */}
-        <AppShell.Navbar p={isMobile ? "xs" : "md"}>
-          <AppShell.Section grow component={ScrollArea}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '2px' : '4px' }}>
+        {/* Sidebar */}
+        <AppShell.Navbar p="md" style={{ backgroundColor: 'white', borderRight: '1px solid var(--mantine-color-gray-1)' }}>
+          <ScrollArea style={{ flex: 1 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {filteredNavigationItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location.pathname === item.path;
-                const isSubmenuOpen = openSubmenu === item.label;
-                const isInSubmenuPath = item.submenu?.some(sub => location.pathname === sub.path);
+                const isActive = location.pathname === item.path || (item.submenu && item.submenu.some(s => location.pathname === s.path));
+                const hasSubmenu = !!item.submenu;
 
-                if (item.submenu) {
-                  // Menu avec sous-menu
+                if (hasSubmenu) {
                   return (
-                    <div key={item.path}>
-                      <UnstyledButton
-                        onClick={() => toggleSubmenu(item.label)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          width: '100%',
-                          padding: isMobile ? '12px 10px' : '10px 12px',
-                          borderRadius: '8px',
-                          backgroundColor: isInSubmenuPath ? 'var(--mantine-color-indigo-light)' : 'transparent',
-                          color: isInSubmenuPath ? 'var(--mantine-color-indigo-filled)' : 'var(--mantine-color-text)',
-                          fontWeight: isInSubmenuPath ? 600 : 400,
-                          transition: 'all 0.2s',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isInSubmenuPath) {
-                            e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-light)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isInSubmenuPath) {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }
-                        }}
-                      >
-                        <Group justify="space-between" style={{ width: '100%' }} wrap="nowrap">
-                          <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-                            <Icon size={isMobile ? 18 : 20} stroke={1.5} style={{ flexShrink: 0 }} />
-                            <Text size={isMobile ? "xs" : "sm"} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {item.label}
-                            </Text>
-                          </Group>
-                          {isSubmenuOpen ? (
-                            <IconChevronDown size={isMobile ? 14 : 16} style={{ flexShrink: 0 }} />
-                          ) : (
-                            <IconChevronRight size={isMobile ? 14 : 16} style={{ flexShrink: 0 }} />
-                          )}
-                        </Group>
-                      </UnstyledButton>
-
-                      <Collapse in={isSubmenuOpen}>
-                        <div style={{
-                          paddingLeft: isMobile ? '16px' : '20px',
-                          marginTop: '4px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '2px'
-                        }}>
-                          {item.submenu.map((subItem) => {
-                            const SubIcon = subItem.icon;
-                            const isSubActive = location.pathname === subItem.path;
-
-                            return (
-                              <UnstyledButton
-                                key={subItem.path}
-                                onClick={() => handleNavigation(subItem.path)}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  width: '100%',
-                                  padding: isMobile ? '10px 10px' : '8px 12px',
-                                  borderRadius: '6px',
-                                  backgroundColor: isSubActive ? 'var(--mantine-color-indigo-light)' : 'transparent',
-                                  color: isSubActive ? 'var(--mantine-color-indigo-filled)' : 'var(--mantine-color-text)',
-                                  fontWeight: isSubActive ? 600 : 400,
-                                  transition: 'all 0.2s',
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (!isSubActive) {
-                                    e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-light)';
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (!isSubActive) {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                  }
-                                }}
-                              >
-                                <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap" style={{ minWidth: 0 }}>
-                                  <SubIcon size={isMobile ? 16 : 18} stroke={1.5} style={{ flexShrink: 0 }} />
-                                  <Text size={isMobile ? "xs" : "sm"} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {subItem.label}
-                                  </Text>
-                                </Group>
-                              </UnstyledButton>
-                            );
-                          })}
-                        </div>
-                      </Collapse>
-                    </div>
+                    <NavLink
+                      key={item.label}
+                      label={
+                        <Text size="sm" fw={isActive ? 600 : 500}>
+                          {item.label}
+                        </Text>
+                      }
+                      leftSection={
+                        <ThemeIcon variant={isActive ? 'light' : 'transparent'} color={isActive ? 'indigo' : 'gray'} size="md">
+                           <Icon size={18} stroke={1.5} />
+                        </ThemeIcon>
+                      }
+                      childrenOffset={32}
+                      active={isActive}
+                      defaultOpened={isActive}
+                      opened={openSubmenu === item.label || isActive}
+                      onChange={(opened) => toggleSubmenu(opened ? item.label : '')}
+                      color="indigo"
+                      variant="light"
+                      style={{ 
+                        borderRadius: 'var(--mantine-radius-md)',
+                        color: isActive ? 'var(--mantine-color-indigo-9)' : 'var(--mantine-color-gray-7)',
+                      }}
+                    >
+                      {item.submenu?.map(sub => (
+                        <NavLink
+                          key={sub.label}
+                          label={sub.label}
+                          component="button"
+                          onClick={() => handleNavigation(sub.path)}
+                          active={location.pathname === sub.path}
+                          style={{ 
+                            borderRadius: 'var(--mantine-radius-md)', 
+                            marginTop: 4,
+                            fontSize: '0.9rem',
+                            fontWeight: 500,
+                            color: location.pathname === sub.path ? 'var(--mantine-color-indigo-7)' : 'var(--mantine-color-gray-6)'
+                          }}
+                        />
+                      ))}
+                    </NavLink>
                   );
                 }
 
-                // Menu sans sous-menu
                 return (
-                  <UnstyledButton
-                    key={item.path}
+                  <NavLink
+                    key={item.label}
+                    label={
+                      <Text size="sm" fw={isActive ? 600 : 500}>
+                        {item.label}
+                      </Text>
+                    }
+                    leftSection={
+                        <ThemeIcon variant={isActive ? 'light' : 'transparent'} color={isActive ? 'indigo' : 'gray'} size="md">
+                           <Icon size={18} stroke={1.5} />
+                        </ThemeIcon>
+                    }
+                    active={isActive}
                     onClick={() => handleNavigation(item.path)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      width: '100%',
-                      padding: isMobile ? '12px 10px' : '10px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: isActive ? 'var(--mantine-color-indigo-light)' : 'transparent',
-                      color: isActive ? 'var(--mantine-color-indigo-filled)' : 'var(--mantine-color-text)',
-                      fontWeight: isActive ? 600 : 400,
-                      transition: 'all 0.2s',
+                    color="indigo"
+                    variant="light"
+                    style={{ 
+                      borderRadius: 'var(--mantine-radius-md)',
+                      color: isActive ? 'var(--mantine-color-indigo-9)' : 'var(--mantine-color-gray-7)',
                     }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-light)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }
-                    }}
-                  >
-                    <Group justify="space-between" style={{ width: '100%' }} wrap="nowrap">
-                      <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-                        <Icon size={isMobile ? 18 : 20} stroke={1.5} style={{ flexShrink: 0 }} />
-                        <Text size={isMobile ? "xs" : "sm"} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.label}
-                        </Text>
-                      </Group>
-                      {item.badge && (
-                        <div
-                          style={{
-                            backgroundColor: 'var(--mantine-color-red-filled)',
-                            color: 'white',
-                            borderRadius: '12px',
-                            padding: '2px 8px',
-                            fontSize: isMobile ? '10px' : '12px',
-                            fontWeight: 600,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {item.badge}
-                        </div>
-                      )}
-                    </Group>
-                  </UnstyledButton>
+                    rightSection={item.badge && (
+                      <Badge size="xs" color="red" variant="filled" circle style={{ boxShadow: '0 2px 4px rgba(250, 82, 82, 0.4)' }}>
+                        {item.badge}
+                      </Badge>
+                    )}
+                  />
                 );
               })}
             </div>
-          </AppShell.Section>
+          </ScrollArea>
 
-          <AppShell.Section>
-            <div
-              style={{
-                padding: isMobile ? '8px' : '12px',
-                borderTop: '1px solid var(--mantine-color-gray-3)',
-                marginTop: isMobile ? '8px' : '12px',
-              }}
-            >
-              <Text size="xs" c="dimmed" ta="center">
-                Version 1.0.0
-              </Text>
-            </div>
-          </AppShell.Section>
+          <Box pt="md" mt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-1)' }}>
+            <Group justify="center">
+               <Text size="xs" c="dimmed" fw={500} style={{ letterSpacing: '1px' }}>FORNAP ADMIN</Text>
+            </Group>
+          </Box>
         </AppShell.Navbar>
 
         {/* Main Content */}
         <AppShell.Main
           style={{
-            transition: 'margin-right 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            marginRight: aiSidebarOpened ? (isMobile ? '0' : isTablet ? '350px' : '450px') : '0',
+            transition: 'margin-right 0.3s ease',
+            marginRight: aiSidebarOpened ? (isMobile ? '0' : '400px') : '0',
+            backgroundColor: 'var(--mantine-color-gray-0)',
+            backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(79, 70, 229, 0.03) 0%, transparent 40%)'
           }}
         >
           <Outlet />
         </AppShell.Main>
 
-        {/* Assistant IA - Bouton flottant + Sidebar custom */}
         <AIAssistantDrawer
           opened={aiSidebarOpened}
           onOpenChange={handleAiSidebarChange}

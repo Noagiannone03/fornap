@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Container, Title, SimpleGrid, Grid, Paper, Text, Group, LoadingOverlay, Alert, ActionIcon, Tooltip } from '@mantine/core';
+import { Container, Title, SimpleGrid, Grid, LoadingOverlay, Alert, Box, Text, Group, ThemeIcon } from '@mantine/core';
 import {
   IconUsers,
   IconCurrencyEuro,
@@ -10,11 +10,12 @@ import {
   IconTicket,
   IconShoppingCart,
   IconAlertCircle,
-  IconRefresh,
+  IconSparkles
 } from '@tabler/icons-react';
 import { KPICard } from '../../components/analytics/stats/KPICard';
 import { ReusableLineChart } from '../../components/analytics/charts/ReusableLineChart';
 import { ReusablePieChart } from '../../components/analytics/charts/ReusablePieChart';
+import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 
 // Import services
 import { getOverviewKPIs, getMembersEvolution, getMembershipDistribution } from '../../../shared/services/analytics/analyticsService';
@@ -30,8 +31,10 @@ import type { EventAnalyticsKPIs } from '../../../shared/types/event';
 import type { EngagementKPIs } from '../../../shared/types/user';
 
 export function DashboardPage() {
+  const { adminProfile } = useAdminAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   // Overview data
   const [overviewKpis, setOverviewKpis] = useState<OverviewKPIs | null>(null);
@@ -59,13 +62,6 @@ export function DashboardPage() {
       setLoading(true);
       setError(null);
 
-      console.log('[Dashboard] Starting optimized parallel load...');
-      const startTime = performance.now();
-
-      // OPTIMIZATION: Charger toutes les donnees EN PARALLELE
-      // Les services analyticsService et financialAnalytics utilisent maintenant
-      // un cache partage (usersDataCache) donc ils ne font plus de requetes redondantes
-
       const [
         overviewResult,
         financialResult,
@@ -89,30 +85,13 @@ export function DashboardPage() {
         })(),
       ]);
 
-      // Appliquer les resultats
-      if (overviewResult.status === 'fulfilled') {
-        setOverviewKpis(overviewResult.value);
-      } else {
-        console.error('Error loading overview KPIs:', overviewResult.reason);
-      }
-
-      if (financialResult.status === 'fulfilled') {
-        setFinancialKpis(financialResult.value);
-      } else {
-        console.error('Error loading financial KPIs:', financialResult.reason);
-      }
-
-      if (contributionResult.status === 'fulfilled') {
-        setContributionKpis(contributionResult.value);
-      } else {
-        console.error('Error loading contribution KPIs:', contributionResult.reason);
-      }
-
+      if (overviewResult.status === 'fulfilled') setOverviewKpis(overviewResult.value);
+      if (financialResult.status === 'fulfilled') setFinancialKpis(financialResult.value);
+      if (contributionResult.status === 'fulfilled') setContributionKpis(contributionResult.value);
+      
       if (eventResult.status === 'fulfilled') {
         setEventKpis(eventResult.value);
       } else {
-        console.error('Error loading event KPIs:', eventResult.reason);
-        // Fallback avec des valeurs par defaut
         setEventKpis({
           totalEvents: 0,
           activeEvents: 0,
@@ -133,189 +112,150 @@ export function DashboardPage() {
         });
       }
 
-      if (engagementResult.status === 'fulfilled') {
-        setEngagementKpis(engagementResult.value);
-      } else {
-        console.error('Error loading engagement KPIs:', engagementResult.reason);
-      }
-
-      if (distributionResult.status === 'fulfilled') {
-        setDistribution(distributionResult.value);
-      } else {
-        console.error('Error loading distribution:', distributionResult.reason);
-      }
-
-      if (evolutionResult.status === 'fulfilled') {
-        setEvolutionData(evolutionResult.value);
-      } else {
-        console.error('Error loading evolution:', evolutionResult.reason);
-      }
-
-      const duration = Math.round(performance.now() - startTime);
-      console.log(`[Dashboard] All data loaded in ${duration}ms`);
+      if (engagementResult.status === 'fulfilled') setEngagementKpis(engagementResult.value);
+      if (distributionResult.status === 'fulfilled') setDistribution(distributionResult.value);
+      if (evolutionResult.status === 'fulfilled') setEvolutionData(evolutionResult.value);
+      
+      setLastUpdated(new Date());
 
     } catch (err) {
       console.error('Error loading dashboard data:', err);
-      setError('Erreur lors du chargement des donnees du tableau de bord');
+      setError('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
     }
   };
 
-  // Préparer les données pour le pie chart
   const distributionData = distribution
     ? [
-      { name: 'Mensuel', value: distribution.byType.monthly, color: '#339AF0' },
-      { name: 'Annuel', value: distribution.byType.annual, color: '#51CF66' },
+      { name: 'Mensuel', value: distribution.byType.monthly, color: '#6366f1' }, // Indigo-500
+      { name: 'Annuel', value: distribution.byType.annual, color: '#14b8a6' }, // Teal-500
     ]
     : [];
 
   return (
-    <Container size="xl" pos="relative">
-      <LoadingOverlay visible={loading} />
+    <Container size="xl" py="xl" pos="relative">
+      <LoadingOverlay visible={loading} overlayProps={{ radius: "lg", blur: 2 }} />
 
-      <Group justify="space-between" mb="xl">
-        <Title order={1}>Tableau de Bord</Title>
-        <Tooltip label="Actualiser les données">
-          <ActionIcon
-            variant="light"
-            size="lg"
-            onClick={loadData}
-            loading={loading}
-          >
-            <IconRefresh size={18} />
-          </ActionIcon>
-        </Tooltip>
+      <Group justify="space-between" mb={40} align="flex-end">
+        <Box>
+          <Group mb={8}>
+             <ThemeIcon variant="light" size="lg" radius="md" color="indigo">
+                <IconSparkles size={20} />
+             </ThemeIcon>
+             <Text size="sm" fw={600} c="indigo" tt="uppercase" style={{ letterSpacing: '1px' }}>
+                Vue d'ensemble
+             </Text>
+          </Group>
+          <Title order={1} fw={800} style={{ letterSpacing: '-1px', fontSize: '2.5rem' }}>
+            Bonjour, {adminProfile?.firstName || 'Admin'}
+          </Title>
+          <Text size="lg" c="dimmed" mt={4} maw={600}>
+             Voici ce qu'il se passe sur votre plateforme aujourd'hui.
+          </Text>
+        </Box>
+        <Text size="sm" c="dimmed" fw={500}>
+          Mis à jour à {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
       </Group>
 
       {error && (
-        <Alert icon={<IconAlertCircle size={16} />} color="red" mb="xl">
+        <Alert icon={<IconAlertCircle size={16} />} color="red" mb="xl" variant="light" radius="md">
           {error}
         </Alert>
       )}
 
-      {/* KPIs Principaux - Vue d'ensemble */}
-      <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }} spacing="lg" mb="xl">
+      {/* KPIs Principaux */}
+      <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }} spacing="lg" mb={40}>
         <KPICard
           title="Total Adhérents"
           value={overviewKpis?.totalMembers || 0}
-          icon={<IconUsers size={22} />}
+          icon={<IconUsers size={28} stroke={1.5} />}
           color="indigo"
-          trend={{
-            value: overviewKpis?.trends.members || 0,
-            period: 'vs semaine dernière',
-          }}
+          trend={{ value: overviewKpis?.trends.members || 0, period: 'vs mois dernier' }}
         />
         <KPICard
           title="MRR"
           value={`${financialKpis?.mrr.toFixed(0)}€`}
-          icon={<IconCurrencyEuro size={22} />}
+          icon={<IconCurrencyEuro size={28} stroke={1.5} />}
           color="teal"
-          description="Revenu Récurrent Mensuel"
+          description="Revenu Récurrent"
         />
         <KPICard
           title="Contributions"
           value={`${contributionKpis?.totalAmount.toFixed(0)}€`}
-          icon={<IconShoppingCart size={22} />}
-          color="green"
-          description={`${contributionKpis?.totalContributions || 0} pass et dons`}
+          icon={<IconShoppingCart size={28} stroke={1.5} />}
+          color="cyan"
+          description={`${contributionKpis?.totalContributions || 0} transactions`}
         />
         <KPICard
           title="Événements Actifs"
           value={eventKpis?.activeEvents || 0}
-          icon={<IconCalendarEvent size={22} />}
-          color="orange"
-          description={`${eventKpis?.totalTicketsSold.toLocaleString() || '0'} billets vendus`}
-        />
-      </SimpleGrid>
-
-      {/* KPIs Secondaires */}
-      <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }} spacing="lg" mb="xl">
-        <KPICard
-          title="Adhérents Actifs"
-          value={overviewKpis?.activeMembers || 0}
-          icon={<IconUserCheck size={22} />}
-          color="green"
-          description={`${overviewKpis?.activityRate.toFixed(1)}% du total`}
-        />
-        <KPICard
-          title="Taux de Renouvellement"
-          value={`${overviewKpis?.renewalRate.toFixed(1)}%`}
-          icon={<IconRepeat size={22} />}
-          color="cyan"
-          description="Sur 12 mois"
-        />
-        <KPICard
-          title="Bénévoles"
-          value={engagementKpis?.volunteerCount || 0}
-          icon={<IconHeartHandshake size={22} />}
-          color="pink"
-          description="Disponibles pour aider"
-        />
-        <KPICard
-          title="Taux d'Occupation"
-          value={`${eventKpis?.averageOccupancyRate.toFixed(1) || '0'}%`}
-          icon={<IconTicket size={22} />}
-          color="violet"
-          description="Moyenne événements"
+          icon={<IconCalendarEvent size={28} stroke={1.5} />}
+          color="grape"
+          description={`${eventKpis?.totalTicketsSold.toLocaleString() || '0'} billets`}
         />
       </SimpleGrid>
 
       {/* Graphiques */}
-      <Grid mb="xl">
+      <Grid mb={40} gutter="lg">
         <Grid.Col span={{ base: 12, md: 8 }}>
           <ReusableLineChart
-            title="Évolution des Adhérents"
-            subtitle="Nouveaux adhérents par type sur les 12 derniers mois"
+            title="Croissance"
+            subtitle="Nouveaux adhérents (12 mois)"
             data={evolutionData}
             xAxisKey="date"
             series={[
-              { dataKey: 'monthly', name: 'Mensuel', color: '#339AF0' },
-              { dataKey: 'annual', name: 'Annuel', color: '#51CF66' },
-              { dataKey: 'total', name: 'Total', color: '#000' },
+              { dataKey: 'monthly', name: 'Mensuel', color: '#6366f1' },
+              { dataKey: 'annual', name: 'Annuel', color: '#14b8a6' },
             ]}
-            height={350}
+            height={360}
           />
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 4 }}>
           <ReusablePieChart
-            title="Répartition des Abonnements"
-            subtitle="Par type d'abonnement"
+            title="Répartition"
+            subtitle="Types d'abonnements"
             data={distributionData}
-            height={350}
-            innerRadius={60}
+            height={360}
+            innerRadius={80}
           />
         </Grid.Col>
       </Grid>
 
-      {/* Détails rapides */}
-      <Grid>
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <Paper withBorder p="md" radius="md">
-            <Text size="xs" c="dimmed" tt="uppercase" fw={700} mb="xs">Nouveaux ce mois</Text>
-            <Text size="xl" fw={700} c="blue">{overviewKpis?.newThisMonth || 0}</Text>
-          </Paper>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <Paper withBorder p="md" radius="md">
-            <Text size="xs" c="dimmed" tt="uppercase" fw={700} mb="xs">ARR</Text>
-            <Text size="xl" fw={700} c="teal">{financialKpis?.arr.toFixed(0)}€</Text>
-          </Paper>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <Paper withBorder p="md" radius="md">
-            <Text size="xs" c="dimmed" tt="uppercase" fw={700} mb="xs">Taux de Conversion</Text>
-            <Text size="xl" fw={700} c="green">{contributionKpis?.conversionRate.toFixed(1)}%</Text>
-          </Paper>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <Paper withBorder p="md" radius="md">
-            <Text size="xs" c="dimmed" tt="uppercase" fw={700} mb="xs">Profils Étendus</Text>
-            <Text size="xl" fw={700} c="violet">{engagementKpis?.profileCompletionRate.toFixed(1)}%</Text>
-          </Paper>
-        </Grid.Col>
-      </Grid>
+      {/* KPIs Secondaires */}
+      <Title order={3} mb="lg" fw={700}>Métriques d'engagement</Title>
+      <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }} spacing="lg" mb={48}>
+        <KPICard
+          title="Actifs"
+          value={overviewKpis?.activeMembers || 0}
+          icon={<IconUserCheck size={26} stroke={1.5} />}
+          color="lime"
+          description={`${overviewKpis?.activityRate.toFixed(1)}% du total`}
+        />
+        <KPICard
+          title="Renouvellement"
+          value={`${overviewKpis?.renewalRate.toFixed(1)}%`}
+          icon={<IconRepeat size={26} stroke={1.5} />}
+          color="blue"
+          description="Rétention annuelle"
+        />
+        <KPICard
+          title="Bénévoles"
+          value={engagementKpis?.volunteerCount || 0}
+          icon={<IconHeartHandshake size={26} stroke={1.5} />}
+          color="pink"
+          description="Membres engagés"
+        />
+        <KPICard
+          title="Occupation"
+          value={`${eventKpis?.averageOccupancyRate.toFixed(1) || '0'}%`}
+          icon={<IconTicket size={26} stroke={1.5} />}
+          color="orange"
+          description="Moyenne événements"
+        />
+      </SimpleGrid>
     </Container>
   );
 }

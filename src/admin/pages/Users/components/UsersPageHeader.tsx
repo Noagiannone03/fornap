@@ -6,23 +6,22 @@ import {
     Badge,
     Paper,
     Text,
-    Divider,
     ActionIcon,
     Tooltip,
+    Divider,
 } from '@mantine/core';
 import {
     IconDownload,
     IconUpload,
     IconPlus,
     IconUsersGroup,
-    IconSearch,
     IconSend,
     IconTags,
     IconDatabaseImport,
     IconCreditCard,
     IconWand,
     IconAlertTriangle,
-    IconSettings,
+    IconTool,
     IconFileTypeCsv,
     IconTableExport,
 } from '@tabler/icons-react';
@@ -65,134 +64,128 @@ export function UsersPageHeader({
     onNewUser,
 }: UsersPageHeaderProps) {
     return (
-        <Paper shadow="xs" p="md" radius="md" mb="xl" bg="white">
-            <Group justify="space-between" mb="md">
+        <div style={{ marginBottom: 'var(--mantine-spacing-xl)' }}>
+            {/* 1. Header Line: Title + Primary Action */}
+            <Group justify="space-between" mb="lg" align="center">
                 <div>
-                    <Title order={2} fw={700}>Utilisateurs</Title>
-                    <Text c="dimmed" size="sm">Gerez l'ensemble de vos membres</Text>
+                    <Title order={2} fw={800} style={{ fontSize: '2rem' }}>Utilisateurs</Title>
+                    <Text c="dimmed" size="sm">Gestion des membres et abonnements</Text>
                 </div>
-                <Group>
-                    <Button
-                        leftSection={<IconPlus size={16} />}
-                        onClick={onNewUser}
-                        color="black"
-                        radius="md"
-                    >
-                        Nouvel utilisateur
-                    </Button>
-                </Group>
+                <Button
+                    leftSection={<IconPlus size={18} />}
+                    size="md"
+                    color="black"
+                    radius="md"
+                    onClick={onNewUser}
+                >
+                    Nouvel Utilisateur
+                </Button>
             </Group>
 
-            <Divider mb="md" />
+            {/* 2. Toolbar Line: Categorized Tools */}
+            <Paper p="sm" radius="md" withBorder bg="white">
+                <Group justify="space-between">
 
-            {/* Action Bar - Clear & Explicit */}
-            <Group justify="space-between" wrap="wrap">
-                <Group gap="xs">
-                    <Text size="sm" fw={500} c="dimmed" mr="xs">Outils :</Text>
+                    {/* Left: Common Management Tools */}
+                    <Group gap="xs">
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" mr={8}>Gestion:</Text>
 
-                    <Button
-                        variant="default"
-                        size="sm"
-                        leftSection={<IconTags size={16} color="var(--mantine-color-grape-6)" />}
-                        onClick={onTagsManager}
-                        radius="md"
-                    >
-                        Tags
-                    </Button>
+                        <Button
+                            variant="light"
+                            color="grape"
+                            size="sm"
+                            leftSection={<IconTags size={16} />}
+                            onClick={onTagsManager}
+                        >
+                            Tags
+                        </Button>
 
-                    <Button
-                        variant="default"
-                        size="sm"
-                        leftSection={<IconUsersGroup size={16} color="var(--mantine-color-orange-6)" />}
-                        onClick={onDuplicateCheck}
-                        loading={loadingDuplicates}
-                        radius="md"
-                        rightSection={
-                            duplicateGroupsCount > 0 ? (
-                                <Badge size="xs" color="red" variant="filled" circle>
-                                    {duplicateGroupsCount}
-                                </Badge>
-                            ) : null
-                        }
-                    >
-                        Doublons
-                    </Button>
+                        <Button
+                            variant="light"
+                            color="orange"
+                            size="sm"
+                            leftSection={<IconUsersGroup size={16} />}
+                            onClick={onDuplicateCheck}
+                            loading={loadingDuplicates}
+                            rightSection={
+                                duplicateGroupsCount > 0 ? (
+                                    <Badge size="xs" color="red" variant="filled" circle>
+                                        {duplicateGroupsCount}
+                                    </Badge>
+                                ) : null
+                            }
+                        >
+                            Doublons
+                        </Button>
 
-                    <Menu shadow="md" width={240}>
-                        <Menu.Target>
-                            <Button
-                                variant="default"
-                                size="sm"
-                                leftSection={<IconSend size={16} color="var(--mantine-color-green-6)" />}
-                                radius="md"
-                            >
-                                Cartes
-                            </Button>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                            <Menu.Label>Envoi de cartes membres</Menu.Label>
-                            <Menu.Item leftSection={<IconSend size={14} />} color="orange" onClick={() => onMassiveSend('unsent')}>
-                                Aux non-envoyés ({unsentUsersCount})
-                            </Menu.Item>
-                            <Menu.Item leftSection={<IconSend size={14} />} onClick={() => onMassiveSend('all')}>
-                                À tous ({totalUsersCount})
-                            </Menu.Item>
-                        </Menu.Dropdown>
-                    </Menu>
+                        <Menu shadow="md" width={240}>
+                            <Menu.Target>
+                                <Button
+                                    variant="light"
+                                    color="green"
+                                    size="sm"
+                                    leftSection={<IconSend size={16} />}
+                                >
+                                    Cartes
+                                </Button>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                                <Menu.Label>Envoi de cartes membres</Menu.Label>
+                                <Menu.Item leftSection={<IconSend size={14} />} color="orange" onClick={() => onMassiveSend('unsent')}>
+                                    Aux non-envoyés ({unsentUsersCount})
+                                </Menu.Item>
+                                <Menu.Item leftSection={<IconSend size={14} />} onClick={() => onMassiveSend('all')}>
+                                    À tous ({totalUsersCount})
+                                </Menu.Item>
+                            </Menu.Dropdown>
+                        </Menu>
+                    </Group>
 
-                    <Tooltip label="Ajout rapide">
-                        <ActionIcon variant="default" size="lg" radius="md" onClick={onQuickAdd}>
-                            <IconPlus size={16} />
-                        </ActionIcon>
-                    </Tooltip>
+                    {/* Right: Technical & Data Tools */}
+                    <Group gap="xs">
+                        <Divider orientation="vertical" />
+
+                        {/* Split Import/Export for clarity */}
+                        <Tooltip label="Exporter en Excel">
+                            <ActionIcon variant="subtle" color="gray" size="lg" onClick={onExport}>
+                                <IconTableExport size={18} />
+                            </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Importer CSV">
+                            <ActionIcon variant="subtle" color="gray" size="lg" onClick={onCsvImport}>
+                                <IconUpload size={18} />
+                            </ActionIcon>
+                        </Tooltip>
+
+                        <Divider orientation="vertical" />
+
+                        <Menu shadow="md" width={240} position="bottom-end">
+                            <Menu.Target>
+                                <Button variant="subtle" color="gray" size="sm" leftSection={<IconTool size={16} />}>
+                                    Réparations
+                                </Button>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                                <Menu.Label>Outils Techniques</Menu.Label>
+                                <Menu.Item leftSection={<IconDatabaseImport size={14} />} onClick={onPurchaseMigration}>
+                                    Migrer les achats
+                                </Menu.Item>
+                                <Menu.Item leftSection={<IconCreditCard size={14} />} onClick={onPaymentFix}>
+                                    Corriger paiements
+                                </Menu.Item>
+                                <Menu.Item leftSection={<IconWand size={14} />} onClick={onItemNormalization}>
+                                    Normaliser les données
+                                </Menu.Item>
+                                <Menu.Divider />
+                                <Menu.Item leftSection={<IconAlertTriangle size={14} />} color="red" onClick={onContributionFix}>
+                                    Fix Inkipit Bug
+                                </Menu.Item>
+                            </Menu.Dropdown>
+                        </Menu>
+                    </Group>
+
                 </Group>
-
-                <Group gap="xs">
-                    <Menu shadow="md" width={180}>
-                        <Menu.Target>
-                            <Button variant="subtle" size="sm" leftSection={<IconTableExport size={16} />}>
-                                Donnees
-                            </Button>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                            <Menu.Item leftSection={<IconDownload size={14} />} onClick={onExport}>
-                                Exporter Excel
-                            </Menu.Item>
-                            <Menu.Item leftSection={<IconUpload size={14} />} onClick={onCsvImport}>
-                                Importer CSV
-                            </Menu.Item>
-                        </Menu.Dropdown>
-                    </Menu>
-
-                    <Menu shadow="md" width={220} position="bottom-end">
-                        <Menu.Target>
-                            <Button variant="subtle" size="sm" leftSection={<IconSettings size={16} />}>
-                                Maintenance
-                            </Button>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                            <Menu.Label>Verification</Menu.Label>
-                            <Menu.Item leftSection={<IconSearch size={14} />} onClick={onExordeChecker}>
-                                Checker EXORDE
-                            </Menu.Item>
-                            <Menu.Divider />
-                            <Menu.Label>Reparations</Menu.Label>
-                            <Menu.Item leftSection={<IconDatabaseImport size={14} />} onClick={onPurchaseMigration}>
-                                Migrer Achats
-                            </Menu.Item>
-                            <Menu.Item leftSection={<IconCreditCard size={14} />} onClick={onPaymentFix}>
-                                Fix Paiements
-                            </Menu.Item>
-                            <Menu.Item leftSection={<IconWand size={14} />} onClick={onItemNormalization}>
-                                Normaliser Items
-                            </Menu.Item>
-                            <Menu.Item leftSection={<IconAlertTriangle size={14} />} color="red" onClick={onContributionFix}>
-                                Fix Inkipit
-                            </Menu.Item>
-                        </Menu.Dropdown>
-                    </Menu>
-                </Group>
-            </Group>
-        </Paper>
+            </Paper>
+        </div>
     );
 }

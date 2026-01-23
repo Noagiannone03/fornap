@@ -1,47 +1,68 @@
-import { SimpleGrid, Paper, Text, Group, Box, ThemeIcon, Progress } from '@mantine/core';
+import { SimpleGrid, Paper, Text, Group, Box, ThemeIcon, Button, RingProgress, Stack, Divider } from '@mantine/core';
 import {
     IconUsers,
     IconUserExclamation,
     IconUserCheck,
-    IconUserOff,
-    IconMail,
     IconMailOff,
+    IconArrowRight,
 } from '@tabler/icons-react';
 
-interface MetricCardProps {
+interface StatItemProps {
     label: string;
     value: number;
-    total?: number;
-    color: string;
     icon: React.ReactNode;
+    color: string;
+    description?: string;
+    actionLabel?: string;
+    onAction?: () => void;
+    variant?: 'primary' | 'alert';
 }
 
-function MetricCard({ label, value, total, color, icon }: MetricCardProps) {
-    const percent = total ? (value / total) * 100 : 0;
-
+function StatItem({ label, value, icon, color, description, actionLabel, onAction, variant = 'primary' }: StatItemProps) {
     return (
-        <Paper withBorder p="md" radius="md">
-            <Group justify="space-between" align="flex-start" mb="xs">
-                <div>
+        <Paper
+            withBorder
+            p="md"
+            radius="md"
+            bg={variant === 'alert' ? 'var(--mantine-color-orange-0)' : 'white'}
+            style={variant === 'alert' ? { borderColor: 'var(--mantine-color-orange-3)' } : undefined}
+        >
+            <Group justify="space-between" align="flex-start">
+                <Stack gap={4}>
                     <Text size="xs" c="dimmed" fw={700} tt="uppercase">
                         {label}
                     </Text>
-                    <Text fw={700} size="xl" lh={1} mt={4}>
-                        {value.toLocaleString('fr-FR')}
+                    <Text fw={800} size="2rem" lh={1} c={variant === 'alert' ? 'orange.9' : 'dark.8'}>
+                        {value.toLocaleString()}
                     </Text>
-                </div>
-                <ThemeIcon variant="light" color={color} size="lg" radius="md">
+                    {description && (
+                        <Text size="xs" c={variant === 'alert' ? 'orange.8' : 'dimmed'} mt={2}>
+                            {description}
+                        </Text>
+                    )}
+                </Stack>
+                <ThemeIcon
+                    size="xl"
+                    radius="md"
+                    variant={variant === 'alert' ? 'filled' : 'light'}
+                    color={color}
+                >
                     {icon}
                 </ThemeIcon>
             </Group>
 
-            {total && (
-                <Box mt="sm">
-                    <Group justify="space-between" mb={2}>
-                        <Text size="xs" c="dimmed">{percent.toFixed(0)}%</Text>
-                    </Group>
-                    <Progress value={percent} color={color} size="sm" radius="xl" />
-                </Box>
+            {onAction && (
+                <Button
+                    variant="light"
+                    color={color}
+                    fullWidth
+                    mt="md"
+                    h={32}
+                    rightSection={<IconArrowRight size={14} />}
+                    onClick={onAction}
+                >
+                    {actionLabel}
+                </Button>
             )}
         </Paper>
     );
@@ -64,50 +85,44 @@ export function UsersStatsCards({
     emailsSentCount,
     emailsNotSentCount,
 }: UsersStatsCardsProps) {
-    const newUsersCount = totalUsers - legacyMembersCount;
+    // Only showing the most relevant actionable stats
 
     return (
-        <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="md" mb="xl">
-            <MetricCard
-                label="Total Utilisateurs"
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="xl">
+            {/* General Health */}
+            <StatItem
+                label="Total Membres"
                 value={totalUsers}
+                icon={<IconUsers size={24} />}
                 color="blue"
-                icon={<IconUsers size={20} />}
+                description="Base utilisateurs totale"
             />
-            <MetricCard
-                label="À Migrer"
-                value={legacyMembersCount}
-                total={totalUsers}
-                color="orange"
-                icon={<IconUserExclamation size={20} />}
-            />
-            <MetricCard
+
+            <StatItem
                 label="Abonnements Actifs"
                 value={activeSubscriptionsCount}
-                total={newUsersCount}
+                icon={<IconUserCheck size={24} />}
                 color="teal"
-                icon={<IconUserCheck size={20} />}
+                description="Membres à jour de cotisation"
             />
-            <MetricCard
-                label="Comptes Bloqués"
-                value={blockedAccountsCount}
-                total={newUsersCount}
-                color="red"
-                icon={<IconUserOff size={20} />}
+
+            {/* Action Items - Highlighted */}
+            <StatItem
+                label="À Migrer"
+                value={legacyMembersCount}
+                icon={<IconUserExclamation size={24} />}
+                color="orange"
+                description="Anciens membres requérant attention"
+                variant={legacyMembersCount > 0 ? 'alert' : 'primary'}
             />
-            <MetricCard
-                label="Cartes Envoyées"
-                value={emailsSentCount}
-                total={newUsersCount}
-                color="indigo"
-                icon={<IconMail size={20} />}
-            />
-            <MetricCard
-                label="Cartes en Attente"
+
+            <StatItem
+                label="Cartes en attente"
                 value={emailsNotSentCount}
-                total={newUsersCount}
-                color="gray"
-                icon={<IconMailOff size={20} />}
+                icon={<IconMailOff size={24} />}
+                color="indigo"
+                description="Membres sans carte d'adhérent"
+                variant={emailsNotSentCount > 0 ? 'alert' : 'primary'}
             />
         </SimpleGrid>
     );

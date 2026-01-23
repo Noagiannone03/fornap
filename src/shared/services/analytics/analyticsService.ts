@@ -1,74 +1,30 @@
+/**
+ * Analytics Service - Main Entry Point
+ * 
+ * Provides overview KPIs for the dashboard.
+ * Uses centralized utils and shared cache for consistent calculations.
+ */
+
 import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import type { OverviewKPIs } from '../../types/user';
 import { getUsers } from './usersDataCache';
+import {
+  toDate,
+  calculateAge,
+  isValidAge,
+  normalizePlanType,
+} from './analyticsUtils';
 
 const ANALYTICS_CACHE_DOC = 'analytics/summary';
 
-/**
- * Convertit une date Firestore Timestamp ou Date en objet Date JavaScript
- */
-function toDate(value: any): Date | null {
-  if (!value) return null;
-
-  // Si c'est deja un objet Date
-  if (value instanceof Date) return value;
-
-  // Si c'est un Timestamp Firestore avec la methode toDate()
-  if (value.toDate && typeof value.toDate === 'function') {
-    return value.toDate();
-  }
-
-  // Si c'est un objet avec seconds et nanoseconds (Timestamp Firestore)
-  if (value.seconds !== undefined) {
-    return new Date(value.seconds * 1000);
-  }
-
-  // Si c'est une string, essayer de la parser
-  if (typeof value === 'string') {
-    const date = new Date(value);
-    return isNaN(date.getTime()) ? null : date;
-  }
-
-  return null;
-}
+// ============================================================================
+// Cache Management
+// ============================================================================
 
 /**
- * Normalise le type de plan pour gerer les variations
- */
-function normalizePlanType(planType: any): 'monthly' | 'annual' | 'lifetime' | null {
-  if (!planType || planType === 'null' || planType === 'undefined') return null;
-
-  const type = String(planType).toLowerCase().trim();
-
-  if (type === 'monthly' || type === 'month') return 'monthly';
-  if (type === 'annual' || type === 'year' || type === 'yearly') return 'annual';
-  if (type === 'lifetime') return 'lifetime';
-
-  return null;
-}
-
-/**
- * Calcule l'age a partir d'une date de naissance
- */
-function calculateAge(birthDate: any): number {
-  const date = toDate(birthDate);
-  if (!date) return 0;
-
-  const today = new Date();
-  let age = today.getFullYear() - date.getFullYear();
-  const monthDiff = today.getMonth() - date.getMonth();
-
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
-    age--;
-  }
-
-  return age;
-}
-
-/**
- * Recupere les KPIs caches s'ils sont recents (< 1 heure)
+ * Retrieves cached KPIs if recent (< 1 hour)
  */
 async function getCachedKPIs(): Promise<OverviewKPIs | null> {
   try {
@@ -81,7 +37,7 @@ async function getCachedKPIs(): Promise<OverviewKPIs | null> {
       const updatedAt = data.updatedAt?.toDate();
       const now = new Date();
 
-      // Si le cache a moins de 1 heure
+      // Cache valid for 1 hour
       if (updatedAt && (now.getTime() - updatedAt.getTime()) < 60 * 60 * 1000) {
         return data.kpis as OverviewKPIs;
       }
@@ -94,7 +50,7 @@ async function getCachedKPIs(): Promise<OverviewKPIs | null> {
 }
 
 /**
- * Sauvegarde les KPIs dans le cache Firestore
+ * Saves KPIs to Firestore cache
  */
 async function cacheKPIs(kpis: OverviewKPIs): Promise<void> {
   try {
@@ -109,9 +65,13 @@ async function cacheKPIs(kpis: OverviewKPIs): Promise<void> {
   }
 }
 
+// ============================================================================
+// KPI Calculation
+// ============================================================================
+
 /**
- * Calcule tous les KPIs en un seul passage sur les donnees users cachees
- * OPTIMISE: Plus de requetes imbriquees, tout est calcule depuis le cache
+ * Calculates all KPIs in a single pass over cached user data
+ * Uses centralized utils for consistent calculations
  */
 function calculateAllKPIsFromUsers(users: Array<{ id: string; data: DocumentData }>): OverviewKPIs {
   const now = new Date();
@@ -131,7 +91,7 @@ function calculateAllKPIsFromUsers(users: Array<{ id: string; data: DocumentData
   let totalRevenue = 0;
   let mrr = 0;
 
-  // Age calculation
+  // Age calculation - using centralized functions
   let totalAge = 0;
   let ageCount = 0;
 
@@ -174,16 +134,17 @@ function calculateAllKPIsFromUsers(users: Array<{ id: string; data: DocumentData
       if (createdAt >= twoMonthsAgo && createdAt < oneMonthAgo) newPreviousMonth++;
     }
 
-    // Age calculation
+    // Age calculation - using centralized functions for consistency
     if (data.birthDate) {
       const age = calculateAge(data.birthDate);
-      if (age > 0 && age < 120) {
+      // Use centralized validation - SAME as demographicAnalytics
+      if (isValidAge(age)) {
         totalAge += age;
         ageCount++;
       }
     }
 
-    // Renewal rate (simplified - users who have renewed at least once)
+    // Renewal rate
     if (data.membershipHistory && Array.isArray(data.membershipHistory)) {
       if (data.membershipHistory.length > 0) {
         eligibleForRenewal++;
@@ -207,7 +168,7 @@ function calculateAllKPIsFromUsers(users: Array<{ id: string; data: DocumentData
     mrr: Math.round(mrr * 100) / 100,
     arr: Math.round(mrr * 12 * 100) / 100,
     totalRevenue: Math.round(totalRevenue * 100) / 100,
-    averageAge: Math.round(averageAge * 10) / 10,
+    averageAge: Math.round(averageAge),
     newThisWeek,
     newThisMonth,
     trends: {
@@ -219,15 +180,19 @@ function calculateAllKPIsFromUsers(users: Array<{ id: string; data: DocumentData
   };
 }
 
+// ============================================================================
+// Public API
+// ============================================================================
+
 /**
- * Recupere tous les KPIs pour le dashboard principal
- * OPTIMISE: Utilise le cache de donnees users partage
+ * Retrieves all KPIs for the main dashboard
+ * Uses shared user cache for performance
  * 
- * @param forceRefresh Si true, ignore le cache et force le recalcul
+ * @param forceRefresh If true, bypass cache and recalculate
  */
 export async function getOverviewKPIs(forceRefresh = false): Promise<OverviewKPIs> {
   try {
-    // 1. Essayer le cache Firestore (sauf si force)
+    // 1. Try Firestore cache (unless forced)
     if (!forceRefresh) {
       const cached = await getCachedKPIs();
       if (cached) {
@@ -238,13 +203,13 @@ export async function getOverviewKPIs(forceRefresh = false): Promise<OverviewKPI
 
     console.log('[OverviewKPIs] Calculating from users cache...');
 
-    // 2. Utiliser le cache de donnees users partage
+    // 2. Use shared user data cache
     const users = await getUsers(forceRefresh);
 
-    // 3. Calculer tous les KPIs en un seul passage
+    // 3. Calculate all KPIs in single pass
     const result = calculateAllKPIsFromUsers(users);
 
-    // 4. Mettre a jour le cache Firestore (en arriere-plan)
+    // 4. Update Firestore cache (background)
     cacheKPIs(result);
 
     return result;
@@ -255,14 +220,14 @@ export async function getOverviewKPIs(forceRefresh = false): Promise<OverviewKPI
 }
 
 /**
- * Fonction dediee a la recherche pour recuperer les stats tres rapidement (uniquement via cache)
+ * Fast stats retrieval for search (cache only)
  */
 export async function getStatsForSearch(): Promise<OverviewKPIs | null> {
   return getCachedKPIs();
 }
 
 /**
- * Export de toutes les fonctions analytics
+ * Export all analytics functions
  */
 export * from './membershipAnalytics';
 export * from './demographicAnalytics';

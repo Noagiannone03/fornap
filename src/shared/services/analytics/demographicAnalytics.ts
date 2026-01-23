@@ -1,95 +1,39 @@
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+/**
+ * Demographic Analytics Service
+ * 
+ * Provides age distribution, geographic distribution, and professional statistics.
+ * Uses centralized utils and shared cache for consistent calculations.
+ */
+
 import type {
   AgeDistributionData,
   GeographicData,
   ProfessionalData,
 } from '../../types/user';
+import { getUsers } from './usersDataCache';
+import {
+  toDate,
+  calculateAge,
+  isValidAge,
+  getAgeRange,
+  normalizePlanType,
+  calculateAgeStatistics,
+} from './analyticsUtils';
 
-const USERS_COLLECTION = 'users';
-
-/**
- * Normalise le type de plan pour gérer les variations
- * @param planType - Le type de plan brut de la base de données
- * @returns Le type normalisé ('monthly', 'annual', 'lifetime') ou null
- */
-function normalizePlanType(planType: any): 'monthly' | 'annual' | 'lifetime' | null {
-  if (!planType || planType === 'null' || planType === 'undefined') return null;
-
-  const type = String(planType).toLowerCase().trim();
-
-  // Mapping des variations
-  if (type === 'monthly' || type === 'month') return 'monthly';
-  if (type === 'annual' || type === 'year' || type === 'yearly') return 'annual';
-
-  return null;
-}
+// ============================================================================
+// Age Distribution
+// ============================================================================
 
 /**
- * Convertit une date Firestore Timestamp ou Date en objet Date JavaScript
- */
-function toDate(value: any): Date | null {
-  if (!value) return null;
-
-  // Si c'est déjà un objet Date
-  if (value instanceof Date) return value;
-
-  // Si c'est un Timestamp Firestore avec la méthode toDate()
-  if (value.toDate && typeof value.toDate === 'function') {
-    return value.toDate();
-  }
-
-  // Si c'est un objet avec seconds et nanoseconds (Timestamp Firestore)
-  if (value.seconds !== undefined) {
-    return new Date(value.seconds * 1000);
-  }
-
-  // Si c'est une string, essayer de la parser
-  if (typeof value === 'string') {
-    const date = new Date(value);
-    return isNaN(date.getTime()) ? null : date;
-  }
-
-  return null;
-}
-
-/**
- * Calcule l'âge d'un utilisateur à partir de sa date de naissance
- */
-function calculateAge(birthDate: Date): number {
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-
-  return age;
-}
-
-/**
- * Détermine la tranche d'âge
- */
-function getAgeRange(age: number): keyof AgeDistributionData['byRange'] {
-  if (age >= 18 && age <= 25) return '18-25';
-  if (age >= 26 && age <= 35) return '26-35';
-  if (age >= 36 && age <= 45) return '36-45';
-  if (age >= 46 && age <= 55) return '46-55';
-  if (age >= 56 && age <= 65) return '56-65';
-  return '66+';
-}
-
-/**
- * Analyse la distribution des âges
+ * Analyzes age distribution of all users
+ * Uses the shared user cache for consistent data across all analytics pages
  */
 export async function getAgeDistribution(): Promise<AgeDistributionData> {
   try {
-    const usersRef = collection(db, USERS_COLLECTION);
-    const snapshot = await getDocs(usersRef);
+    // Use shared cache instead of direct Firestore query
+    const users = await getUsers();
 
-    const ages: number[] = [];
-    const byRange = {
+    const byRange: AgeDistributionData['byRange'] = {
       '18-25': 0,
       '26-35': 0,
       '36-45': 0,
@@ -107,19 +51,22 @@ export async function getAgeDistribution(): Promise<AgeDistributionData> {
       '66+': { monthly: 0, annual: 0, lifetime: 0 },
     };
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
+    // Process users
+    for (const user of users) {
+      const data = user.data;
       if (data.birthDate) {
         const birthDate = toDate(data.birthDate);
-        if (!birthDate) return; // Skip si la conversion échoue
+        if (!birthDate) continue;
 
         const age = calculateAge(birthDate);
-        ages.push(age);
+
+        // Use centralized validation - this ensures same filtering as analyticsService
+        if (!isValidAge(age)) continue;
 
         const range = getAgeRange(age);
         byRange[range]++;
 
-        // Vérifier que currentMembership existe
+        // Handle membership type distribution
         if (data.currentMembership?.planType) {
           const membershipType = normalizePlanType(data.currentMembership.planType);
           if (membershipType === 'monthly') byRangeAndType[range].monthly++;
@@ -127,26 +74,14 @@ export async function getAgeDistribution(): Promise<AgeDistributionData> {
           else if (membershipType === 'lifetime') byRangeAndType[range].lifetime++;
         }
       }
-    });
-
-    // Calculer moyenne et médiane
-    let averageAge = 0;
-    let medianAge = 0;
-
-    if (ages.length > 0) {
-      averageAge = Math.round(ages.reduce((sum, age) => sum + age, 0) / ages.length);
-
-      const sortedAges = ages.sort((a, b) => a - b);
-      const mid = Math.floor(sortedAges.length / 2);
-      medianAge =
-        sortedAges.length % 2 === 0
-          ? Math.round((sortedAges[mid - 1] + sortedAges[mid]) / 2)
-          : sortedAges[mid];
     }
 
+    // Use centralized age statistics calculation
+    const ageStats = calculateAgeStatistics(users);
+
     return {
-      averageAge,
-      medianAge,
+      averageAge: ageStats.averageAge,
+      medianAge: ageStats.medianAge,
       byRange,
       byRangeAndType,
     };
@@ -156,25 +91,29 @@ export async function getAgeDistribution(): Promise<AgeDistributionData> {
   }
 }
 
+// ============================================================================
+// Geographic Distribution
+// ============================================================================
+
 /**
- * Analyse la distribution géographique
+ * Analyzes geographic distribution by postal code
  */
 export async function getGeographicDistribution(): Promise<GeographicData> {
   try {
-    const usersRef = collection(db, USERS_COLLECTION);
-    const snapshot = await getDocs(usersRef);
+    // Use shared cache
+    const users = await getUsers();
 
     const postalCodeMap = new Map<
       string,
       { monthly: number; annual: number; lifetime: number }
     >();
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
+    for (const user of users) {
+      const data = user.data;
       const postalCode = data.postalCode;
 
-      // Vérifier que currentMembership existe
-      if (!data.currentMembership?.planType || !postalCode) return;
+      // Skip if no postal code or membership
+      if (!data.currentMembership?.planType || !postalCode) continue;
 
       const membershipType = normalizePlanType(data.currentMembership.planType);
 
@@ -187,10 +126,10 @@ export async function getGeographicDistribution(): Promise<GeographicData> {
       if (membershipType === 'monthly') codeData.monthly++;
       else if (membershipType === 'annual') codeData.annual++;
       else if (membershipType === 'lifetime') codeData.lifetime++;
-    });
+    }
 
-    // Calculer les totaux et pourcentages
-    const totalUsers = snapshot.size;
+    // Calculate totals and percentages
+    const totalUsers = users.length;
     const topPostalCodes = Array.from(postalCodeMap.entries())
       .map(([postalCode, byType]) => {
         const count = byType.monthly + byType.annual + byType.lifetime;
@@ -214,13 +153,17 @@ export async function getGeographicDistribution(): Promise<GeographicData> {
   }
 }
 
+// ============================================================================
+// Professional Distribution
+// ============================================================================
+
 /**
- * Analyse la distribution professionnelle (uniquement profils étendus)
+ * Analyzes professional distribution (extended profiles only)
  */
 export async function getProfessionalDistribution(): Promise<ProfessionalData> {
   try {
-    const usersRef = collection(db, USERS_COLLECTION);
-    const snapshot = await getDocs(usersRef);
+    // Use shared cache
+    const users = await getUsers();
 
     const byStatus = {
       salaried: 0,
@@ -234,14 +177,14 @@ export async function getProfessionalDistribution(): Promise<ProfessionalData> {
     const domainsMap = new Map<string, number>();
     let totalWithExtendedProfile = 0;
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
+    for (const user of users) {
+      const data = user.data;
 
       if (data.extendedProfile?.professional) {
         totalWithExtendedProfile++;
         const prof = data.extendedProfile.professional;
 
-        // Statut professionnel
+        // Professional status
         if (prof.status) {
           byStatus[prof.status as keyof typeof byStatus]++;
         }
@@ -252,13 +195,13 @@ export async function getProfessionalDistribution(): Promise<ProfessionalData> {
           professionsMap.set(prof.profession, currentCount + 1);
         }
 
-        // Domaine d'activité
+        // Activity domain
         if (prof.activityDomain) {
           const currentCount = domainsMap.get(prof.activityDomain) || 0;
           domainsMap.set(prof.activityDomain, currentCount + 1);
         }
       }
-    });
+    }
 
     // Top professions
     const topProfessions = Array.from(professionsMap.entries())
@@ -266,7 +209,7 @@ export async function getProfessionalDistribution(): Promise<ProfessionalData> {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    // Top domaines d'activité
+    // Top activity domains
     const topActivityDomains = Array.from(domainsMap.entries())
       .map(([domain, count]) => ({ domain, count }))
       .sort((a, b) => b.count - a.count)

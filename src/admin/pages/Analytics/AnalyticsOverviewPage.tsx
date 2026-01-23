@@ -55,8 +55,8 @@ function AnalyticsOverviewContent() {
       setLoading(true);
       setError(null);
 
-      // Charger les KPIs
-      const kpisData = await getOverviewKPIs();
+      // Charger les KPIs (force refresh to get new rounded values)
+      const kpisData = await getOverviewKPIs(true);
       setKpis(kpisData);
 
       // Charger l'évolution sur les 12 derniers mois
@@ -81,17 +81,17 @@ function AnalyticsOverviewContent() {
   // Préparer les données pour le pie chart
   const distributionData = distribution
     ? [
-        {
-          name: 'Mensuel',
-          value: distribution.byType.monthly,
-          color: '#339AF0',
-        },
-        {
-          name: 'Annuel',
-          value: distribution.byType.annual,
-          color: '#51CF66',
-        },
-      ]
+      {
+        name: 'Mensuel',
+        value: distribution.byType.monthly,
+        color: '#339AF0',
+      },
+      {
+        name: 'Annuel',
+        value: distribution.byType.annual,
+        color: '#51CF66',
+      },
+    ]
     : [];
 
   return (
@@ -166,8 +166,8 @@ function AnalyticsOverviewContent() {
         />
 
         <KPICard
-          title="Âge Moyen"
-          value={kpis ? `${kpis.averageAge || 0} ans` : '-'}
+          title="Age Moyen"
+          value={kpis ? `${Math.round(kpis.averageAge || 0)} ans` : '-'}
           icon={<IconCalendar size={22} />}
           color="orange"
           loading={loading}

@@ -31,7 +31,22 @@ import { getFirestore } from '../_lib/firebase-admin.js';
 
 // Configuration
 const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'contact@fornap.fr';
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://fornap.fr';
+
+/**
+ * Récupère la base URL pour les liens dans les emails
+ * Priorité: NEXT_PUBLIC_BASE_URL > VERCEL_URL > fallback
+ */
+const getBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return process.env.NEXT_PUBLIC_BASE_URL;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return 'https://fornap.fr';
+};
+
+const BASE_URL = getBaseUrl();
 
 /**
  * Récupère les emails de tous les développeurs actifs

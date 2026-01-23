@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Container,
   Title,
@@ -19,6 +19,7 @@ import {
   Box,
   Grid,
   Card,
+  Tabs,
 } from '@mantine/core';
 import {
   IconEye,
@@ -30,6 +31,8 @@ import {
   IconMessage,
   IconRefresh,
   IconTrash,
+  IconFolder,
+  IconFolderCheck,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -61,21 +64,24 @@ export function TicketsListPage() {
   const [stats, setStats] = useState<TicketStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('active');
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [priorityFilter, setPriorityFilter] = useState<string[]>([]);
 
   const canDelete = checkPermission(AdminPermission.TICKETS_DELETE);
 
+  // Statuts pour les tickets actifs et traites
+  const ACTIVE_STATUSES: TicketStatus[] = [TicketStatus.OPEN, TicketStatus.IN_PROGRESS, TicketStatus.WAITING_FOR_USER];
+  const PROCESSED_STATUSES: TicketStatus[] = [TicketStatus.RESOLVED, TicketStatus.CLOSED];
+
   useEffect(() => {
     loadData();
-  }, [statusFilter, typeFilter, priorityFilter]);
+  }, [typeFilter, priorityFilter]);
 
   async function loadData() {
     setLoading(true);
     try {
       const filters: TicketFilters = {};
-      if (statusFilter.length > 0) filters.status = statusFilter as TicketStatus[];
       if (typeFilter.length > 0) filters.type = typeFilter as TicketType[];
       if (priorityFilter.length > 0) filters.priority = priorityFilter as TicketPriority[];
 
@@ -147,8 +153,22 @@ export function TicketsListPage() {
     }
   };
 
-  // Filtrer par recherche côté client
-  const filteredTickets = tickets.filter(ticket => {
+  // Separer les tickets par statut (actifs vs traites)
+  const activeTickets = useMemo(() =>
+    tickets.filter(ticket => ACTIVE_STATUSES.includes(ticket.status as TicketStatus)),
+    [tickets, ACTIVE_STATUSES]
+  );
+
+  const processedTickets = useMemo(() =>
+    tickets.filter(ticket => PROCESSED_STATUSES.includes(ticket.status as TicketStatus)),
+    [tickets, PROCESSED_STATUSES]
+  );
+
+  // Tickets a afficher selon l'onglet actif
+  const currentTickets = activeTab === 'active' ? activeTickets : processedTickets;
+
+  // Filtrer par recherche cote client
+  const filteredTickets = currentTickets.filter(ticket => {
     if (!searchQuery) return true;
     const search = searchQuery.toLowerCase();
     return (
@@ -158,11 +178,6 @@ export function TicketsListPage() {
       ticket.userEmail.toLowerCase().includes(search)
     );
   });
-
-  const statusOptions = Object.entries(TICKET_STATUS_LABELS).map(([value, label]) => ({
-    value,
-    label,
-  }));
 
   const typeOptions = Object.entries(TICKET_TYPE_LABELS).map(([value, label]) => ({
     value,
@@ -265,14 +280,7 @@ export function TicketsListPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ flex: 1, minWidth: 200 }}
             />
-            <MultiSelect
-              placeholder="Statut"
-              data={statusOptions}
-              value={statusFilter}
-              onChange={setStatusFilter}
-              clearable
-              style={{ minWidth: 180 }}
-            />
+
             <MultiSelect
               placeholder="Type"
               data={typeOptions}
@@ -292,146 +300,319 @@ export function TicketsListPage() {
           </Group>
         </Paper>
 
-        {/* Table */}
-        <Paper p="md" withBorder radius="md">
-          {loading ? (
-            <Center py="xl">
-              <Loader size="lg" />
-            </Center>
-          ) : filteredTickets.length === 0 ? (
-            <Center py={60}>
-              <Stack align="center" gap="md">
-                <ThemeIcon size={60} radius="xl" color="gray" variant="light">
-                  <IconTicket size={30} />
-                </ThemeIcon>
-                <Text size="lg" fw={500} c="dimmed">
-                  Aucun ticket trouvé
-                </Text>
-                <Text size="sm" c="dimmed" ta="center">
-                  {searchQuery || statusFilter.length > 0 || typeFilter.length > 0 || priorityFilter.length > 0
-                    ? 'Essayez de modifier vos filtres'
-                    : 'Aucune demande de support pour le moment'}
-                </Text>
-              </Stack>
-            </Center>
-          ) : (
-            <Table.ScrollContainer minWidth={800}>
-              <Table highlightOnHover verticalSpacing="sm">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Ticket</Table.Th>
-                    <Table.Th>Utilisateur</Table.Th>
-                    <Table.Th>Type</Table.Th>
-                    <Table.Th>Priorité</Table.Th>
-                    <Table.Th>Statut</Table.Th>
-                    <Table.Th>Messages</Table.Th>
-                    <Table.Th>Date</Table.Th>
-                    <Table.Th ta="right">Actions</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {filteredTickets.map((ticket) => (
-                    <Table.Tr
-                      key={ticket.id}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => navigate(`/admin/tickets/${ticket.id}`)}
-                    >
-                      <Table.Td>
-                        <Group gap="xs">
-                          {ticket.hasUnreadForAdmin && (
-                            <Box
-                              w={8}
-                              h={8}
-                              style={{ borderRadius: '50%', backgroundColor: '#ff4757' }}
-                            />
-                          )}
-                          <div>
-                            <Text size="sm" fw={600}>
-                              {ticket.ticketNumber}
-                            </Text>
-                            <Text size="xs" c="dimmed" lineClamp={1} maw={200}>
-                              {ticket.subject}
-                            </Text>
-                          </div>
-                        </Group>
-                      </Table.Td>
-                      <Table.Td>
-                        <div>
-                          <Text size="sm" fw={500}>
-                            {ticket.userName}
-                          </Text>
-                          <Text size="xs" c="dimmed">
-                            {ticket.userEmail}
-                          </Text>
-                        </div>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={TICKET_TYPE_COLORS[ticket.type]}
-                          variant="light"
-                          size="sm"
+        {/* Tabs et Table */}
+        <Tabs value={activeTab} onChange={(value) => setActiveTab(value || 'active')} variant="pills" radius="md">
+          <Tabs.List mb="md">
+            <Tabs.Tab
+              value="active"
+              leftSection={<IconFolder size={16} />}
+              rightSection={
+                <Badge size="sm" variant="filled" color="blue" circle>
+                  {activeTickets.length}
+                </Badge>
+              }
+            >
+              Tickets Actifs
+            </Tabs.Tab>
+            <Tabs.Tab
+              value="processed"
+              leftSection={<IconFolderCheck size={16} />}
+              rightSection={
+                <Badge size="sm" variant="filled" color="green" circle>
+                  {processedTickets.length}
+                </Badge>
+              }
+            >
+              Tickets Traites
+            </Tabs.Tab>
+          </Tabs.List>
+
+          <Tabs.Panel value="active">
+            <Paper p="md" withBorder radius="md">
+              {loading ? (
+                <Center py="xl">
+                  <Loader size="lg" />
+                </Center>
+              ) : filteredTickets.length === 0 ? (
+                <Center py={60}>
+                  <Stack align="center" gap="md">
+                    <ThemeIcon size={60} radius="xl" color="gray" variant="light">
+                      <IconTicket size={30} />
+                    </ThemeIcon>
+                    <Text size="lg" fw={500} c="dimmed">
+                      Aucun ticket trouvé
+                    </Text>
+                    <Text size="sm" c="dimmed" ta="center">
+                      {searchQuery || typeFilter.length > 0 || priorityFilter.length > 0
+                        ? 'Essayez de modifier vos filtres'
+                        : activeTab === 'active'
+                          ? 'Aucun ticket actif pour le moment'
+                          : 'Aucun ticket traite pour le moment'}
+                    </Text>
+                  </Stack>
+                </Center>
+              ) : (
+                <Table.ScrollContainer minWidth={800}>
+                  <Table highlightOnHover verticalSpacing="sm">
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Ticket</Table.Th>
+                        <Table.Th>Utilisateur</Table.Th>
+                        <Table.Th>Type</Table.Th>
+                        <Table.Th>Priorité</Table.Th>
+                        <Table.Th>Statut</Table.Th>
+                        <Table.Th>Messages</Table.Th>
+                        <Table.Th>Date</Table.Th>
+                        <Table.Th ta="right">Actions</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {filteredTickets.map((ticket) => (
+                        <Table.Tr
+                          key={ticket.id}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => navigate(`/admin/tickets/${ticket.id}`)}
                         >
-                          {TICKET_TYPE_LABELS[ticket.type]}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={TICKET_PRIORITY_COLORS[ticket.priority]}
-                          variant="light"
-                          size="sm"
-                        >
-                          {TICKET_PRIORITY_LABELS[ticket.priority]}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={TICKET_STATUS_COLORS[ticket.status]}
-                          variant="light"
-                          size="sm"
-                          leftSection={getStatusIcon(ticket.status)}
-                        >
-                          {TICKET_STATUS_LABELS[ticket.status]}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{ticket.messageCount}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" c="dimmed">
-                          {formatDate(ticket.createdAt)}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Group gap="xs" justify="flex-end" onClick={(e) => e.stopPropagation()}>
-                          <Tooltip label="Voir le ticket">
-                            <ActionIcon
+                          <Table.Td>
+                            <Group gap="xs">
+                              {ticket.hasUnreadForAdmin && (
+                                <Box
+                                  w={8}
+                                  h={8}
+                                  style={{ borderRadius: '50%', backgroundColor: '#ff4757' }}
+                                />
+                              )}
+                              <div>
+                                <Text size="sm" fw={600}>
+                                  {ticket.ticketNumber}
+                                </Text>
+                                <Text size="xs" c="dimmed" lineClamp={1} maw={200}>
+                                  {ticket.subject}
+                                </Text>
+                              </div>
+                            </Group>
+                          </Table.Td>
+                          <Table.Td>
+                            <div>
+                              <Text size="sm" fw={500}>
+                                {ticket.userName}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                {ticket.userEmail}
+                              </Text>
+                            </div>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              color={TICKET_TYPE_COLORS[ticket.type]}
                               variant="light"
-                              color="blue"
-                              onClick={() => navigate(`/admin/tickets/${ticket.id}`)}
+                              size="sm"
                             >
-                              <IconEye size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                          {canDelete && (
-                            <Tooltip label="Supprimer">
-                              <ActionIcon
-                                variant="light"
-                                color="red"
-                                onClick={() => handleDelete(ticket)}
-                              >
-                                <IconTrash size={16} />
-                              </ActionIcon>
-                            </Tooltip>
-                          )}
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-          )}
-        </Paper>
+                              {TICKET_TYPE_LABELS[ticket.type]}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              color={TICKET_PRIORITY_COLORS[ticket.priority]}
+                              variant="light"
+                              size="sm"
+                            >
+                              {TICKET_PRIORITY_LABELS[ticket.priority]}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              color={TICKET_STATUS_COLORS[ticket.status]}
+                              variant="light"
+                              size="sm"
+                              leftSection={getStatusIcon(ticket.status)}
+                            >
+                              {TICKET_STATUS_LABELS[ticket.status]}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">{ticket.messageCount}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" c="dimmed">
+                              {formatDate(ticket.createdAt)}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap="xs" justify="flex-end" onClick={(e) => e.stopPropagation()}>
+                              <Tooltip label="Voir le ticket">
+                                <ActionIcon
+                                  variant="light"
+                                  color="blue"
+                                  onClick={() => navigate(`/admin/tickets/${ticket.id}`)}
+                                >
+                                  <IconEye size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                              {canDelete && (
+                                <Tooltip label="Supprimer">
+                                  <ActionIcon
+                                    variant="light"
+                                    color="red"
+                                    onClick={() => handleDelete(ticket)}
+                                  >
+                                    <IconTrash size={16} />
+                                  </ActionIcon>
+                                </Tooltip>
+                              )}
+                            </Group>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
+              )}
+            </Paper>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="processed">
+            <Paper p="md" withBorder radius="md">
+              {loading ? (
+                <Center py="xl">
+                  <Loader size="lg" />
+                </Center>
+              ) : filteredTickets.length === 0 ? (
+                <Center py={60}>
+                  <Stack align="center" gap="md">
+                    <ThemeIcon size={60} radius="xl" color="gray" variant="light">
+                      <IconFolderCheck size={30} />
+                    </ThemeIcon>
+                    <Text size="lg" fw={500} c="dimmed">
+                      Aucun ticket traite
+                    </Text>
+                    <Text size="sm" c="dimmed" ta="center">
+                      {searchQuery || typeFilter.length > 0 || priorityFilter.length > 0
+                        ? 'Essayez de modifier vos filtres'
+                        : 'Aucun ticket resolu ou ferme pour le moment'}
+                    </Text>
+                  </Stack>
+                </Center>
+              ) : (
+                <Table.ScrollContainer minWidth={800}>
+                  <Table highlightOnHover verticalSpacing="sm">
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Ticket</Table.Th>
+                        <Table.Th>Utilisateur</Table.Th>
+                        <Table.Th>Type</Table.Th>
+                        <Table.Th>Priorite</Table.Th>
+                        <Table.Th>Statut</Table.Th>
+                        <Table.Th>Messages</Table.Th>
+                        <Table.Th>Date</Table.Th>
+                        <Table.Th ta="right">Actions</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {filteredTickets.map((ticket) => (
+                        <Table.Tr
+                          key={ticket.id}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => navigate(`/admin/tickets/${ticket.id}`)}
+                        >
+                          <Table.Td>
+                            <Group gap="xs">
+                              {ticket.hasUnreadForAdmin && (
+                                <Box
+                                  w={8}
+                                  h={8}
+                                  style={{ borderRadius: '50%', backgroundColor: '#ff4757' }}
+                                />
+                              )}
+                              <div>
+                                <Text size="sm" fw={600}>
+                                  {ticket.ticketNumber}
+                                </Text>
+                                <Text size="xs" c="dimmed" lineClamp={1} maw={200}>
+                                  {ticket.subject}
+                                </Text>
+                              </div>
+                            </Group>
+                          </Table.Td>
+                          <Table.Td>
+                            <div>
+                              <Text size="sm" fw={500}>
+                                {ticket.userName}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                {ticket.userEmail}
+                              </Text>
+                            </div>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              color={TICKET_TYPE_COLORS[ticket.type]}
+                              variant="light"
+                              size="sm"
+                            >
+                              {TICKET_TYPE_LABELS[ticket.type]}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              color={TICKET_PRIORITY_COLORS[ticket.priority]}
+                              variant="light"
+                              size="sm"
+                            >
+                              {TICKET_PRIORITY_LABELS[ticket.priority]}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              color={TICKET_STATUS_COLORS[ticket.status]}
+                              variant="light"
+                              size="sm"
+                              leftSection={getStatusIcon(ticket.status)}
+                            >
+                              {TICKET_STATUS_LABELS[ticket.status]}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm">{ticket.messageCount}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" c="dimmed">
+                              {formatDate(ticket.createdAt)}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap="xs" justify="flex-end" onClick={(e) => e.stopPropagation()}>
+                              <Tooltip label="Voir le ticket">
+                                <ActionIcon
+                                  variant="light"
+                                  color="blue"
+                                  onClick={() => navigate(`/admin/tickets/${ticket.id}`)}
+                                >
+                                  <IconEye size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                              {canDelete && (
+                                <Tooltip label="Supprimer">
+                                  <ActionIcon
+                                    variant="light"
+                                    color="red"
+                                    onClick={() => handleDelete(ticket)}
+                                  >
+                                    <IconTrash size={16} />
+                                  </ActionIcon>
+                                </Tooltip>
+                              )}
+                            </Group>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
+              )}
+            </Paper>
+          </Tabs.Panel>
+        </Tabs>
       </Stack>
     </Container>
   );

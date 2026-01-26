@@ -463,6 +463,7 @@ export function EnhancedUsersListPage() {
   const [membershipType, setMembershipType] = useState<MembershipType | null>(null);
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagFilterMode, setTagFilterMode] = useState<'include' | 'exclude'>('include');
   const [blockedFilter, setBlockedFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>('date_desc');
   const [dateRangeStart, setDateRangeStart] = useState<Date | null>(null);
@@ -647,9 +648,17 @@ export function EnhancedUsersListPage() {
     let filteredUsersData = applyUsersFilters(users);
 
     if (selectedTags.length > 0) {
-      filteredUsersData = filteredUsersData.filter((user) =>
-        selectedTags.some((tag) => user.tags.includes(tag))
-      );
+      if (tagFilterMode === 'include') {
+        // Show users that HAVE at least one of the selected tags
+        filteredUsersData = filteredUsersData.filter((user) =>
+          selectedTags.some((tag) => user.tags.includes(tag))
+        );
+      } else {
+        // Show users that DON'T HAVE any of the selected tags
+        filteredUsersData = filteredUsersData.filter((user) =>
+          !selectedTags.some((tag) => user.tags.includes(tag))
+        );
+      }
     }
 
     if (blockedFilter === 'account_blocked') {
@@ -668,7 +677,7 @@ export function EnhancedUsersListPage() {
     setFilteredUsers(filteredUsersData);
     setLegacyPage(1);
     setUsersPage(1);
-  }, [search, membershipType, membershipStatus, selectedTags, blockedFilter, sortBy, legacyMembers, users, dateRangeStart, dateRangeEnd, legacyDateRangeStart, legacyDateRangeEnd]);
+  }, [search, membershipType, membershipStatus, selectedTags, tagFilterMode, blockedFilter, sortBy, legacyMembers, users, dateRangeStart, dateRangeEnd, legacyDateRangeStart, legacyDateRangeEnd]);
 
   // Pagination
   const legacyTotalPages = Math.ceil(filteredLegacyMembers.length / itemsPerPage);
@@ -1112,6 +1121,7 @@ export function EnhancedUsersListPage() {
         membershipType={membershipType}
         membershipStatus={membershipStatus}
         selectedTags={selectedTags}
+        tagFilterMode={tagFilterMode}
         blockedFilter={blockedFilter}
         sortBy={sortBy}
         dateRangeStart={dateRangeStart}
@@ -1123,6 +1133,7 @@ export function EnhancedUsersListPage() {
         onMembershipTypeChange={setMembershipType}
         onMembershipStatusChange={setMembershipStatus}
         onSelectedTagsChange={setSelectedTags}
+        onTagFilterModeChange={setTagFilterMode}
         onBlockedFilterChange={setBlockedFilter}
         onSortByChange={setSortBy}
         onDateRangeStartChange={setDateRangeStart}

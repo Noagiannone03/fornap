@@ -31,6 +31,7 @@ interface UsersFiltersPanelProps {
     membershipType: MembershipType | null;
     membershipStatus: MembershipStatus | null;
     selectedTags: string[];
+    tagFilterMode: 'include' | 'exclude';
     blockedFilter: string | null;
     sortBy: string;
     dateRangeStart: Date | null;
@@ -42,6 +43,7 @@ interface UsersFiltersPanelProps {
     onMembershipTypeChange: (value: MembershipType | null) => void;
     onMembershipStatusChange: (value: MembershipStatus | null) => void;
     onSelectedTagsChange: (value: string[]) => void;
+    onTagFilterModeChange: (value: 'include' | 'exclude') => void;
     onBlockedFilterChange: (value: string | null) => void;
     onSortByChange: (value: string) => void;
     onDateRangeStartChange: (value: Date | null) => void;
@@ -54,6 +56,7 @@ export function UsersFiltersPanel({
     membershipType,
     membershipStatus,
     selectedTags,
+    tagFilterMode,
     blockedFilter,
     sortBy,
     dateRangeStart,
@@ -65,6 +68,7 @@ export function UsersFiltersPanel({
     onMembershipTypeChange,
     onMembershipStatusChange,
     onSelectedTagsChange,
+    onTagFilterModeChange,
     onBlockedFilterChange,
     onSortByChange,
     onDateRangeStartChange,
@@ -177,27 +181,40 @@ export function UsersFiltersPanel({
                             />
                         </Group>
 
-                        <Group grow align="flex-start">
+                        <Stack gap="xs">
+                            <Group grow align="flex-start">
+                                <Select
+                                    label="Filtrer par tags"
+                                    data={[
+                                        { value: 'include', label: '✓ Inclure (afficher si présent)' },
+                                        { value: 'exclude', label: '✗ Exclure (cacher si présent)' },
+                                    ]}
+                                    value={tagFilterMode}
+                                    onChange={(value) => onTagFilterModeChange((value as 'include' | 'exclude') || 'include')}
+                                />
+                                <Select
+                                    label="Trier par"
+                                    data={[
+                                        { value: 'date_desc', label: "Récent d'abord" },
+                                        { value: 'date_asc', label: "Ancien d'abord" },
+                                        { value: 'name_asc', label: 'Nom (A-Z)' },
+                                        { value: 'name_desc', label: 'Nom (Z-A)' },
+                                    ]}
+                                    value={sortBy}
+                                    onChange={(value) => onSortByChange(value || 'date_desc')}
+                                />
+                            </Group>
                             <TagsInput
-                                label="Tags"
-                                placeholder="Rechercher des tags"
+                                placeholder="Sélectionner des tags..."
                                 data={allTags}
                                 value={selectedTags}
                                 onChange={onSelectedTagsChange}
                                 clearable
+                                description={tagFilterMode === 'include'
+                                    ? 'Affiche les utilisateurs qui ont AU MOINS UN de ces tags'
+                                    : 'Affiche les utilisateurs qui n\'ont AUCUN de ces tags'}
                             />
-                            <Select
-                                label="Trier par"
-                                data={[
-                                    { value: 'date_desc', label: "Récent d'abord" },
-                                    { value: 'date_asc', label: "Ancien d'abord" },
-                                    { value: 'name_asc', label: 'Nom (A-Z)' },
-                                    { value: 'name_desc', label: 'Nom (Z-A)' },
-                                ]}
-                                value={sortBy}
-                                onChange={(value) => onSortByChange(value || 'date_desc')}
-                            />
-                        </Group>
+                        </Stack>
 
                         <Group align="flex-end">
                             <DatePickerInput

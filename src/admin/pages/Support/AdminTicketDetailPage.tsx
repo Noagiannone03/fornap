@@ -16,6 +16,8 @@ import {
     Box,
     Avatar,
     ScrollArea,
+    FileInput,
+    Image,
 } from '@mantine/core';
 import {
     IconArrowLeft,
@@ -28,6 +30,8 @@ import {
     IconUser,
     IconHeadset,
     IconTrash,
+    IconUpload,
+    IconPaperclip,
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -63,6 +67,7 @@ export function AdminTicketDetailPage() {
     const [messages, setMessages] = useState<TicketMessage[]>([]);
     const [loading, setLoading] = useState(true);
     const [newMessage, setNewMessage] = useState('');
+    const [files, setFiles] = useState<File[]>([]);
     const [sending, setSending] = useState(false);
 
     useEffect(() => {
@@ -109,9 +114,11 @@ export function AdminTicketDetailPage() {
                 senderName: `${adminProfile.firstName} ${adminProfile.lastName}`,
                 senderEmail: adminProfile.email,
                 senderType: MessageSenderType.USER, // L'admin qui a créé le ticket est "user" dans ce contexte
+                attachments: files,
             });
 
             setNewMessage('');
+            setFiles([]);
             await loadTicketData();
 
             notifications.show({
@@ -331,6 +338,31 @@ export function AdminTicketDetailPage() {
                     <Text style={{ whiteSpace: 'pre-wrap' }}>
                         {ticket.description}
                     </Text>
+
+                    {ticket.attachments && ticket.attachments.length > 0 && (
+                        <>
+                            <Divider my="md" />
+                            <Text size="sm" c="dimmed" mb="xs">
+                                Pièces jointes
+                            </Text>
+                            <Group gap="xs">
+                                {ticket.attachments.map((attachment) => (
+                                    <Button
+                                        key={attachment.id}
+                                        variant="light"
+                                        size="xs"
+                                        leftSection={<IconPaperclip size={14} />}
+                                        component="a"
+                                        href={attachment.url}
+                                        target="_blank"
+                                        color="indigo"
+                                    >
+                                        {attachment.fileName}
+                                    </Button>
+                                ))}
+                            </Group>
+                        </>
+                    )}
                 </Paper>
 
                 {/* Messages */}
@@ -396,6 +428,36 @@ export function AdminTicketDetailPage() {
                                                 <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
                                                     {message.content}
                                                 </Text>
+                                                {message.attachments && message.attachments.length > 0 && (
+                                                    <Stack gap="xs" mt="sm">
+                                                        {message.attachments.map((attachment) => (
+                                                            <Group key={attachment.id} gap="xs">
+                                                                {attachment.mimeType.startsWith('image/') ? (
+                                                                    <Image
+                                                                        src={attachment.url}
+                                                                        alt={attachment.fileName}
+                                                                        maw={200}
+                                                                        radius="md"
+                                                                        style={{ cursor: 'pointer' }}
+                                                                        onClick={() => window.open(attachment.url, '_blank')}
+                                                                    />
+                                                                ) : (
+                                                                    <Button
+                                                                        variant="light"
+                                                                        size="xs"
+                                                                        color={isFromAdmin ? 'gray' : 'indigo'}
+                                                                        leftSection={<IconPaperclip size={14} />}
+                                                                        component="a"
+                                                                        href={attachment.url}
+                                                                        target="_blank"
+                                                                    >
+                                                                        {attachment.fileName}
+                                                                    </Button>
+                                                                )}
+                                                            </Group>
+                                                        ))}
+                                                    </Stack>
+                                                )}
                                             </Paper>
                                         </Box>
                                     );
@@ -415,7 +477,18 @@ export function AdminTicketDetailPage() {
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
                             />
-                            <Group justify="flex-end">
+                            <Group justify="space-between">
+                                <FileInput
+                                    placeholder="Ajouter des fichiers"
+                                    leftSection={<IconUpload size={16} />}
+                                    multiple
+                                    accept="image/*,.pdf,.doc,.docx"
+                                    value={files}
+                                    onChange={setFiles}
+                                    clearable
+                                    size="sm"
+                                    style={{ maxWidth: '300px' }}
+                                />
                                 <Button
                                     leftSection={<IconSend size={16} />}
                                     onClick={handleSendMessage}

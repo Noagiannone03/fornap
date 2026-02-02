@@ -13,11 +13,13 @@ import {
     Loader,
     Center,
     Alert,
+    FileInput,
 } from '@mantine/core';
 import {
     IconArrowLeft,
     IconSend,
     IconAlertCircle,
+    IconUpload,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -46,6 +48,7 @@ export function AdminNewTicketPage() {
         description: '',
     });
 
+    const [files, setFiles] = useState<File[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const typeOptions = Object.entries(TICKET_TYPE_LABELS).map(([value, label]) => ({
@@ -95,6 +98,7 @@ export function AdminNewTicketPage() {
                 source: 'admin',
                 adminRole: adminProfile.role,
                 adminRoleLabel: roleConfig.label,
+                attachments: files,
             });
 
             notifications.show({
@@ -189,6 +193,18 @@ export function AdminNewTicketPage() {
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             error={errors.description}
+                        />
+
+                        <FileInput
+                            label="Pièces jointes (optionnel)"
+                            placeholder="Cliquez pour ajouter des fichiers"
+                            leftSection={<IconUpload size={16} />}
+                            multiple
+                            accept="image/*,.pdf,.doc,.docx"
+                            value={files}
+                            onChange={setFiles}
+                            description="Images, PDF ou documents Word (max 5 fichiers, 10MB chacun)"
+                            clearable
                         />
 
                         <Group justify="flex-end" mt="md">

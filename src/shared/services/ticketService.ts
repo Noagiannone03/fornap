@@ -1043,6 +1043,7 @@ interface CreateAdminTicketData {
   source: 'admin';
   adminRole: string;
   adminRoleLabel: string;
+  attachments?: File[];
 }
 
 /**
@@ -1052,6 +1053,15 @@ export async function createAdminTicket(data: CreateAdminTicketData): Promise<Ti
   try {
     const ticketNumber = generateTicketNumber();
     const now = Timestamp.now();
+
+    // Upload des pièces jointes si présentes
+    const attachments: TicketAttachment[] = [];
+    if (data.attachments && data.attachments.length > 0) {
+      for (const file of data.attachments) {
+        const attachment = await uploadTicketAttachment(file, 'new-admin-ticket');
+        attachments.push(attachment);
+      }
+    }
 
     const ticketData: Omit<Ticket, 'id'> = {
       ticketNumber,
@@ -1063,7 +1073,7 @@ export async function createAdminTicket(data: CreateAdminTicketData): Promise<Ti
       description: data.description,
       priority: data.priority,
       status: TicketStatusEnum.OPEN,
-      attachments: [],
+      attachments,
       createdAt: now,
       updatedAt: now,
       messageCount: 0,
@@ -1124,10 +1134,20 @@ export async function addTicketMessage(
     senderName: string;
     senderEmail: string;
     senderType: typeof SenderType[keyof typeof SenderType];
+    attachments?: File[];
   }
 ): Promise<TicketMessage> {
   try {
     const now = Timestamp.now();
+
+    // Upload des pièces jointes si présentes
+    const attachments: TicketAttachment[] = [];
+    if (messageData.attachments && messageData.attachments.length > 0) {
+      for (const file of messageData.attachments) {
+        const attachment = await uploadTicketAttachment(file, ticketId);
+        attachments.push(attachment);
+      }
+    }
 
     const message: Omit<TicketMessage, 'id'> = {
       senderId: messageData.senderId,
@@ -1135,7 +1155,7 @@ export async function addTicketMessage(
       senderEmail: messageData.senderEmail,
       senderType: messageData.senderType,
       content: messageData.content,
-      attachments: [],
+      attachments,
       createdAt: now,
       readByUser: messageData.senderType === SenderType.USER,
       readByAdmin: messageData.senderType === SenderType.ADMIN,

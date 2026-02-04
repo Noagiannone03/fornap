@@ -22,6 +22,7 @@ import {
     IconAlertTriangle,
     IconTool,
     IconTableExport,
+    IconUserSearch,
 } from '@tabler/icons-react';
 
 interface UsersPageHeaderProps {
@@ -41,6 +42,7 @@ interface UsersPageHeaderProps {
     onQuickAdd: () => void;
     onMassiveSend: (mode: 'all' | 'force' | 'unsent') => void;
     onNewUser: () => void;
+    onBulkEdit: () => void;
 }
 
 export function UsersPageHeader({
@@ -60,6 +62,7 @@ export function UsersPageHeader({
     onQuickAdd: _onQuickAdd,
     onMassiveSend,
     onNewUser,
+    onBulkEdit,
 }: UsersPageHeaderProps) {
     return (
         <div style={{ marginBottom: 'var(--mantine-spacing-xl)' }}>
@@ -137,6 +140,16 @@ export function UsersPageHeader({
                                 </Menu.Item>
                             </Menu.Dropdown>
                         </Menu>
+
+                        <Button
+                            variant="light"
+                            color="indigo"
+                            size="sm"
+                            leftSection={<IconUserSearch size={16} />}
+                            onClick={onBulkEdit}
+                        >
+                            Modification en masse
+                        </Button>
                     </Group>
 
                     {/* Right: Technical & Data Tools */}

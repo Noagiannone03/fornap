@@ -85,6 +85,7 @@ import {
 import { DuplicateUserModal } from '../../components/DuplicateUserModal';
 import { DuplicateReviewModal } from '../../components/DuplicateReviewModal';
 import { ItemNormalizationModal } from '../../components/ItemNormalizationModal';
+import { BulkEditUsersModal } from '../../components/BulkEditUsersModal';
 
 // Import new components
 import {
@@ -441,6 +442,7 @@ export function EnhancedUsersListPage() {
   const [paymentFixOpened, setPaymentFixOpened] = useState(false);
   const [itemNormalizationOpened, setItemNormalizationOpened] = useState(false);
   const [contributionFixOpened, setContributionFixOpened] = useState(false);
+  const [bulkEditModalOpened, setBulkEditModalOpened] = useState(false);
 
   // Duplicate detection states
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
@@ -1103,6 +1105,7 @@ export function EnhancedUsersListPage() {
         onQuickAdd={() => setQuickAddModalOpened(true)}
         onMassiveSend={handleOpenMassiveSendModal}
         onNewUser={handleNewUser}
+        onBulkEdit={() => setBulkEditModalOpened(true)}
       />
 
       {/* Stats */}
@@ -1321,6 +1324,15 @@ export function EnhancedUsersListPage() {
       <ContributionFixModal opened={contributionFixOpened} onClose={() => setContributionFixOpened(false)} onComplete={loadUsers} />
       <ItemNormalizationModal opened={itemNormalizationOpened} onClose={() => setItemNormalizationOpened(false)} onComplete={loadUsers} />
       <DuplicateReviewModal opened={duplicateReviewOpened} onClose={handleCloseDuplicateMode} duplicateGroups={duplicateGroups} onSelectGroup={handleSelectDuplicateGroup} />
+
+      <BulkEditUsersModal
+        opened={bulkEditModalOpened}
+        onClose={() => setBulkEditModalOpened(false)}
+        onComplete={loadUsers}
+        adminUserId={adminUserId}
+        allTags={allTags}
+        tagsConfig={tagsConfig}
+      />
 
       {duplicateGroups.length > 0 && duplicateGroups[currentDuplicateIndex] && (
         <DuplicateUserModal

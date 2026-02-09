@@ -4,6 +4,7 @@ import type { Timestamp } from 'firebase/firestore';
 // Filtres avancés de recherche
 export interface AdvancedUserFilters {
   search?: string;
+  emailList?: string[];
   membershipTypes?: MembershipType[];
   membershipStatus?: MembershipStatus[];
   includeTags?: MemberTag[];

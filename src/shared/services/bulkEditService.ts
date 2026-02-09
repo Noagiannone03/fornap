@@ -46,6 +46,14 @@ function calculateAge(birthDate: Timestamp): number {
  * Reutilise le pattern de campaignService.userMatchesFilters
  */
 export function userMatchesAdvancedFilters(user: User, filters: AdvancedUserFilters): boolean {
+  // Filtre par liste d'emails (prioritaire - si une liste est fournie, l'utilisateur doit y figurer)
+  if (filters.emailList && filters.emailList.length > 0) {
+    const userEmail = user.email?.toLowerCase().trim();
+    if (!userEmail || !filters.emailList.includes(userEmail)) {
+      return false;
+    }
+  }
+
   // Filtre de recherche textuelle
   if (filters.search && filters.search.trim()) {
     const searchLower = filters.search.toLowerCase().trim();

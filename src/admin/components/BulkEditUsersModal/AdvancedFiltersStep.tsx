@@ -1,7 +1,9 @@
+import { useState, useRef } from 'react';
 import {
   Stack,
   Text,
   TextInput,
+  Textarea,
   MultiSelect,
   NumberInput,
   Group,
@@ -12,6 +14,10 @@ import {
   Paper,
   Divider,
   LoadingOverlay,
+  FileButton,
+  Pill,
+  ScrollArea,
+  Alert,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import {
@@ -24,6 +30,10 @@ import {
   IconSearch,
   IconSettings,
   IconArrowRight,
+  IconMail,
+  IconUpload,
+  IconTrash,
+  IconClipboardCheck,
 } from '@tabler/icons-react';
 import type { AdvancedFiltersStepProps } from './types';
 import type { MembershipType, MembershipStatus, RegistrationSource } from '../../../shared/types/user';
@@ -32,6 +42,7 @@ import {
   MEMBERSHIP_STATUS_LABELS,
   REGISTRATION_SOURCE_LABELS,
 } from '../../../shared/types/user';
+import { extractEmailsFromText, extractEmailsFromFile } from '../../../shared/utils/emailExtractor';
 
 export function AdvancedFiltersStep({
   filters,
@@ -41,8 +52,81 @@ export function AdvancedFiltersStep({
   allTags,
   onNext,
 }: AdvancedFiltersStepProps) {
+  const [emailPasteText, setEmailPasteText] = useState('');
+  const [emailFileError, setEmailFileError] = useState<string | null>(null);
+  const resetFileRef = useRef<() => void>(null);
+
   const resetFilters = () => {
     onFiltersChange({});
+    setEmailPasteText('');
+    setEmailFileError(null);
+  };
+
+  const handleEmailPaste = (text: string) => {
+    setEmailPasteText(text);
+    const extracted = extractEmailsFromText(text);
+    onFiltersChange({
+      ...filters,
+      emailList: extracted.length > 0 ? extracted : undefined,
+    });
+  };
+
+  const handleEmailFileUpload = async (file: File | null) => {
+    setEmailFileError(null);
+    if (!file) return;
+
+    const validTypes = [
+      'text/csv',
+      'text/plain',
+      'application/vnd.ms-excel',
+      'application/csv',
+    ];
+    const validExtensions = ['.csv', '.txt'];
+    const extension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+
+    if (!validTypes.includes(file.type) && !validExtensions.includes(extension)) {
+      setEmailFileError('Format non supporte. Utilisez un fichier CSV ou TXT.');
+      return;
+    }
+
+    try {
+      const emails = await extractEmailsFromFile(file);
+      if (emails.length === 0) {
+        setEmailFileError('Aucune adresse email trouvee dans ce fichier.');
+        return;
+      }
+      // Fusionner avec les emails existants
+      const existingEmails = filters.emailList || [];
+      const merged = Array.from(new Set([...existingEmails, ...emails]));
+      setEmailPasteText((prev) => {
+        const newEmails = emails.filter(e => !existingEmails.includes(e));
+        return prev ? `${prev}\n${newEmails.join('\n')}` : emails.join('\n');
+      });
+      onFiltersChange({
+        ...filters,
+        emailList: merged,
+      });
+    } catch {
+      setEmailFileError('Erreur lors de la lecture du fichier.');
+    }
+  };
+
+  const clearEmailList = () => {
+    setEmailPasteText('');
+    setEmailFileError(null);
+    onFiltersChange({
+      ...filters,
+      emailList: undefined,
+    });
+    resetFileRef.current?.();
+  };
+
+  const removeEmail = (emailToRemove: string) => {
+    const updated = (filters.emailList || []).filter(e => e !== emailToRemove);
+    onFiltersChange({
+      ...filters,
+      emailList: updated.length > 0 ? updated : undefined,
+    });
   };
 
   const hasActiveFilters = Object.keys(filters).some(key => {
@@ -88,6 +172,105 @@ export function AdvancedFiltersStep({
       />
 
       <Accordion variant="contained" multiple defaultValue={['membership']}>
+        {/* Liste d'emails */}
+        <Accordion.Item value="emailList">
+          <Accordion.Control>
+            <Group>
+              <IconMail size={18} />
+              <Text fw={500}>Liste d'emails</Text>
+              {filters.emailList && filters.emailList.length > 0 && (
+                <Badge size="sm" color="grape">
+                  {filters.emailList.length} email{filters.emailList.length !== 1 ? 's' : ''}
+                </Badge>
+              )}
+            </Group>
+          </Accordion.Control>
+          <Accordion.Panel>
+            <Stack gap="md">
+              <Text size="sm" c="dimmed">
+                Collez une liste d'emails ou importez un fichier CSV/TXT. Le systeme detecte
+                automatiquement toutes les adresses email, peu importe le format (virgules,
+                points-virgules, retours a la ligne, etc.).
+              </Text>
+
+              <Textarea
+                label="Coller des emails"
+                description="Collez votre liste ici — tous les formats sont acceptes"
+                placeholder={"jean@email.com, marie@test.fr\npierre@example.com; paul@demo.org\n..."}
+                value={emailPasteText}
+                onChange={(e) => handleEmailPaste(e.currentTarget.value)}
+                minRows={4}
+                maxRows={8}
+                autosize
+              />
+
+              <Group>
+                <FileButton
+                  resetRef={resetFileRef}
+                  onChange={handleEmailFileUpload}
+                  accept=".csv,.txt,text/csv,text/plain"
+                >
+                  {(props) => (
+                    <Button
+                      {...props}
+                      variant="light"
+                      leftSection={<IconUpload size={16} />}
+                      size="sm"
+                    >
+                      Importer un fichier CSV / TXT
+                    </Button>
+                  )}
+                </FileButton>
+
+                {filters.emailList && filters.emailList.length > 0 && (
+                  <Button
+                    variant="subtle"
+                    color="red"
+                    leftSection={<IconTrash size={16} />}
+                    size="sm"
+                    onClick={clearEmailList}
+                  >
+                    Vider la liste
+                  </Button>
+                )}
+              </Group>
+
+              {emailFileError && (
+                <Alert color="red" variant="light">
+                  {emailFileError}
+                </Alert>
+              )}
+
+              {filters.emailList && filters.emailList.length > 0 && (
+                <Paper p="sm" withBorder>
+                  <Group justify="space-between" mb="xs">
+                    <Group gap="xs">
+                      <IconClipboardCheck size={16} color="green" />
+                      <Text size="sm" fw={500}>
+                        {filters.emailList.length} email{filters.emailList.length !== 1 ? 's' : ''} detecte{filters.emailList.length !== 1 ? 's' : ''}
+                      </Text>
+                    </Group>
+                  </Group>
+                  <ScrollArea.Autosize mah={150}>
+                    <Group gap={4} wrap="wrap">
+                      {filters.emailList.map((email) => (
+                        <Pill
+                          key={email}
+                          withRemoveButton
+                          onRemove={() => removeEmail(email)}
+                          size="sm"
+                        >
+                          {email}
+                        </Pill>
+                      ))}
+                    </Group>
+                  </ScrollArea.Autosize>
+                </Paper>
+              )}
+            </Stack>
+          </Accordion.Panel>
+        </Accordion.Item>
+
         {/* Abonnement */}
         <Accordion.Item value="membership">
           <Accordion.Control>

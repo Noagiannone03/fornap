@@ -123,8 +123,14 @@ export async function generateMembershipCardImage(userData: MembershipCardUserDa
     // Activer l'antialiasing pour un meilleur rendu
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.textDrawingMode = 'glyph';
-    ctx.quality = 'best';
+    // Ces options existent selon le backend canvas disponible sur Vercel,
+    // mais elles ne sont pas déclarées dans le type SKRSContext2D.
+    const advancedCtx = ctx as typeof ctx & {
+      textDrawingMode?: 'glyph' | 'path';
+      quality?: 'fast' | 'good' | 'best' | 'nearest' | 'bilinear';
+    };
+    advancedCtx.textDrawingMode = 'glyph';
+    advancedCtx.quality = 'best';
 
     // Dessiner l'image de fond
     ctx.drawImage(backgroundImage, 0, 0, 450, 800);

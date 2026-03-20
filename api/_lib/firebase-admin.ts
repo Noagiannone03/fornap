@@ -99,3 +99,34 @@ export function getTimestamp() {
   getFirebaseAdmin(); // S'assurer que Firebase est initialisé
   return admin.firestore.Timestamp;
 }
+
+/**
+ * Charge le HTML d'une campagne depuis les chunks Firestore (sous-collection 'content')
+ * Le HTML est découpé en chunks de ~900 KB pour contourner la limite de 1 MiB de Firestore.
+ * Utilisé côté serveur (API Vercel) avec firebase-admin.
+ */
+export async function loadCampaignHtmlAdmin(campaignId: string): Promise<string | null> {
+  try {
+    const db = getFirestore();
+    const contentRef = db.collection('campaigns').doc(campaignId).collection('content');
+    const snapshot = await contentRef.get();
+
+    if (snapshot.empty) return null;
+
+    const htmlChunks: { index: number; data: string }[] = [];
+    for (const doc of snapshot.docs) {
+      const docData = doc.data();
+      if (docData.type === 'html') {
+        htmlChunks.push({ index: docData.index, data: docData.data });
+      }
+    }
+
+    if (htmlChunks.length === 0) return null;
+
+    htmlChunks.sort((a, b) => a.index - b.index);
+    return htmlChunks.map(c => c.data).join('');
+  } catch (error) {
+    console.error('❌ Error loading campaign HTML from chunks:', error);
+    return null;
+  }
+}

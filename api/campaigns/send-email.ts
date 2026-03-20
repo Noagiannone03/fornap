@@ -17,6 +17,14 @@ import { getFirestore, getFieldValue } from '../_lib/firebase-admin.js';
 import { prepareEmailWithTracking } from '../_lib/pxl-tracking.js';
 import { sendEmailWithFallback, type EmailSendResult } from '../_lib/email-transport.js';
 import { generateMembershipCardImage, getMembershipCardFilename, type MembershipCardUserData } from '../_lib/membership-card-generator.js';
+import {
+  buildCampaignMergeData,
+  getCampaignFromAddress,
+  getCampaignMailHeaders,
+  getCampaignReplyTo,
+  loadCampaignEmailHtml,
+  personalizeCampaignHtml,
+} from '../_lib/campaign-email.js';
 
 /**
  * Crée un destinataire dans la sous-collection recipients
@@ -207,15 +215,32 @@ export default async function handler(
     console.log(`📝 Destinataire créé: ${recipientId}`);
 
     try {
-      // 4. Préparer le HTML avec tracking PXL
+      // 4. Récupérer et personnaliser le HTML de l'email
+      const rawHtml = await loadCampaignEmailHtml(campaignId, campaign);
+      if (!rawHtml.trim()) {
+        throw new Error('Le contenu HTML de la campagne est vide');
+      }
+
+      const personalizedHtml = personalizeCampaignHtml(
+        rawHtml,
+        buildCampaignMergeData({
+          campaignId,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          membershipType: user.currentMembership?.planName || user.currentMembership?.planType || '',
+        })
+      );
+
+      // 5. Préparer le HTML avec tracking PXL
       // PXL injecte automatiquement le pixel de tracking et transforme tous les liens
       const emailHtml = await prepareEmailWithTracking(
-        campaign.content.html,
+        personalizedHtml,
         campaignId,
         recipientId
       );
 
-      // 5. Préparer les pièces jointes (carte d'adhérent si activée)
+      // 6. Préparer les pièces jointes (carte d'adhérent si activée)
       const attachments: Array<{ filename: string; content: Buffer; contentType: string }> = [];
 
       if (campaign.content.attachMembershipCard) {
@@ -256,9 +281,10 @@ export default async function handler(
         to: user.email,
         subject: campaign.content.subject,
         html: emailHtml,
-        from: '"FOR+NAP Social Club" <no-reply@fornap.fr>',
-        replyTo: 'contact@fornap.fr',
+        from: getCampaignFromAddress(campaign),
+        replyTo: getCampaignReplyTo(campaign),
         attachments: attachments.length > 0 ? attachments : undefined,
+        headers: getCampaignMailHeaders(campaignId),
       });
 
       if (!emailResult.success) {

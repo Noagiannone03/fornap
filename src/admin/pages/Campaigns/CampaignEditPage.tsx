@@ -18,6 +18,7 @@ import {
   List,
   Box,
   ThemeIcon,
+  Modal,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -33,6 +34,7 @@ import {
   IconCalendarEvent,
   IconAlertCircle,
   IconId,
+  IconDeviceFloppy,
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -42,7 +44,10 @@ import {
   getCampaignById,
   updateCampaign,
   prepareCampaignForSending,
+  loadCampaignDesign,
+  loadCampaignHtml,
 } from '../../../shared/services/campaignService';
+import { saveEmailTemplate } from '../../../shared/services/emailTemplateService';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 import { Timestamp } from 'firebase/firestore';
 import { UserTargetingSelector, EmailEditorModal } from './components';
@@ -59,7 +64,7 @@ export function CampaignEditPage() {
   const [loading, setLoading] = useState(true);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  // Étape 1: Informations de base
+  // Etape 1: Informations de base
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [subject, setSubject] = useState('');
@@ -68,7 +73,7 @@ export function CampaignEditPage() {
   const [fromEmail, setFromEmail] = useState('contact@fornap.fr');
   const [replyTo, setReplyTo] = useState('');
 
-  // Étape 2: Ciblage
+  // Etape 2: Ciblage
   const [targetingMode, setTargetingMode] = useState<TargetingMode>('all');
   const [filters, setFilters] = useState<TargetingFilters>({
     includeBlocked: false,
@@ -76,7 +81,7 @@ export function CampaignEditPage() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [estimatedCount, setEstimatedCount] = useState(0);
 
-  // Étape 3: Contenu email
+  // Etape 3: Contenu email
   const [emailType, setEmailType] = useState<'template' | 'html' | 'design'>('design');
   const [emailDesign, setEmailDesign] = useState<any>(null);
   const [emailHtml, setEmailHtml] = useState('');
@@ -84,9 +89,15 @@ export function CampaignEditPage() {
   const [editorOpened, setEditorOpened] = useState(false);
   const [attachMembershipCard, setAttachMembershipCard] = useState(false);
 
-  // Étape 4: Planification
+  // Etape 4: Planification
   const [sendImmediately, setSendImmediately] = useState(false);
   const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
+
+  // Template save modal
+  const [saveTemplateModalOpened, setSaveTemplateModalOpened] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   useEffect(() => {
     if (campaignId) {
@@ -111,18 +122,18 @@ export function CampaignEditPage() {
         return;
       }
 
-      // Vérifier que la campagne est modifiable
+      // Verifier que la campagne est modifiable
       if (campaign.status !== 'draft' && campaign.status !== 'scheduled') {
         notifications.show({
           title: 'Erreur',
-          message: 'Cette campagne ne peut plus être modifiée',
+          message: 'Cette campagne ne peut plus etre modifiee',
           color: 'red',
         });
         navigate(`/admin/campaigns/${campaignId}`);
         return;
       }
 
-      // Charger les données
+      // Charger les donnees
       setName(campaign.name);
       setDescription(campaign.description || '');
       setSubject(campaign.content.subject);
@@ -136,12 +147,34 @@ export function CampaignEditPage() {
       setSelectedUserIds(campaign.targeting.manualUserIds || []);
       setEstimatedCount(campaign.targeting.estimatedRecipients);
 
-      setEmailDesign(campaign.content.design);
-      setEmailHtml(campaign.content.html);
+      // Charger le design depuis Firebase Storage
+      let loadedDesign = null;
+      const designJson = await loadCampaignDesign(campaignId);
+      if (designJson) {
+        try {
+          loadedDesign = JSON.parse(designJson);
+        } catch (e) {
+          console.error('Error parsing designJson:', e);
+        }
+      } else if (campaign.content.design) {
+        // Ancien format: objet direct (compatibilité ascendante)
+        loadedDesign = campaign.content.design;
+      }
+      setEmailDesign(loadedDesign);
+
+      // Charger le HTML depuis Firebase Storage (ou fallback sur le document)
+      let loadedHtml = campaign.content.html || '';
+      if (campaign.content.htmlInStorage) {
+        const storageHtml = await loadCampaignHtml(campaignId);
+        if (storageHtml) {
+          loadedHtml = storageHtml;
+        }
+      }
+      setEmailHtml(loadedHtml);
       setAttachMembershipCard(campaign.content.attachMembershipCard || false);
 
-      // Détecter le type d'email
-      if (!campaign.content.design && campaign.content.html) {
+      // Detecter le type d'email
+      if (!loadedDesign && campaign.content.html) {
         // Essayer d'extraire le corps simple si c'est un email basique
         const match = campaign.content.html.match(/<div[^>]*>([\s\S]*?)<\/div>/);
         if (match) {
@@ -177,7 +210,7 @@ export function CampaignEditPage() {
   };
 
   const handleNext = async () => {
-    // Validation selon l'étape
+    // Validation selon l'etape
     if (active === 0) {
       if (!name.trim()) {
         notifications.show({
@@ -198,7 +231,7 @@ export function CampaignEditPage() {
       if (!fromName.trim() || !fromEmail.trim()) {
         notifications.show({
           title: 'Erreur',
-          message: 'Les informations de l\'expéditeur sont requises',
+          message: 'Les informations de l\'expediteur sont requises',
           color: 'red',
         });
         return;
@@ -207,7 +240,7 @@ export function CampaignEditPage() {
       if (estimatedCount === 0) {
         notifications.show({
           title: 'Erreur',
-          message: 'Aucun destinataire ciblé. Vérifiez vos critères de sélection.',
+          message: 'Aucun destinataire cible. Verifiez vos criteres de selection.',
           color: 'red',
         });
         return;
@@ -216,7 +249,7 @@ export function CampaignEditPage() {
       if (!emailHtml || emailHtml.trim() === '') {
         notifications.show({
           title: 'Erreur',
-          message: 'Le contenu de l\'email est requis. Veuillez créer votre email.',
+          message: 'Le contenu de l\'email est requis. Veuillez creer votre email.',
           color: 'red',
         });
         return;
@@ -225,7 +258,7 @@ export function CampaignEditPage() {
       if (!sendImmediately && !scheduledDate) {
         notifications.show({
           title: 'Erreur',
-          message: 'Veuillez choisir une date d\'envoi ou activer l\'envoi immédiat',
+          message: 'Veuillez choisir une date d\'envoi ou activer l\'envoi immediat',
           color: 'red',
         });
         return;
@@ -247,17 +280,67 @@ export function CampaignEditPage() {
     setEmailDesign(design);
     setEmailHtml(html);
     notifications.show({
-      title: 'Succès',
-      message: 'Email enregistré avec succès',
+      title: 'Succes',
+      message: 'Email enregistre avec succes',
       color: 'green',
     });
+  };
+
+  const handleSaveAsTemplate = (design: any, html: string) => {
+    setEmailDesign(design);
+    setEmailHtml(html);
+    setSaveTemplateModalOpened(true);
+  };
+
+  const handleConfirmSaveTemplate = async () => {
+    if (!templateName.trim()) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Le nom du template est requis',
+        color: 'red',
+      });
+      return;
+    }
+
+    if (!emailDesign || !adminProfile) return;
+
+    try {
+      setSavingTemplate(true);
+
+      await saveEmailTemplate({
+        name: templateName.trim(),
+        description: templateDescription.trim() || undefined,
+        designJson: JSON.stringify(emailDesign),
+        thumbnailHtml: emailHtml,
+        createdBy: adminProfile.uid,
+      });
+
+      notifications.show({
+        title: 'Succes',
+        message: 'Template sauvegarde avec succes',
+        color: 'green',
+      });
+
+      setSaveTemplateModalOpened(false);
+      setTemplateName('');
+      setTemplateDescription('');
+    } catch (error: any) {
+      console.error('Error saving template:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: error.message || 'Impossible de sauvegarder le template',
+        color: 'red',
+      });
+    } finally {
+      setSavingTemplate(false);
+    }
   };
 
   const handleSubmit = async () => {
     if (!adminProfile || !campaignId) {
       notifications.show({
         title: 'Erreur',
-        message: 'Vous devez être connecté',
+        message: 'Vous devez etre connecte',
         color: 'red',
       });
       return;
@@ -266,7 +349,7 @@ export function CampaignEditPage() {
     try {
       setLoading(true);
 
-      // Générer le HTML pour l'email simple si nécessaire
+      // Generer le HTML pour l'email simple si necessaire
       let finalHtml = emailHtml;
       if (emailType === 'html' && emailBody) {
         // Convertir le texte simple en HTML basique
@@ -286,7 +369,7 @@ export function CampaignEditPage() {
 </html>`.trim();
       }
 
-      // Créer le contenu de l'email en ne incluant que les champs définis
+      // Creer le contenu de l'email en ne incluant que les champs definis
       const content: any = {
         subject,
         fromName,
@@ -295,14 +378,15 @@ export function CampaignEditPage() {
         attachMembershipCard,
       };
 
-      // Ajouter preheader seulement s'il est défini
+      // Ajouter preheader seulement s'il est defini
       if (preheader && preheader.trim()) {
         content.preheader = preheader;
       }
 
-      // Ajouter design seulement s'il existe
+      // Sauvegarder le design Unlayer serialise en string JSON
+      // (evite les limites de profondeur d'objets imbriques de Firestore)
       if (emailDesign) {
-        content.design = emailDesign;
+        content.designJson = JSON.stringify(emailDesign);
       }
 
       // Ajouter replyTo seulement s'il n'est pas vide
@@ -310,7 +394,7 @@ export function CampaignEditPage() {
         content.replyTo = replyTo;
       }
 
-      // Créer le ciblage en ne incluant que les champs pertinents
+      // Creer le ciblage en ne incluant que les champs pertinents
       const targeting: any = {
         mode: targetingMode,
         estimatedRecipients: estimatedCount,
@@ -323,7 +407,7 @@ export function CampaignEditPage() {
         targeting.filters = filters;
       }
 
-      // Créer les données de mise à jour
+      // Creer les donnees de mise a jour
       const updateData: any = {
         name,
         content,
@@ -336,22 +420,22 @@ export function CampaignEditPage() {
         updateData.description = description;
       }
 
-      // Ajouter scheduledAt seulement si une date est définie
+      // Ajouter scheduledAt seulement si une date est definie
       if (scheduledDate) {
         updateData.scheduledAt = Timestamp.fromDate(scheduledDate);
       }
 
-      // Mettre à jour la campagne
+      // Mettre a jour la campagne
       await updateCampaign(campaignId, updateData);
 
-      // Si envoi immédiat ou planifié, préparer l'envoi
+      // Si envoi immediat ou planifie, preparer l'envoi
       if (sendImmediately || scheduledDate) {
         await prepareCampaignForSending(campaignId);
       }
 
       notifications.show({
-        title: 'Succès',
-        message: 'Campagne mise à jour avec succès',
+        title: 'Succes',
+        message: 'Campagne mise a jour avec succes',
         color: 'green',
       });
 
@@ -360,7 +444,7 @@ export function CampaignEditPage() {
       console.error('Error updating campaign:', error);
       notifications.show({
         title: 'Erreur',
-        message: error.message || 'Impossible de mettre à jour la campagne',
+        message: error.message || 'Impossible de mettre a jour la campagne',
         color: 'red',
       });
     } finally {
@@ -377,7 +461,7 @@ export function CampaignEditPage() {
               Informations de la campagne
             </Text>
             <Text c="dimmed" size="sm">
-              Modifiez les paramètres de base de votre campagne d'emailing
+              Modifiez les parametres de base de votre campagne d'emailing
             </Text>
           </div>
 
@@ -385,7 +469,7 @@ export function CampaignEditPage() {
             <Stack gap="md">
               <Group gap="xs">
                 <IconFileText size={20} />
-                <Text fw={600}>Détails de la campagne</Text>
+                <Text fw={600}>Details de la campagne</Text>
               </Group>
 
               <TextInput
@@ -401,7 +485,7 @@ export function CampaignEditPage() {
               <Textarea
                 label="Description (optionnel)"
                 description="Description interne de l'objectif de cette campagne"
-                placeholder="Décrivez l'objectif de cette campagne..."
+                placeholder="Decrivez l'objectif de cette campagne..."
                 value={description}
                 onChange={(e) => setDescription(e.currentTarget.value)}
                 minRows={3}
@@ -419,8 +503,8 @@ export function CampaignEditPage() {
 
               <TextInput
                 label="Sujet de l'email"
-                description="Le sujet que verront les destinataires dans leur boîte mail"
-                placeholder="Ex: Découvrez notre programmation du mois !"
+                description="Le sujet que verront les destinataires dans leur boite mail"
+                placeholder="Ex: Decouvrez notre programmation du mois !"
                 required
                 size="md"
                 value={subject}
@@ -428,9 +512,9 @@ export function CampaignEditPage() {
               />
 
               <TextInput
-                label="Préheader (optionnel)"
-                description="Texte de prévisualisation affiché après le sujet"
-                placeholder="Ex: Ne manquez pas nos événements exceptionnels..."
+                label="Preheader (optionnel)"
+                description="Texte de previsualisation affiche apres le sujet"
+                placeholder="Ex: Ne manquez pas nos evenements exceptionnels..."
                 size="md"
                 value={preheader}
                 onChange={(e) => setPreheader(e.currentTarget.value)}
@@ -441,7 +525,7 @@ export function CampaignEditPage() {
               <Grid>
                 <Grid.Col span={6}>
                   <TextInput
-                    label="Nom de l'expéditeur"
+                    label="Nom de l'expediteur"
                     required
                     size="md"
                     value={fromName}
@@ -450,7 +534,7 @@ export function CampaignEditPage() {
                 </Grid.Col>
                 <Grid.Col span={6}>
                   <TextInput
-                    label="Email de l'expéditeur"
+                    label="Email de l'expediteur"
                     required
                     type="email"
                     size="md"
@@ -461,8 +545,8 @@ export function CampaignEditPage() {
               </Grid>
 
               <TextInput
-                label="Email de réponse (optionnel)"
-                description="Si différent de l'email de l'expéditeur"
+                label="Email de reponse (optionnel)"
+                description="Si different de l'email de l'expediteur"
                 type="email"
                 size="md"
                 value={replyTo}
@@ -488,13 +572,13 @@ export function CampaignEditPage() {
                 Choisissez un sujet clair et engageant
               </List.Item>
               <List.Item>
-                Le préheader complète le sujet et augmente le taux d'ouverture
+                Le preheader complete le sujet et augmente le taux d'ouverture
               </List.Item>
               <List.Item>
-                Utilisez un nom d'expéditeur reconnaissable
+                Utilisez un nom d'expediteur reconnaissable
               </List.Item>
               <List.Item>
-                Évitez les mots spam comme "gratuit", "urgent", etc.
+                Evitez les mots spam comme "gratuit", "urgent", etc.
               </List.Item>
             </List>
           </Stack>
@@ -546,7 +630,7 @@ export function CampaignEditPage() {
                 <div>
                   <Text size="sm" fw={600}>Tous les utilisateurs</Text>
                   <Text size="xs" c="dimmed">
-                    Envoie à tous les membres actifs
+                    Envoie a tous les membres actifs
                   </Text>
                 </div>
               </Group>
@@ -554,9 +638,9 @@ export function CampaignEditPage() {
               <Group gap="xs">
                 <IconFilter size={16} />
                 <div>
-                  <Text size="sm" fw={600}>Filtrage avancé</Text>
+                  <Text size="sm" fw={600}>Filtrage avance</Text>
                   <Text size="xs" c="dimmed">
-                    Ciblez par âge, abonnement, tags, etc.
+                    Ciblez par age, abonnement, tags, etc.
                   </Text>
                 </div>
               </Group>
@@ -564,7 +648,7 @@ export function CampaignEditPage() {
               <Group gap="xs">
                 <IconUsers size={16} />
                 <div>
-                  <Text size="sm" fw={600}>Sélection manuelle</Text>
+                  <Text size="sm" fw={600}>Selection manuelle</Text>
                   <Text size="xs" c="dimmed">
                     Choisissez individuellement chaque destinataire
                   </Text>
@@ -601,7 +685,7 @@ export function CampaignEditPage() {
                 </Group>
                 <TextInput
                   label="Sujet de l'email"
-                  placeholder="Ex: Nouvelle fonctionnalité disponible"
+                  placeholder="Ex: Nouvelle fonctionnalite disponible"
                   value={subject}
                   onChange={(e) => setSubject(e.currentTarget.value)}
                   required
@@ -609,8 +693,8 @@ export function CampaignEditPage() {
                 />
                 <Textarea
                   label="Corps du message"
-                  description="Rédigez le contenu de votre email"
-                  placeholder="Bonjour,&#10;&#10;Nous sommes ravis de vous annoncer...&#10;&#10;Cordialement,&#10;L'équipe FORNAP"
+                  description="Redigez le contenu de votre email"
+                  placeholder="Bonjour,&#10;&#10;Nous sommes ravis de vous annoncer...&#10;&#10;Cordialement,&#10;L'equipe FORNAP"
                   value={emailBody}
                   onChange={(e) => setEmailBody(e.currentTarget.value)}
                   minRows={12}
@@ -627,10 +711,10 @@ export function CampaignEditPage() {
                       <IconCheck size={32} />
                     </ThemeIcon>
                     <Text fw={600} size="lg">
-                      Email configuré
+                      Email configure
                     </Text>
                     <Text size="sm" c="dimmed" ta="center">
-                      Votre email est enregistré. Vous pouvez le modifier ou continuer.
+                      Votre email est enregistre. Vous pouvez le modifier ou continuer.
                     </Text>
                     <Group>
                       <Button
@@ -641,6 +725,16 @@ export function CampaignEditPage() {
                       >
                         Modifier l'email
                       </Button>
+                      {emailDesign && (
+                        <Button
+                          variant="light"
+                          color="violet"
+                          leftSection={<IconDeviceFloppy size={18} />}
+                          onClick={() => setSaveTemplateModalOpened(true)}
+                        >
+                          Sauver comme template
+                        </Button>
+                      )}
                     </Group>
                   </>
                 ) : (
@@ -649,17 +743,17 @@ export function CampaignEditPage() {
                       <IconMail size={32} />
                     </ThemeIcon>
                     <Text fw={600} size="lg">
-                      Créez votre email
+                      Creez votre email
                     </Text>
                     <Text size="sm" c="dimmed" ta="center" maw={400}>
-                      Utilisez l'éditeur drag & drop pour créer un email design
+                      Utilisez l'editeur drag & drop pour creer un email design
                     </Text>
                     <Button
                       leftSection={<IconEdit size={18} />}
                       onClick={handleOpenEmailEditor}
                       size="lg"
                     >
-                      Ouvrir l'éditeur d'email
+                      Ouvrir l'editeur d'email
                     </Button>
                   </>
                 )}
@@ -667,19 +761,19 @@ export function CampaignEditPage() {
             </Card>
           )}
 
-          {/* Option carte d'adhérent en pièce jointe */}
+          {/* Option carte d'adherent en piece jointe */}
           <Card withBorder p="lg" bg="pink.0">
             <Stack gap="md">
               <Group gap="xs">
                 <ThemeIcon size="lg" variant="light" color="pink">
                   <IconId size={20} />
                 </ThemeIcon>
-                <Text fw={600}>Pièce jointe carte d'adhérent</Text>
+                <Text fw={600}>Piece jointe carte d'adherent</Text>
               </Group>
 
               <Switch
-                label="Joindre la carte d'adhérent personnalisée"
-                description="Génère automatiquement la carte d'adhérent de chaque destinataire et l'envoie en pièce jointe PNG"
+                label="Joindre la carte d'adherent personnalisee"
+                description="Genere automatiquement la carte d'adherent de chaque destinataire et l'envoie en piece jointe PNG"
                 checked={attachMembershipCard}
                 onChange={(e) => setAttachMembershipCard(e.currentTarget.checked)}
                 size="md"
@@ -688,7 +782,7 @@ export function CampaignEditPage() {
               {attachMembershipCard && (
                 <Card p="sm" bg="white" withBorder>
                   <Text size="sm" c="dimmed">
-                    <strong>Note :</strong> La carte sera générée avec le QR code unique de chaque membre, son type d'abonnement, sa date d'expiration et son nom complet.
+                    <strong>Note :</strong> La carte sera generee avec le QR code unique de chaque membre, son type d'abonnement, sa date d'expiration et son nom complet.
                   </Text>
                 </Card>
               )}
@@ -699,7 +793,7 @@ export function CampaignEditPage() {
             <Card withBorder>
               <Stack gap="xs">
                 <Text fw={600} size="sm">
-                  Aperçu de l'email
+                  Apercu de l'email
                 </Text>
                 <Box
                   p="md"
@@ -725,7 +819,7 @@ export function CampaignEditPage() {
             <Card withBorder>
               <Stack gap="xs">
                 <Text fw={600} size="sm">
-                  Aperçu du contenu
+                  Apercu du contenu
                 </Text>
                 <Box
                   style={{
@@ -751,15 +845,15 @@ export function CampaignEditPage() {
               <ThemeIcon size="lg" variant="light" color="yellow">
                 <IconBulb size={20} />
               </ThemeIcon>
-              <Text fw={600}>Fonctionnalités</Text>
+              <Text fw={600}>Fonctionnalites</Text>
             </Group>
 
             <List spacing="sm" size="sm">
-              <List.Item>Glisser-déposer intuitif</List.Item>
+              <List.Item>Glisser-deposer intuitif</List.Item>
               <List.Item>Templates professionnels</List.Item>
-              <List.Item>Personnalisation complète</List.Item>
-              <List.Item>Variables de fusion (prénom, email...)</List.Item>
-              <List.Item>Prévisualisation en temps réel</List.Item>
+              <List.Item>Personnalisation complete</List.Item>
+              <List.Item>Variables de fusion (prenom, email...)</List.Item>
+              <List.Item>Previsualisation en temps reel</List.Item>
               <List.Item>Responsive automatique</List.Item>
             </List>
           </Stack>
@@ -786,7 +880,7 @@ export function CampaignEditPage() {
               <div>
                 <Group gap="xs" mb="md">
                   <IconFileText size={20} />
-                  <Text fw={600}>Récapitulatif de la campagne</Text>
+                  <Text fw={600}>Recapitulatif de la campagne</Text>
                 </Group>
 
                 <Stack gap="sm">
@@ -819,19 +913,19 @@ export function CampaignEditPage() {
                     </Text>
                     <Group gap="xs">
                       {targetingMode === 'all' && <><IconUsers size={16} /><Text size="sm">Tous les utilisateurs</Text></>}
-                      {targetingMode === 'filtered' && <><IconFilter size={16} /><Text size="sm">Filtrage avancé</Text></>}
-                      {targetingMode === 'manual' && <><IconUsers size={16} /><Text size="sm">Sélection manuelle</Text></>}
+                      {targetingMode === 'filtered' && <><IconFilter size={16} /><Text size="sm">Filtrage avance</Text></>}
+                      {targetingMode === 'manual' && <><IconUsers size={16} /><Text size="sm">Selection manuelle</Text></>}
                     </Group>
                   </Group>
 
                   <Group>
                     <Text fw={500} size="sm" w={140}>
-                      Pièce jointe :
+                      Piece jointe :
                     </Text>
                     <Group gap="xs">
                       {attachMembershipCard ? (
                         <Badge size="lg" color="pink" leftSection={<IconId size={14} />}>
-                          Carte d'adhérent
+                          Carte d'adherent
                         </Badge>
                       ) : (
                         <Text size="sm" c="dimmed">Aucune</Text>
@@ -851,8 +945,8 @@ export function CampaignEditPage() {
 
                 <Stack gap="md">
                   <Switch
-                    label="Envoyer immédiatement après la sauvegarde"
-                    description="La campagne sera mise en file d'attente d'envoi dès sa sauvegarde"
+                    label="Envoyer immediatement apres la sauvegarde"
+                    description="La campagne sera mise en file d'attente d'envoi des sa sauvegarde"
                     checked={sendImmediately}
                     onChange={(e) => setSendImmediately(e.currentTarget.checked)}
                     size="md"
@@ -860,9 +954,9 @@ export function CampaignEditPage() {
 
                   {!sendImmediately && (
                     <DateTimePicker
-                      label="Date et heure d'envoi planifiée"
-                      description="Programmez l'envoi de votre campagne à une date ultérieure"
-                      placeholder="Sélectionner une date et heure"
+                      label="Date et heure d'envoi planifiee"
+                      description="Programmez l'envoi de votre campagne a une date ulterieure"
+                      placeholder="Selectionner une date et heure"
                       value={scheduledDate}
                       onChange={(value) => {
                         if (typeof value === 'string') {
@@ -885,7 +979,7 @@ export function CampaignEditPage() {
                     <Group gap="xs">
                       <IconBulb size={16} />
                       <Text size="sm" c="dimmed">
-                        Si vous ne sélectionnez pas de date, la campagne restera en brouillon
+                        Si vous ne selectionnez pas de date, la campagne restera en brouillon
                       </Text>
                     </Group>
                   )}
@@ -905,9 +999,9 @@ export function CampaignEditPage() {
                 </Text>
                 <Text size="sm">
                   {sendImmediately
-                    ? 'La campagne sera envoyée immédiatement. Vérifiez bien tous les détails.'
+                    ? 'La campagne sera envoyee immediatement. Verifiez bien tous les details.'
                     : scheduledDate
-                    ? `La campagne sera envoyée le ${scheduledDate.toLocaleString('fr-FR')}.`
+                    ? `La campagne sera envoyee le ${scheduledDate.toLocaleString('fr-FR')}.`
                     : 'La campagne restera en brouillon. Vous pourrez la modifier et l\'envoyer plus tard.'}
                 </Text>
               </Stack>
@@ -934,10 +1028,10 @@ export function CampaignEditPage() {
                 Heures optimales : 10h-11h ou 14h-15h
               </List.Item>
               <List.Item>
-                Évitez les week-ends et jours fériés
+                Evitez les week-ends et jours feries
               </List.Item>
               <List.Item>
-                Testez différentes heures pour votre audience
+                Testez differentes heures pour votre audience
               </List.Item>
             </List>
           </Stack>
@@ -969,7 +1063,7 @@ export function CampaignEditPage() {
             </Group>
             <Title order={1}>Modifier la campagne</Title>
             <Text c="dimmed" size="sm" mt="xs">
-              Modifiez les paramètres de votre campagne d'emailing
+              Modifiez les parametres de votre campagne d'emailing
             </Text>
           </div>
         </Group>
@@ -984,7 +1078,7 @@ export function CampaignEditPage() {
           >
             <Stepper.Step
               label="Informations"
-              description="Détails de base"
+              description="Details de base"
               icon={<IconMail size={20} />}
             >
               {renderBasicInfoStep()}
@@ -1024,7 +1118,7 @@ export function CampaignEditPage() {
               leftSection={<IconArrowLeft size={18} />}
               size="md"
             >
-              Précédent
+              Precedent
             </Button>
 
             {active < 3 ? (
@@ -1056,8 +1150,56 @@ export function CampaignEditPage() {
         opened={editorOpened}
         onClose={() => setEditorOpened(false)}
         onSave={handleSaveEmail}
+        onSaveAsTemplate={handleSaveAsTemplate}
         initialDesign={emailDesign}
       />
+
+      {/* Modal de sauvegarde de template */}
+      <Modal
+        opened={saveTemplateModalOpened}
+        onClose={() => setSaveTemplateModalOpened(false)}
+        title="Sauvegarder comme template"
+        size="md"
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Sauvegardez ce design comme template reutilisable pour vos futures campagnes.
+          </Text>
+
+          <TextInput
+            label="Nom du template"
+            placeholder="Ex: Newsletter mensuelle, Invitation evenement..."
+            required
+            value={templateName}
+            onChange={(e) => setTemplateName(e.currentTarget.value)}
+          />
+
+          <Textarea
+            label="Description (optionnel)"
+            placeholder="Decrivez l'utilisation de ce template..."
+            value={templateDescription}
+            onChange={(e) => setTemplateDescription(e.currentTarget.value)}
+            minRows={2}
+          />
+
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              onClick={() => setSaveTemplateModalOpened(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              leftSection={<IconDeviceFloppy size={18} />}
+              onClick={handleConfirmSaveTemplate}
+              loading={savingTemplate}
+              color="violet"
+            >
+              Sauvegarder
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </div>
   );
 }

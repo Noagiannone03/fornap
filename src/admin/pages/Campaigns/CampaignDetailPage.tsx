@@ -1,45 +1,50 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Paper,
-  Title,
-  Group,
-  Button,
-  Text,
-  Stack,
-  LoadingOverlay,
+  Alert,
   Badge,
-  Divider,
-  Grid,
   Box,
-  Progress,
+  Button,
+  Grid,
+  Group,
+  LoadingOverlay,
+  Paper,
+  Stack,
   Table,
-  Tabs,
-  Card,
-  SimpleGrid,
+  Text,
+  TextInput,
+  ThemeIcon,
+  Title,
+  RingProgress,
+  ActionIcon,
+  Flex,
 } from '@mantine/core';
 import {
   IconArrowLeft,
   IconEdit,
-  IconX,
+  IconFilter,
   IconMail,
-  IconUsers,
-  IconEye,
-  IconCheck,
+  IconRefresh,
+  IconSearch,
   IconSend,
   IconTrash,
-  IconRefresh,
+  IconUsers,
+  IconX,
+  IconChartPie,
+  IconDeviceDesktopAnalytics,
+  IconFlask,
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
-import type { Campaign, CampaignRecipient } from '../../../shared/types/campaign';
+import { Timestamp } from 'firebase/firestore';
+import type { Campaign, CampaignRecipient, TargetingFilters } from '../../../shared/types/campaign';
 import {
-  getCampaignById,
-  getCampaignRecipients,
   cancelCampaign,
   deleteCampaign,
   estimateRecipients,
+  getCampaignById,
+  getCampaignRecipients,
+  loadCampaignHtml,
 } from '../../../shared/services/campaignService';
-import { Timestamp } from 'firebase/firestore';
 import { SendCampaignModal } from '../../components/campaigns/SendCampaignModal';
 import { RetryCampaignModal } from '../../components/campaigns/RetryCampaignModal';
 
@@ -54,111 +59,111 @@ export function CampaignDetailPage() {
   const [sendModalOpened, setSendModalOpened] = useState(false);
   const [retryModalOpened, setRetryModalOpened] = useState(false);
   const [estimatedRecipients, setEstimatedRecipients] = useState(0);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [recipientSearch, setRecipientSearch] = useState('');
 
   useEffect(() => {
-    if (campaignId) {
-      loadCampaign();
-      loadRecipients();
-    }
-  }, [campaignId]);
-
-  // Auto-refresh des stats toutes les 10 secondes pour les campagnes envoyées
-  useEffect(() => {
-    if (!campaign || campaign.status !== 'sent') return;
-
-    const interval = setInterval(() => {
-      loadCampaign();
-      loadRecipients();
-    }, 10000); // 10 secondes
-
-    return () => clearInterval(interval);
-  }, [campaign?.status, campaignId]);
-
-  const loadCampaign = async () => {
     if (!campaignId) return;
 
-    try {
-      setLoading(true);
-      const data = await getCampaignById(campaignId);
-      if (data) {
-        setCampaign(data);
+    const run = async () => {
+      try {
+        setLoading(true);
 
-        // Calculer le nombre estimé de destinataires
+        const [campaignData, recipientsData] = await Promise.all([
+          getCampaignById(campaignId),
+          getCampaignRecipients(campaignId),
+        ]);
+
+        if (!campaignData) {
+          notifications.show({
+            title: 'Erreur',
+            message: 'Campagne introuvable',
+            color: 'red',
+          });
+          navigate('/admin/campaigns');
+          return;
+        }
+
+        setCampaign(campaignData);
+        setRecipients(recipientsData);
+
+        if (campaignData.content.htmlInStorage) {
+          const html = await loadCampaignHtml(campaignId);
+          setPreviewHtml(html || campaignData.content.html || '');
+        } else {
+          setPreviewHtml(campaignData.content.html || '');
+        }
+
         const estimated = await estimateRecipients(
-          data.targeting.mode,
-          data.targeting.manualUserIds,
-          data.targeting.filters
+          campaignData.targeting.mode,
+          campaignData.targeting.manualUserIds,
+          campaignData.targeting.filters
         );
         setEstimatedRecipients(estimated);
-      } else {
+      } catch (error) {
+        console.error('Error loading campaign:', error);
         notifications.show({
           title: 'Erreur',
-          message: 'Campagne introuvable',
+          message: 'Impossible de charger la campagne',
           color: 'red',
         });
-        navigate('/admin/campaigns');
+      } finally {
+        setLoading(false);
       }
-    } catch (error: any) {
-      console.error('Error loading campaign:', error);
-      notifications.show({
-        title: 'Erreur',
-        message: 'Impossible de charger la campagne',
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  const loadRecipients = async () => {
+    void run();
+  }, [campaignId, navigate]);
+
+  useEffect(() => {
+    if (!campaignId || !campaign || campaign.status !== 'sent') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const [campaignData, recipientsData] = await Promise.all([
+          getCampaignById(campaignId),
+          getCampaignRecipients(campaignId),
+        ]);
+
+        if (campaignData) {
+          setCampaign(campaignData);
+          setRecipients(recipientsData);
+        }
+      } catch (error) {
+        console.error('Error refreshing campaign:', error);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [campaignId, campaign]);
+
+  const refreshData = async () => {
     if (!campaignId) return;
 
     try {
-      const data = await getCampaignRecipients(campaignId);
-      setRecipients(data);
-    } catch (error: any) {
-      console.error('Error loading recipients:', error);
-    }
-  };
+      setRefreshing(true);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await Promise.all([loadCampaign(), loadRecipients()]);
+      const [campaignData, recipientsData] = await Promise.all([
+        getCampaignById(campaignId),
+        getCampaignRecipients(campaignId),
+      ]);
+
+      if (campaignData) {
+        setCampaign(campaignData);
+        setRecipients(recipientsData);
+      }
+
       notifications.show({
-        title: 'Rafraîchi',
-        message: 'Les statistiques ont été mises à jour',
+        title: 'Rafraichi',
+        message: 'Statistiques mises a jour',
         color: 'green',
         autoClose: 2000,
       });
     } catch (error) {
-      console.error('Error refreshing:', error);
+      console.error('Error refreshing campaign:', error);
     } finally {
       setRefreshing(false);
     }
-  };
-
-  const handleRetryFailed = () => {
-    if (!campaign) return;
-
-    const failedCount = campaign.stats.failed;
-
-    if (failedCount === 0) {
-      notifications.show({
-        title: 'Information',
-        message: 'Aucun email en échec à renvoyer',
-        color: 'blue',
-      });
-      return;
-    }
-
-    // Ouvrir le modal de retry avec progression
-    setRetryModalOpened(true);
-  };
-
-  const handleRetryComplete = async () => {
-    // Rafraîchir les données après le retry
-    await Promise.all([loadCampaign(), loadRecipients()]);
   };
 
   const handleCancel = async () => {
@@ -168,14 +173,14 @@ export function CampaignDetailPage() {
     if (!reason) return;
 
     try {
-      await cancelCampaign(campaignId, 'admin-id', reason); // TODO: Get real admin ID
+      await cancelCampaign(campaignId, 'admin-id', reason);
       notifications.show({
-        title: 'Succès',
-        message: 'Campagne annulée avec succès',
+        title: 'Succes',
+        message: 'Campagne annulee',
         color: 'green',
       });
-      loadCampaign();
-    } catch (error: any) {
+      await refreshData();
+    } catch (error) {
       console.error('Error cancelling campaign:', error);
       notifications.show({
         title: 'Erreur',
@@ -189,19 +194,19 @@ export function CampaignDetailPage() {
     if (!campaign || !campaignId) return;
 
     const confirmed = window.confirm(
-      `⚠️ Attention : Vous êtes sur le point de supprimer définitivement la campagne "${campaign.name}".\n\nCette action est IRRÉVERSIBLE et supprimera :\n- La campagne\n- Tous les destinataires\n- Toutes les statistiques\n\nÊtes-vous absolument certain de vouloir continuer ?`
+      `Supprimer definitivement "${campaign.name}" ? Cette action est irreversible.`
     );
     if (!confirmed) return;
 
     try {
       await deleteCampaign(campaignId);
       notifications.show({
-        title: 'Succès',
-        message: 'Campagne supprimée définitivement',
+        title: 'Succes',
+        message: 'Campagne supprimee',
         color: 'green',
       });
       navigate('/admin/campaigns');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting campaign:', error);
       notifications.show({
         title: 'Erreur',
@@ -211,29 +216,47 @@ export function CampaignDetailPage() {
     }
   };
 
-  const handleSendNow = () => {
-    if (!campaign || !campaignId) return;
-    // Ouvrir le modal d'envoi
-    setSendModalOpened(true);
+  const handleRetryComplete = async () => {
+    await refreshData();
   };
 
   const handleSendComplete = async () => {
-    // Recharger la campagne après l'envoi
-    await loadCampaign();
-    await loadRecipients();
+    await refreshData();
   };
 
   const getStatusBadge = (status: Campaign['status']) => {
     const statusConfig = {
       draft: { label: 'Brouillon', color: 'gray' },
-      scheduled: { label: 'Planifiée', color: 'blue' },
+      scheduled: { label: 'Planifiee', color: 'blue' },
       sending: { label: 'En cours', color: 'orange' },
-      sent: { label: 'Envoyée', color: 'green' },
-      cancelled: { label: 'Annulée', color: 'red' },
+      sent: { label: 'Envoyee', color: 'green' },
+      cancelled: { label: 'Annulee', color: 'red' },
     };
 
     const config = statusConfig[status];
-    return <Badge color={config.color} size="lg">{config.label}</Badge>;
+    return (
+      <Badge color={config.color} variant="light" size="lg" fw={600}>
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const getRecipientStatusBadge = (status: CampaignRecipient['status']) => {
+    const statusConfig = {
+      pending: { label: 'En attente', color: 'gray' },
+      sent: { label: 'Envoye', color: 'blue' },
+      failed: { label: 'Echec', color: 'red' },
+      opened: { label: 'Ouvert', color: 'green' },
+      clicked: { label: 'Clique', color: 'teal' },
+      bounced: { label: 'Rebond', color: 'orange' },
+    };
+
+    const config = statusConfig[status];
+    return (
+      <Badge color={config.color} variant="light" size="sm">
+        {config.label}
+      </Badge>
+    );
   };
 
   const formatDate = (timestamp: Timestamp | undefined) => {
@@ -247,73 +270,121 @@ export function CampaignDetailPage() {
     });
   };
 
-  const getRecipientStatusBadge = (status: CampaignRecipient['status']) => {
-    const statusConfig = {
-      pending: { label: 'En attente', color: 'gray' },
-      sent: { label: 'Envoyé', color: 'blue' },
-      failed: { label: 'Échec', color: 'red' },
-      opened: { label: 'Ouvert', color: 'green' },
-      clicked: { label: 'Cliqué', color: 'teal' },
-      bounced: { label: 'Rebond', color: 'orange' },
-    };
+  const getRate = (value: number, total: number) => {
+    if (!total) return 0;
+    return Math.min(100, Math.max(0, (value / total) * 100));
+  };
 
-    const config = statusConfig[status];
-    return <Badge color={config.color} size="sm">{config.label}</Badge>;
+  const getTargetingModeLabel = (mode: Campaign['targeting']['mode']) => {
+    if (mode === 'all') return 'Tous les membres';
+    if (mode === 'manual') return 'Selection manuelle';
+    return 'Audience filtree';
+  };
+
+  const getActiveFilters = (filters?: TargetingFilters) => {
+    if (!filters) return [];
+
+    const items: Array<{ label: string; color: string }> = [];
+
+    if (filters.membershipTypes?.length) {
+      items.push({ label: filters.membershipTypes.join(', '), color: 'blue' });
+    }
+    if (filters.membershipStatus?.length) {
+      items.push({ label: filters.membershipStatus.join(', '), color: 'teal' });
+    }
+    if (filters.includeTags?.length) {
+      items.push({ label: `Tags: ${filters.includeTags.join(', ')}`, color: 'grape' });
+    }
+    if (filters.ageRange) {
+      items.push({
+        label: `Age ${filters.ageRange.min ?? 0}-${filters.ageRange.max ?? 'max'}`,
+        color: 'orange',
+      });
+    }
+    if (filters.cities?.length) {
+      items.push({ label: filters.cities.join(', '), color: 'cyan' });
+    }
+    if (filters.emailWhitelist?.length) {
+      items.push({ label: `${filters.emailWhitelist.length} emails`, color: 'lime' });
+    }
+
+    return items;
   };
 
   if (!campaign) {
-    return <LoadingOverlay visible={loading} />;
+    return (
+      <Box pos="relative" mih={320}>
+        <LoadingOverlay visible={loading} />
+      </Box>
+    );
   }
 
+  const audienceCount =
+    campaign.stats.totalRecipients ||
+    campaign.targeting.estimatedRecipients ||
+    estimatedRecipients ||
+    0;
+  const sentCount = campaign.stats.sent || 0;
+  const failedCount = campaign.stats.failed || 0;
+  const bouncedCount = campaign.stats.bounced || 0;
+  const deliveryRate = getRate(sentCount, audienceCount);
+  const filters = getActiveFilters(campaign.targeting.filters);
+  const filteredRecipients = recipients.filter((recipient) => {
+    const query = recipientSearch.trim().toLowerCase();
+    if (!query) return true;
+
+    const text = `${recipient.firstName} ${recipient.lastName} ${recipient.email} ${recipient.status}`.toLowerCase();
+    return text.includes(query);
+  });
+
   return (
-    <div style={{ position: 'relative' }}>
+    <Box pos="relative">
       <LoadingOverlay visible={loading} />
 
-      <Stack gap="md">
-        {/* Header */}
-        <Group justify="space-between">
-          <div>
-            <Group>
-              <Button
-                variant="subtle"
-                leftSection={<IconArrowLeft size={18} />}
-                onClick={() => navigate('/admin/campaigns')}
-              >
-                Retour
-              </Button>
-            </Group>
-            <Group mt="xs" align="center">
-              <Title order={1}>{campaign.name}</Title>
-              {getStatusBadge(campaign.status)}
-            </Group>
-            {campaign.description && (
-              <Text c="dimmed" size="sm" mt="xs">
-                {campaign.description}
-              </Text>
-            )}
-          </div>
-          <Group>
-            {/* Boutons pour les campagnes envoyées */}
+      <Stack gap="xl">
+        {/* Page Header */}
+        <Group justify="space-between" align="center" wrap="wrap">
+          <Group gap="sm" align="center">
+            <ActionIcon
+              variant="default"
+              size="lg"
+              radius="md"
+              onClick={() => navigate('/admin/campaigns')}
+            >
+              <IconArrowLeft size={20} />
+            </ActionIcon>
+            <Box>
+              <Group gap="sm" mb={4}>
+                <Title order={1} size="h2">{campaign.name}</Title>
+                {getStatusBadge(campaign.status)}
+              </Group>
+              {campaign.description && (
+                <Text c="dimmed" size="sm">
+                  {campaign.description}
+                </Text>
+              )}
+            </Box>
+          </Group>
+
+          <Group gap="sm">
             {campaign.status === 'sent' && (
               <>
                 <Button
-                  variant="light"
+                  variant="default"
                   leftSection={<IconRefresh size={18} />}
-                  onClick={handleRefresh}
+                  onClick={refreshData}
                   loading={refreshing}
                 >
-                  Rafraîchir les stats
+                  Rafraichir
                 </Button>
-
-                {/* Bouton retry si des emails ont échoué */}
-                {campaign.stats.failed > 0 && (
+                {failedCount > 0 && (
                   <Button
                     variant="light"
                     color="orange"
                     leftSection={<IconMail size={18} />}
-                    onClick={handleRetryFailed}
+                    onClick={() => setRetryModalOpened(true)}
                   >
-                    Renvoyer les échecs ({campaign.stats.failed})
+                    Renvoyer ({failedCount})
                   </Button>
                 )}
               </>
@@ -322,37 +393,39 @@ export function CampaignDetailPage() {
             {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
               <>
                 <Button
-                  leftSection={<IconSend size={18} />}
-                  color="green"
-                  onClick={handleSendNow}
-                  disabled={estimatedRecipients === 0}
-                >
-                  Envoyer maintenant
-                </Button>
-                <Button
+                  variant="default"
                   leftSection={<IconEdit size={18} />}
-                  variant="light"
                   onClick={() => navigate(`/admin/campaigns/${campaignId}/edit`)}
                 >
                   Modifier
                 </Button>
+                <Button
+                  color="blue"
+                  leftSection={<IconSend size={18} />}
+                  onClick={() => setSendModalOpened(true)}
+                  disabled={estimatedRecipients === 0}
+                >
+                  Envoyer la campagne
+                </Button>
               </>
             )}
+
             {(campaign.status === 'scheduled' || campaign.status === 'sending') && (
               <Button
-                leftSection={<IconX size={18} />}
-                color="red"
                 variant="light"
+                color="red"
+                leftSection={<IconX size={18} />}
                 onClick={handleCancel}
               >
-                Annuler
+                Annuler l'envoi
               </Button>
             )}
+
             {(campaign.status === 'draft' || campaign.status === 'cancelled') && (
               <Button
-                leftSection={<IconTrash size={18} />}
+                variant="light"
                 color="red"
-                variant="outline"
+                leftSection={<IconTrash size={18} />}
                 onClick={handleDelete}
               >
                 Supprimer
@@ -361,236 +434,301 @@ export function CampaignDetailPage() {
           </Group>
         </Group>
 
-        {/* Statistiques principales */}
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <Card shadow="sm" padding="lg">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <IconUsers size={20} color="blue" />
-                <Text size="sm" c="dimmed">Destinataires</Text>
-              </Group>
-              <Text size="xl" fw={700}>{campaign.stats.totalRecipients}</Text>
-            </Stack>
-          </Card>
-
-          <Card shadow="sm" padding="lg">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <IconCheck size={20} color="green" />
-                <Text size="sm" c="dimmed">Envoyés</Text>
-              </Group>
-              <Text size="xl" fw={700}>{campaign.stats.sent}</Text>
-              <Progress value={(campaign.stats.sent / campaign.stats.totalRecipients) * 100} color="green" size="sm" />
-            </Stack>
-          </Card>
-        </SimpleGrid>
-
-        {/* Détails */}
-        <Grid>
-          <Grid.Col span={{ base: 12, md: 6 }}>
-            <Paper p="md" shadow="sm">
-              <Stack gap="md">
-                <Text fw={600} size="lg">Informations de la campagne</Text>
-                <Divider />
-
-                <Box>
-                  <Text size="sm" c="dimmed">Sujet</Text>
-                  <Text fw={500}>{campaign.content.subject}</Text>
-                </Box>
-
-                {campaign.content.preheader && (
-                  <Box>
-                    <Text size="sm" c="dimmed">Préheader</Text>
-                    <Text fw={500}>{campaign.content.preheader}</Text>
-                  </Box>
-                )}
-
-                <Box>
-                  <Text size="sm" c="dimmed">Expéditeur</Text>
-                  <Text fw={500}>
-                    {campaign.content.fromName} &lt;{campaign.content.fromEmail}&gt;
-                  </Text>
-                </Box>
-
-                {campaign.content.replyTo && (
-                  <Box>
-                    <Text size="sm" c="dimmed">Répondre à</Text>
-                    <Text fw={500}>{campaign.content.replyTo}</Text>
-                  </Box>
-                )}
-
-                <Divider />
-
-                <Box>
-                  <Text size="sm" c="dimmed">Créée le</Text>
-                  <Text fw={500}>{formatDate(campaign.createdAt)}</Text>
-                </Box>
-
-                {campaign.scheduledAt && (
-                  <Box>
-                    <Text size="sm" c="dimmed">Planifiée pour le</Text>
-                    <Text fw={500}>{formatDate(campaign.scheduledAt)}</Text>
-                  </Box>
-                )}
-
-                {campaign.sentAt && (
-                  <Box>
-                    <Text size="sm" c="dimmed">Envoyée le</Text>
-                    <Text fw={500}>{formatDate(campaign.sentAt)}</Text>
-                  </Box>
-                )}
-
-                {campaign.cancelledAt && (
-                  <Box>
-                    <Text size="sm" c="dimmed">Annulée le</Text>
-                    <Text fw={500}>{formatDate(campaign.cancelledAt)}</Text>
-                    {campaign.cancellationReason && (
-                      <Text size="sm" mt="xs" c="dimmed">
-                        Raison : {campaign.cancellationReason}
-                      </Text>
+        {/* Main Content Layout */}
+        <Grid gutter="xl" align="flex-start">
+          {/* Left Column : Email Client View */}
+          <Grid.Col span={{ base: 12, lg: 8 }}>
+            <Paper withBorder radius="md" shadow="sm" style={{ overflow: 'hidden' }}>
+              {/* Fake Email Header */}
+              <Box bg="gray.0" p="xl" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+                <Stack gap="md">
+                  <Group justify="space-between" align="flex-start">
+                    <Title order={2} size="h3" style={{ flex: 1 }}>
+                      {campaign.content.subject}
+                    </Title>
+                    {campaign.content.preheader && (
+                      <Badge variant="outline" color="gray" size="sm" mt={4}>
+                        Préheader: {campaign.content.preheader}
+                      </Badge>
                     )}
-                  </Box>
+                  </Group>
+
+                  <Grid gutter="md">
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <Text size="xs" c="dimmed" tt="uppercase" fw={700} mb={4}>Expéditeur</Text>
+                      <Group gap="xs" wrap="nowrap">
+                        <ThemeIcon color="blue" variant="light" radius="xl" size="md">
+                          <IconMail size={14} />
+                        </ThemeIcon>
+                        <Box>
+                          <Text size="sm" fw={600}>{campaign.content.fromName}</Text>
+                          <Text size="xs" c="dimmed">&lt;{campaign.content.fromEmail}&gt;</Text>
+                        </Box>
+                      </Group>
+                    </Grid.Col>
+                    
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <Text size="xs" c="dimmed" tt="uppercase" fw={700} mb={4}>Informations</Text>
+                      <Stack gap={2}>
+                        <Group justify="space-between" wrap="nowrap">
+                          <Text size="xs" c="dimmed">Création:</Text>
+                          <Text size="xs" fw={500}>{formatDate(campaign.createdAt)}</Text>
+                        </Group>
+                        {campaign.sentAt && (
+                           <Group justify="space-between" wrap="nowrap">
+                            <Text size="xs" c="green.7">Envoi:</Text>
+                            <Text size="xs" fw={500} c="green.9">{formatDate(campaign.sentAt)}</Text>
+                          </Group>
+                        )}
+                        {campaign.content.replyTo && (
+                          <Group justify="space-between" wrap="nowrap">
+                            <Text size="xs" c="dimmed">Réponse:</Text>
+                            <Text size="xs" fw={500}>{campaign.content.replyTo}</Text>
+                          </Group>
+                        )}
+                        {campaign.lastTestSentAt && (
+                          <Group justify="space-between" wrap="nowrap">
+                            <Text size="xs" c="dimmed">Dernier test:</Text>
+                            <Text size="xs" fw={500}>
+                              {campaign.lastTestSentTo || 'adresse inconnue'} · {formatDate(campaign.lastTestSentAt)}
+                            </Text>
+                          </Group>
+                        )}
+                      </Stack>
+                    </Grid.Col>
+                  </Grid>
+                </Stack>
+              </Box>
+
+              {/* Email Content */}
+              <Box bg="white" style={{ minHeight: 400, maxHeight: 800, overflow: 'auto' }}>
+                {previewHtml ? (
+                  <div dangerouslySetInnerHTML={{ __html: previewHtml }} style={{ margin: 0, padding: 0 }} />
+                ) : (
+                  <Stack align="center" justify="center" h={400} gap="md">
+                    <ThemeIcon size={72} radius="xl" variant="light" color="gray">
+                      <IconDeviceDesktopAnalytics size={34} />
+                    </ThemeIcon>
+                    <Text fw={600} size="lg">Aperçu du mail indisponible</Text>
+                    <Text c="dimmed" size="sm">L'aperçu HTML n'a pas pu être chargé.</Text>
+                  </Stack>
                 )}
-              </Stack>
+              </Box>
             </Paper>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 12, md: 6 }}>
-            <Paper p="md" shadow="sm">
-              <Stack gap="md">
-                <Text fw={600} size="lg">Ciblage</Text>
-                <Divider />
-
-                <Box>
-                  <Text size="sm" c="dimmed">Mode de ciblage</Text>
-                  <Text fw={500}>
-                    {campaign.targeting.mode === 'all' && 'Tous les utilisateurs actifs'}
-                    {campaign.targeting.mode === 'filtered' && 'Filtré par critères'}
-                    {campaign.targeting.mode === 'manual' && 'Sélection manuelle'}
-                  </Text>
-                </Box>
-
-                <Box>
-                  <Text size="sm" c="dimmed">Nombre de destinataires estimés</Text>
-                  <Badge size="lg">{campaign.targeting.estimatedRecipients} personnes</Badge>
-                </Box>
-
-                {campaign.targeting.filters && (
-                  <Box>
-                    <Text size="sm" c="dimmed" mb="xs">Filtres appliqués</Text>
-                    <Stack gap="xs">
-                      {campaign.targeting.filters.membershipTypes && (
-                        <Text size="sm">• Types : {campaign.targeting.filters.membershipTypes.join(', ')}</Text>
-                      )}
-                      {campaign.targeting.filters.membershipStatus && (
-                        <Text size="sm">• Statuts : {campaign.targeting.filters.membershipStatus.join(', ')}</Text>
-                      )}
-                      {campaign.targeting.filters.ageRange && (
-                        <Text size="sm">
-                          • Âge : {campaign.targeting.filters.ageRange.min || 0} - {campaign.targeting.filters.ageRange.max || '∞'}
-                        </Text>
-                      )}
-                    </Stack>
-                  </Box>
+          {/* Right Column : Analytics & Targeting */}
+          <Grid.Col span={{ base: 12, lg: 4 }}>
+            <Stack gap="xl">
+              {/* Analytics Card */}
+              <Paper withBorder p="md" radius="md" shadow="sm">
+                {campaign.lastTestSentAt && (
+                  <Alert icon={<IconFlask size={16} />} color="green" variant="light" mb="lg">
+                    <Text size="sm" fw={600}>
+                      Test déjà validé
+                    </Text>
+                    <Text size="xs" mt="xs">
+                      Envoyé à {campaign.lastTestSentTo || 'adresse inconnue'} le {formatDate(campaign.lastTestSentAt)}.
+                    </Text>
+                  </Alert>
                 )}
-              </Stack>
-            </Paper>
+
+                <Group gap="sm" mb="lg">
+                  <IconChartPie size={20} color="var(--mantine-color-blue-6)" />
+                  <Title order={3} size="h5">Performances</Title>
+                </Group>
+
+                <Stack gap="lg">
+                  <Group justify="space-between" wrap="nowrap">
+                    <div>
+                      <Text c="dimmed" size="xs" tt="uppercase" fw={700}>Audience Ciblée</Text>
+                      <Text fw={700} size="xl">{audienceCount}</Text>
+                    </div>
+                    <ThemeIcon variant="light" color="gray" size="xl" radius="md">
+                      <IconUsers size={24} />
+                    </ThemeIcon>
+                  </Group>
+
+                  <Group justify="space-between" wrap="nowrap">
+                    <div>
+                      <Text c="dimmed" size="xs" tt="uppercase" fw={700}>Emails Envoyés</Text>
+                      <Group align="flex-end" gap="xs">
+                        <Text fw={700} size="xl">{sentCount}</Text>
+                      </Group>
+                    </div>
+                    <RingProgress
+                      size={64}
+                      thickness={6}
+                      roundCaps
+                      sections={[{ value: deliveryRate, color: 'blue' }]}
+                      label={
+                        <Text size="xs" ta="center" fw={700}>
+                          {Math.round(deliveryRate)}%
+                        </Text>
+                      }
+                    />
+                  </Group>
+
+                  {campaign.status === 'sent' && (
+                    <Box mt="sm" p="md" bg="gray.0" style={{ borderRadius: 'var(--mantine-radius-md)' }}>
+                      <Stack gap="xs">
+                        <Group justify="space-between">
+                          <Text size="sm">Livrés avec succès</Text>
+                          <Text size="sm" fw={600} c="green">{sentCount}</Text>
+                        </Group>
+                        <Group justify="space-between">
+                          <Text size="sm">Échecs d'envoi</Text>
+                          <Text size="sm" fw={600} c="red">{failedCount}</Text>
+                        </Group>
+                        <Group justify="space-between">
+                          <Text size="sm">Rebonds</Text>
+                          <Text size="sm" fw={600} c="orange">{bouncedCount}</Text>
+                        </Group>
+                        <Group justify="space-between">
+                          <Text size="sm">En attente</Text>
+                          <Text size="sm" fw={600} c="gray">{campaign.stats.pending || 0}</Text>
+                        </Group>
+                      </Stack>
+                    </Box>
+                  )}
+                </Stack>
+              </Paper>
+
+              {/* Targeting Card */}
+              <Paper withBorder p="md" radius="md" shadow="sm">
+                <Group gap="sm" mb="lg">
+                  <IconFilter size={20} color="var(--mantine-color-violet-6)" />
+                  <Title order={3} size="h5">Ciblage de l'audience</Title>
+                </Group>
+
+                <Stack gap="md">
+                  <Group justify="space-between" align="center">
+                    <Text size="sm" fw={600}>Mode de sélection</Text>
+                    <Badge variant="dot" color="violet">{getTargetingModeLabel(campaign.targeting.mode)}</Badge>
+                  </Group>
+
+                  {filters.length > 0 && (
+                    <Box>
+                      <Text size="xs" c="dimmed" fw={700} tt="uppercase" mb="xs">
+                        Critères actifs
+                      </Text>
+                      <Flex gap="xs" wrap="wrap">
+                        {filters.map((filter) => (
+                          <Badge
+                            key={filter.label}
+                            variant="light"
+                            color={filter.color}
+                            style={{ textTransform: 'none' }}
+                          >
+                            {filter.label}
+                          </Badge>
+                        ))}
+                      </Flex>
+                    </Box>
+                  )}
+
+                  {campaign.cancellationReason && (
+                    <Box mt="sm" p="sm" bg="red.0" style={{ borderRadius: 'var(--mantine-radius-md)', border: '1px solid var(--mantine-color-red-2)' }}>
+                       <Text size="xs" c="red.9" fw={700} tt="uppercase" mb={4}>
+                        Raison d'annulation
+                      </Text>
+                      <Text size="sm" c="red.9">{campaign.cancellationReason}</Text>
+                    </Box>
+                  )}
+                </Stack>
+              </Paper>
+            </Stack>
           </Grid.Col>
         </Grid>
 
-        {/* Statistiques détaillées */}
-        {campaign.status === 'sent' && (
-          <Paper shadow="sm">
-            <Tabs defaultValue="stats">
-              <Tabs.List>
-                <Tabs.Tab value="stats" leftSection={<IconEye size={16} />}>
-                  Statistiques
-                </Tabs.Tab>
-                <Tabs.Tab value="recipients" leftSection={<IconUsers size={16} />}>
-                  Destinataires ({recipients.length})
-                </Tabs.Tab>
-                <Tabs.Tab value="preview" leftSection={<IconMail size={16} />}>
-                  Aperçu de l'email
-                </Tabs.Tab>
-              </Tabs.List>
+        {/* Bottom Section : Recipients Table */}
+        <Paper withBorder radius="md" shadow="sm" p="md">
+          <Stack gap="md">
+            <Group justify="space-between" align="center" wrap="wrap">
+              <Group gap="sm">
+                <IconUsers size={24} color="var(--mantine-color-gray-6)" />
+                <Title order={3} size="h4">Destinataires de la campagne</Title>
+                <Badge variant="light" color="gray" size="lg">{recipients.length}</Badge>
+              </Group>
+              <TextInput
+                placeholder="Rechercher par nom ou email..."
+                leftSection={<IconSearch size={16} />}
+                value={recipientSearch}
+                onChange={(event) => setRecipientSearch(event.currentTarget.value)}
+                style={{ width: '100%', maxWidth: 350 }}
+                radius="md"
+              />
+            </Group>
 
-              <Tabs.Panel value="stats" p="md">
-                <Stack gap="xs">
-                  <Text fw={500}>Détails d'envoi</Text>
-                  <Text size="sm">✅ Envoyés : {campaign.stats.sent}</Text>
-                  <Text size="sm">⏳ En attente : {campaign.stats.pending}</Text>
-                  <Text size="sm">❌ Échecs : {campaign.stats.failed}</Text>
-                  <Text size="sm">⚠️ Rebonds : {campaign.stats.bounced}</Text>
-                  {campaign.retryCount && campaign.retryCount > 0 && (
-                    <Text size="sm" c="orange">
-                      🔄 Tentatives de renvoi : {campaign.retryCount}
-                    </Text>
-                  )}
-                </Stack>
-              </Tabs.Panel>
-
-              <Tabs.Panel value="recipients" p="md">
-                <Table striped highlightOnHover>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Destinataire</Table.Th>
-                      <Table.Th>Email</Table.Th>
-                      <Table.Th>Statut</Table.Th>
-                      <Table.Th>Envoyé le</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {recipients.map((recipient) => (
+            <Table.ScrollContainer minWidth={800}>
+              <Table verticalSpacing="sm" striped highlightOnHover>
+                <Table.Thead bg="gray.0">
+                  <Table.Tr>
+                    <Table.Th>Utilisateur</Table.Th>
+                    <Table.Th>Email</Table.Th>
+                    <Table.Th>Statut d'envoi</Table.Th>
+                    <Table.Th>Date d'envoi</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {filteredRecipients.length > 0 ? (
+                    filteredRecipients.map((recipient) => (
                       <Table.Tr key={recipient.id}>
                         <Table.Td>
-                          {recipient.firstName} {recipient.lastName}
+                          <Text fw={500} size="sm">
+                            {recipient.firstName} {recipient.lastName}
+                          </Text>
                         </Table.Td>
                         <Table.Td>
-                          <Text size="sm" c="dimmed">{recipient.email}</Text>
+                          <Text size="sm" c="dimmed">
+                            {recipient.email}
+                          </Text>
                         </Table.Td>
                         <Table.Td>{getRecipientStatusBadge(recipient.status)}</Table.Td>
                         <Table.Td>
                           <Text size="sm">{formatDate(recipient.sentAt)}</Text>
                         </Table.Td>
                       </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </Tabs.Panel>
-
-              <Tabs.Panel value="preview" p="md">
-                <Paper withBorder p="md">
-                  <div dangerouslySetInnerHTML={{ __html: campaign.content.html }} />
-                </Paper>
-              </Tabs.Panel>
-            </Tabs>
-          </Paper>
-        )}
+                    ))
+                  ) : (
+                    <Table.Tr>
+                      <Table.Td colSpan={4}>
+                        <Stack align="center" py={50} gap="sm">
+                          <ThemeIcon size={64} radius="xl" variant="light" color="gray">
+                            <IconUsers size={30} />
+                          </ThemeIcon>
+                          <Text fw={600} size="lg">Aucun destinataire trouvé</Text>
+                          <Text c="dimmed" size="sm">La recherche n'a donné aucun résultat ou la campagne n'a pas de cible.</Text>
+                        </Stack>
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
+                </Table.Tbody>
+              </Table>
+            </Table.ScrollContainer>
+          </Stack>
+        </Paper>
       </Stack>
 
-      {/* Modal d'envoi de campagne */}
-      {campaign && campaignId && (
-        <SendCampaignModal
-          opened={sendModalOpened}
-          onClose={() => setSendModalOpened(false)}
-          onComplete={handleSendComplete}
-          campaignId={campaignId}
-          campaignName={campaign.name}
-          totalRecipients={estimatedRecipients}
-        />
-      )}
+      <SendCampaignModal
+        opened={sendModalOpened}
+        onClose={() => setSendModalOpened(false)}
+        onComplete={handleSendComplete}
+        campaignId={campaignId || ''}
+        campaignName={campaign.name}
+        totalRecipients={estimatedRecipients}
+        lastTestSentAt={campaign.lastTestSentAt}
+        lastTestSentTo={campaign.lastTestSentTo}
+      />
 
-      {/* Modal de retry des emails en échec */}
-      {campaign && campaignId && (
-        <RetryCampaignModal
-          opened={retryModalOpened}
-          onClose={() => setRetryModalOpened(false)}
-          onComplete={handleRetryComplete}
-          campaignId={campaignId}
-          campaignName={campaign.name}
-          totalFailed={campaign.stats.failed}
-        />
-      )}
-    </div>
+      <RetryCampaignModal
+        opened={retryModalOpened}
+        onClose={() => setRetryModalOpened(false)}
+        onComplete={handleRetryComplete}
+        campaignId={campaignId || ''}
+        campaignName={campaign.name}
+        totalFailed={failedCount}
+      />
+    </Box>
   );
 }

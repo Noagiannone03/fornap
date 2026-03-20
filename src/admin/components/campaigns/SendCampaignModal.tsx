@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   Button,
@@ -11,14 +11,19 @@ import {
   List,
   Divider,
   ScrollArea,
+  TextInput,
+  Badge,
 } from '@mantine/core';
 import {
   IconCheck,
   IconAlertCircle,
   IconX,
   IconSend,
+  IconFlask,
 } from '@tabler/icons-react';
-import { sendCampaignEmails } from '../../../shared/services/campaignService';
+import { notifications } from '@mantine/notifications';
+import { sendCampaignEmails, sendCampaignTestEmail } from '../../../shared/services/campaignService';
+import { Timestamp } from 'firebase/firestore';
 
 interface SendCampaignModalProps {
   opened: boolean;
@@ -27,6 +32,8 @@ interface SendCampaignModalProps {
   campaignId: string;
   campaignName: string;
   totalRecipients: number;
+  lastTestSentAt?: Timestamp;
+  lastTestSentTo?: string;
 }
 
 interface ProgressState {
@@ -51,10 +58,96 @@ export function SendCampaignModal({
   campaignId,
   campaignName,
   totalRecipients,
+  lastTestSentAt,
+  lastTestSentTo,
 }: SendCampaignModalProps) {
+  const [testEmail, setTestEmail] = useState(lastTestSentTo || '');
+  const [sendingTest, setSendingTest] = useState(false);
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState<ProgressState | null>(null);
   const [result, setResult] = useState<ResultState | null>(null);
+  const [testStatus, setTestStatus] = useState<{
+    message: string;
+    sentAt?: string;
+    email: string;
+  } | null>(
+    lastTestSentAt && lastTestSentTo
+      ? {
+          message: `Dernier test envoyé à ${lastTestSentTo}`,
+          sentAt: lastTestSentAt.toDate().toISOString(),
+          email: lastTestSentTo,
+        }
+      : null
+  );
+
+  const canSendDefinitively = Boolean(lastTestSentAt) || Boolean(testStatus);
+
+  useEffect(() => {
+    if (!opened) return;
+
+    setTestEmail(lastTestSentTo || '');
+    setTestStatus(
+      lastTestSentAt && lastTestSentTo
+        ? {
+            message: `Dernier test envoyé à ${lastTestSentTo}`,
+            sentAt: lastTestSentAt.toDate().toISOString(),
+            email: lastTestSentTo,
+          }
+        : null
+    );
+    setProgress(null);
+    setResult(null);
+  }, [lastTestSentAt, lastTestSentTo, opened]);
+
+  const formatDate = (value?: string) => {
+    if (!value) return null;
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+
+    return date.toLocaleString('fr-FR');
+  };
+
+  const handleSendTest = async () => {
+    const normalizedEmail = testEmail.trim();
+
+    if (!normalizedEmail) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Veuillez entrer une adresse email de test',
+        color: 'red',
+      });
+      return;
+    }
+
+    setSendingTest(true);
+
+    try {
+      const response = await sendCampaignTestEmail(campaignId, normalizedEmail);
+
+      setTestStatus({
+        message: response.message,
+        sentAt: response.sentAt,
+        email: normalizedEmail,
+      });
+
+      notifications.show({
+        title: 'Test envoyé',
+        message: `Vérifiez la boîte ${normalizedEmail} avant l’envoi définitif`,
+        color: 'green',
+      });
+
+      onComplete();
+    } catch (error: any) {
+      notifications.show({
+        title: 'Erreur',
+        message: error.message || 'Impossible d’envoyer le test',
+        color: 'red',
+      });
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   const handleSend = async () => {
     setSending(true);
@@ -87,7 +180,7 @@ export function SendCampaignModal({
   };
 
   const handleClose = () => {
-    if (!sending) {
+    if (!sending && !sendingTest) {
       setProgress(null);
       setResult(null);
       onClose();
@@ -106,7 +199,7 @@ export function SendCampaignModal({
       size="lg"
       centered
       closeOnClickOutside={!sending}
-      closeOnEscape={!sending}
+      closeOnEscape={!sending && !sendingTest}
     >
       <Stack gap="md">
         {!result && !sending && (
@@ -116,23 +209,76 @@ export function SendCampaignModal({
                 <strong>Envoi de la campagne email</strong>
               </Text>
               <Text size="xs" mt="xs">
-                Cette action va envoyer l'email à tous les destinataires ciblés.
+                Le premier passage doit être un envoi de test. Une fois validé dans votre boîte mail,
+                vous pouvez lancer l’envoi définitif.
               </Text>
               <Text size="xs" mt="xs" fw={600}>
                 Nombre de destinataires : {totalRecipients}
               </Text>
             </Alert>
 
+            <Paper withBorder p="md" radius="md">
+              <Stack gap="sm">
+                <Group justify="space-between" align="center">
+                  <Group gap="xs">
+                    <IconFlask size={18} />
+                    <Text size="sm" fw={600}>
+                      Test avant diffusion
+                    </Text>
+                  </Group>
+                  <Badge color={canSendDefinitively ? 'green' : 'orange'} variant="light">
+                    {canSendDefinitively ? 'Test prêt' : 'Test requis'}
+                  </Badge>
+                </Group>
+
+                <TextInput
+                  label="Adresse email de test"
+                  placeholder="exemple@domaine.com"
+                  type="email"
+                  value={testEmail}
+                  onChange={(event) => setTestEmail(event.currentTarget.value)}
+                  disabled={sendingTest || sending}
+                />
+
+                {(testStatus || lastTestSentAt) && (
+                  <Alert icon={<IconCheck size={16} />} color="green" variant="light">
+                    <Text size="sm">
+                      {testStatus?.message || `Dernier test envoyé à ${lastTestSentTo}`}
+                    </Text>
+                    {formatDate(testStatus?.sentAt || lastTestSentAt?.toDate().toISOString()) && (
+                      <Text size="xs" mt="xs">
+                        {formatDate(testStatus?.sentAt || lastTestSentAt?.toDate().toISOString())}
+                      </Text>
+                    )}
+                  </Alert>
+                )}
+
+                <Group justify="space-between" mt="xs">
+                  <Button
+                    variant="default"
+                    leftSection={<IconFlask size={16} />}
+                    onClick={handleSendTest}
+                    loading={sendingTest}
+                    disabled={sending}
+                  >
+                    {canSendDefinitively ? 'Renvoyer un test' : 'Envoyer un test'}
+                  </Button>
+
+                  <Button
+                    onClick={handleSend}
+                    leftSection={<IconSend size={16} />}
+                    color="blue"
+                    disabled={!canSendDefinitively || sendingTest}
+                  >
+                    Envoyer définitivement
+                  </Button>
+                </Group>
+              </Stack>
+            </Paper>
+
             <Group justify="flex-end" mt="md">
               <Button variant="subtle" onClick={handleClose}>
                 Annuler
-              </Button>
-              <Button
-                onClick={handleSend}
-                leftSection={<IconSend size={16} />}
-                color="blue"
-              >
-                Envoyer maintenant
               </Button>
             </Group>
           </>

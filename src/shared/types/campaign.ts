@@ -109,8 +109,14 @@ export interface EmailContent {
   templateId?: string; // ID du template utilisé (ex: 'membership_card', 'error_invalid_card')
 
   // Design Unlayer
-  design?: any; // JSON du design Unlayer (optionnel pour les emails HTML simples)
-  html: string; // HTML généré
+  design?: any; // @deprecated - Ancien champ objet
+  designJson?: string; // @deprecated - Maintenant dans Firebase Storage
+  html?: string; // HTML généré - peut être absent si htmlInStorage=true
+
+  // Firebase Storage (pour les gros contenus > 1 MiB)
+  htmlInStorage?: boolean; // Si true, le HTML est dans Firebase Storage
+  htmlUrl?: string; // URL Firebase Storage du HTML
+  designUrl?: string; // URL Firebase Storage du design JSON
 
   // Personnalisation
   fromName: string;
@@ -118,7 +124,22 @@ export interface EmailContent {
   replyTo?: string;
 
   // Pièce jointe carte d'adhérent
-  attachMembershipCard?: boolean; // Si true, génère et joint la carte d'adhérent personnalisée pour chaque destinataire
+  attachMembershipCard?: boolean;
+}
+
+/**
+ * Template email personnalisé sauvegardé dans Firestore
+ * Collection: emailTemplates
+ */
+export interface EmailTemplateCustom {
+  id: string;
+  name: string;
+  description?: string;
+  designJson: string; // Design Unlayer sérialisé en string JSON
+  thumbnailHtml?: string; // Aperçu HTML tronqué pour la prévisualisation
+  createdBy: string; // UID de l'admin créateur
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 /**
@@ -164,6 +185,13 @@ export interface Campaign {
   // Retry des emails en échec
   retryCount?: number; // Nombre de fois qu'on a réessayé
   lastRetryAt?: Timestamp; // Dernière tentative de retry
+
+  // Envoi de test avant diffusion définitive
+  lastTestSentAt?: Timestamp;
+  lastTestSentTo?: string;
+  lastTestMessageId?: string;
+  lastTestProvider?: 'fornap' | 'brevo';
+  lastTestFallbackUsed?: boolean;
 
   // Métadonnées
   createdBy: string; // UID de l'admin créateur
@@ -315,7 +343,9 @@ export function canSendCampaign(campaign: Campaign): boolean {
   ) && (
     campaign.content.subject.trim() !== ''
   ) && (
-    campaign.content.html.trim() !== ''
+    // Le HTML peut être dans Firestore (ancien) ou dans Storage (nouveau)
+    (campaign.content.html && campaign.content.html.trim() !== '') ||
+    campaign.content.htmlInStorage === true
   );
 }
 

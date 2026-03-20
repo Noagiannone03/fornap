@@ -33,6 +33,7 @@ export interface EmailOptions {
   from?: string;
   replyTo?: string;
   attachments?: Mail.Attachment[];
+  headers?: Mail.Headers;
 }
 
 // Configuration SMTP FORNAP (primaire)
@@ -128,6 +129,7 @@ export async function sendEmailWithFallback(options: EmailOptions): Promise<Emai
     from = '"FOR+NAP Social Club" <no-reply@fornap.fr>',
     replyTo = 'contact@fornap.fr',
     attachments,
+    headers,
   } = options;
 
   const mailOptions: Mail.Options = {
@@ -137,6 +139,7 @@ export async function sendEmailWithFallback(options: EmailOptions): Promise<Emai
     html,
     replyTo,
     attachments,
+    headers,
   };
 
   // Tentative 1: SMTP FORNAP

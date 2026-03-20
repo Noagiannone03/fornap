@@ -5,6 +5,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -34,48 +35,6 @@ const RECIPIENTS_SUBCOLLECTION = 'recipients';
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-/**
- * Vérifie si un objet contient des valeurs undefined (récursif)
- */
-function hasUndefinedValues(obj: any, path = ''): string | null {
-  if (obj === undefined) {
-    return path || 'root';
-  }
-
-  if (!obj || typeof obj !== 'object') {
-    return null;
-  }
-
-  // Ignorer les Timestamps et Dates
-  if ((obj.toDate && typeof obj.toDate === 'function') || Object.prototype.toString.call(obj) === '[object Date]') {
-    return null;
-  }
-
-  if (Array.isArray(obj)) {
-    for (let i = 0; i < obj.length; i++) {
-      const result = hasUndefinedValues(obj[i], `${path}[${i}]`);
-      if (result) return result;
-    }
-    return null;
-  }
-
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      const value = obj[key];
-      const currentPath = path ? `${path}.${key}` : key;
-
-      if (value === undefined) {
-        return currentPath;
-      }
-
-      const result = hasUndefinedValues(value, currentPath);
-      if (result) return result;
-    }
-  }
-
-  return null;
-}
 
 /**
  * Nettoie les champs undefined d'un objet de manière récursive
@@ -150,6 +109,117 @@ function cleanUndefinedFields<T extends Record<string, any>>(obj: T): Partial<T>
   }
 
   return cleaned as Partial<T>;
+}
+
+// ============================================================================
+// GESTION DU CONTENU EMAIL (sous-collection Firestore en chunks)
+// Le HTML exporté par Unlayer peut dépasser 1 MiB (images base64 inline).
+// On découpe le contenu en chunks de 900 KB stockés dans une sous-collection.
+// Pas de Firebase Storage = pas de CORS, tout reste dans Firestore.
+// ============================================================================
+
+const CONTENT_SUBCOLLECTION = 'content';
+const CHUNK_SIZE = 900 * 1024; // 900 KB par chunk (marge sous la limite de 1 MiB)
+
+/**
+ * Sauvegarde le HTML et le design en chunks dans Firestore
+ */
+export async function saveCampaignContent(
+  campaignId: string,
+  html: string,
+  designJson?: string
+): Promise<void> {
+  try {
+    const contentRef = collection(db, CAMPAIGNS_COLLECTION, campaignId, CONTENT_SUBCOLLECTION);
+    const existingSnapshot = await getDocs(contentRef);
+
+    if (!existingSnapshot.empty) {
+      const deleteBatch = writeBatch(db);
+      existingSnapshot.docs.forEach((docSnap) => {
+        deleteBatch.delete(docSnap.ref);
+      });
+      await deleteBatch.commit();
+    }
+
+    // Découper le HTML en chunks
+    const chunks: string[] = [];
+    for (let i = 0; i < html.length; i += CHUNK_SIZE) {
+      chunks.push(html.substring(i, i + CHUNK_SIZE));
+    }
+
+    // Sauvegarder chaque chunk
+    for (let i = 0; i < chunks.length; i++) {
+      const chunkRef = doc(db, CAMPAIGNS_COLLECTION, campaignId, CONTENT_SUBCOLLECTION, `html_${i}`);
+      await setDoc(chunkRef, {
+        data: chunks[i],
+        index: i,
+        total: chunks.length,
+        type: 'html',
+      });
+    }
+
+    // Sauvegarder le design JSON (généralement < 1 MiB)
+    if (designJson) {
+      const designRef = doc(db, CAMPAIGNS_COLLECTION, campaignId, CONTENT_SUBCOLLECTION, 'design');
+      await setDoc(designRef, {
+        data: designJson,
+        type: 'design',
+      });
+    }
+
+    console.log(`✅ Contenu sauvegardé: ${chunks.length} chunk(s) HTML + ${designJson ? 'design' : 'pas de design'}`);
+  } catch (error) {
+    console.error('Error saving campaign content:', error);
+    throw error;
+  }
+}
+
+/**
+ * Charge le HTML d'une campagne depuis les chunks Firestore
+ */
+export async function loadCampaignHtml(campaignId: string): Promise<string | null> {
+  try {
+    const contentRef = collection(db, CAMPAIGNS_COLLECTION, campaignId, CONTENT_SUBCOLLECTION);
+    const snapshot = await getDocs(contentRef);
+
+    if (snapshot.empty) return null;
+
+    // Récupérer les chunks HTML et les trier par index
+    const htmlChunks: { index: number; data: string }[] = [];
+    for (const docSnap of snapshot.docs) {
+      const docData = docSnap.data();
+      if (docData.type === 'html') {
+        htmlChunks.push({ index: docData.index, data: docData.data });
+      }
+    }
+
+    if (htmlChunks.length === 0) return null;
+
+    // Reconstituer le HTML dans l'ordre
+    htmlChunks.sort((a, b) => a.index - b.index);
+    return htmlChunks.map(c => c.data).join('');
+  } catch (error) {
+    console.error('Error loading campaign HTML:', error);
+    return null;
+  }
+}
+
+/**
+ * Charge le design JSON d'une campagne depuis Firestore
+ */
+export async function loadCampaignDesign(campaignId: string): Promise<string | null> {
+  try {
+    const designRef = doc(db, CAMPAIGNS_COLLECTION, campaignId, CONTENT_SUBCOLLECTION, 'design');
+    const designSnap = await getDoc(designRef);
+
+    if (designSnap.exists()) {
+      return designSnap.data().data || null;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error loading campaign design:', error);
+    return null;
+  }
 }
 
 /**
@@ -373,48 +443,76 @@ export async function createCampaign(
   try {
     const now = Timestamp.now();
 
-    // Construire l'objet campaign
-    const campaign: any = {
-      name: data.name,
+    // Extraire le HTML et le designJson - ils seront stockés dans la sous-collection
+    // `content` pour contourner la limite de 1 MiB par document Firestore.
+    const htmlToSave = String(data.content.html || '');
+    const designJsonToSave = data.content.designJson || undefined;
+
+    // Construire le content SANS le html (qui ira dans la sous-collection)
+    const safeContent: Record<string, string | boolean | number> = {
+      subject: String(data.content.subject || ''),
+      fromName: String(data.content.fromName || ''),
+      fromEmail: String(data.content.fromEmail || ''),
+      attachMembershipCard: data.content.attachMembershipCard === true,
+      // Flag pour indiquer que le HTML est dans la sous-collection
+      htmlInStorage: true,
+    };
+
+    // Ajouter les champs optionnels seulement s'ils existent
+    if (data.content.replyTo) {
+      safeContent.replyTo = String(data.content.replyTo);
+    }
+    if (data.content.preheader && String(data.content.preheader).trim()) {
+      safeContent.preheader = String(data.content.preheader);
+    }
+    if (data.content.templateId) {
+      safeContent.templateId = String(data.content.templateId);
+    }
+
+    // Construire le targeting de façon safe
+    const safeTargeting: Record<string, any> = {
+      mode: String(data.targeting.mode || 'all'),
+      estimatedRecipients: Number(data.targeting.estimatedRecipients || 0),
+    };
+    if (data.targeting.manualUserIds && data.targeting.manualUserIds.length > 0) {
+      safeTargeting.manualUserIds = data.targeting.manualUserIds.map(String);
+    }
+    if (data.targeting.filters) {
+      safeTargeting.filters = JSON.parse(JSON.stringify(data.targeting.filters));
+    }
+
+    const campaign: Record<string, any> = {
+      name: String(data.name),
       status: 'draft',
-      content: cleanUndefinedFields(data.content),
-      targeting: cleanUndefinedFields(data.targeting),
-      sendImmediately: data.sendImmediately,
+      content: safeContent,
+      targeting: safeTargeting,
+      sendImmediately: data.sendImmediately === true,
       stats: createInitialStats(),
-      createdBy: adminId,
+      createdBy: String(adminId),
       createdAt: now,
       updatedAt: now,
     };
 
-    // Ajouter description seulement si elle existe
     if (data.description && data.description.trim()) {
-      campaign.description = data.description;
+      campaign.description = String(data.description);
     }
-
-    // Ajouter scheduledAt seulement s'il existe
     if (data.scheduledAt) {
       campaign.scheduledAt = data.scheduledAt;
     }
 
-    // Nettoyer les champs undefined de l'objet complet
-    const cleanedCampaign = cleanUndefinedFields(campaign);
+    console.log('✅ Données de campagne validées (HTML: ' + (htmlToSave.length / 1024).toFixed(0) + ' KB → chunks)');
 
-    // Vérification finale pour s'assurer qu'il n'y a aucun undefined
-    const undefinedPath = hasUndefinedValues(cleanedCampaign);
-    if (undefinedPath) {
-      console.error('❌ Valeur undefined trouvée dans:', undefinedPath);
-      console.error('Objet complet avant nettoyage:', campaign);
-      console.error('Objet après nettoyage:', cleanedCampaign);
-      throw new Error(`Données invalides: valeur undefined trouvée dans ${undefinedPath}`);
-    }
-
-    console.log('✅ Données de campagne validées et nettoyées');
-
+    // 1. Créer le document Firestore (sans le gros HTML)
     const campaignsRef = collection(db, CAMPAIGNS_COLLECTION);
-    const docRef = await addDoc(campaignsRef, cleanedCampaign);
+    const docRef = await addDoc(campaignsRef, campaign);
+
+    // 2. Sauvegarder le HTML et le design en chunks dans la sous-collection
+    await saveCampaignContent(docRef.id, htmlToSave, designJsonToSave);
+
+    console.log('✅ Campagne créée avec contenu en chunks');
 
     return {
-      ...cleanedCampaign,
+      ...campaign,
       id: docRef.id,
     } as Campaign;
   } catch (error) {
@@ -557,12 +655,36 @@ export async function updateCampaign(
   try {
     const campaignRef = doc(db, CAMPAIGNS_COLLECTION, campaignId);
 
+    const cleaned = cleanUndefinedFields(data);
+
+    // Extraire HTML et design du content pour la sous-collection
+    let htmlToSave: string | undefined;
+    let designJsonToSave: string | undefined;
+    if (cleaned.content) {
+      htmlToSave = cleaned.content.html;
+      designJsonToSave = cleaned.content.designJson;
+      // Supprimer les gros champs du content Firestore
+      delete cleaned.content.html;
+      delete cleaned.content.designJson;
+      delete cleaned.content.design;
+      cleaned.content.htmlInStorage = true;
+      cleaned.content = JSON.parse(JSON.stringify(cleaned.content));
+    }
+    if (cleaned.targeting) {
+      cleaned.targeting = JSON.parse(JSON.stringify(cleaned.targeting));
+    }
+
     const updates = {
-      ...cleanUndefinedFields(data),
+      ...cleaned,
       updatedAt: Timestamp.now(),
     };
 
     await updateDoc(campaignRef, updates);
+
+    // Sauvegarder HTML et design dans la sous-collection `content`
+    if (htmlToSave !== undefined || designJsonToSave !== undefined) {
+      await saveCampaignContent(campaignId, htmlToSave || '', designJsonToSave);
+    }
   } catch (error) {
     console.error('Error updating campaign:', error);
     throw error;
@@ -577,11 +699,16 @@ export async function deleteCampaign(campaignId: string): Promise<void> {
     // Supprimer d'abord tous les destinataires
     const recipientsRef = collection(db, CAMPAIGNS_COLLECTION, campaignId, RECIPIENTS_SUBCOLLECTION);
     const recipientsSnapshot = await getDocs(recipientsRef);
+    const contentRef = collection(db, CAMPAIGNS_COLLECTION, campaignId, CONTENT_SUBCOLLECTION);
+    const contentSnapshot = await getDocs(contentRef);
 
     const batch = writeBatch(db);
 
     // Ajouter tous les destinataires à supprimer dans le batch
     recipientsSnapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    contentSnapshot.docs.forEach(doc => {
       batch.delete(doc.ref);
     });
 
@@ -869,6 +996,15 @@ export type SendCampaignProgressCallback = (progress: {
   errors: number;
 }) => void;
 
+export interface SendCampaignTestResult {
+  success: boolean;
+  message: string;
+  messageId?: string;
+  sentAt?: string;
+  provider?: 'fornap' | 'brevo';
+  fallbackUsed?: boolean;
+}
+
 /**
  * Envoie une campagne email - SYSTÈME UNIFIÉ
  *
@@ -899,6 +1035,9 @@ export async function sendCampaignEmails(
     const campaign = await getCampaignById(campaignId);
     if (!campaign) {
       throw new Error('Campaign not found');
+    }
+    if (!campaign.lastTestSentAt) {
+      throw new Error('Un email de test doit etre envoye avant l’envoi definitif');
     }
 
     // 2. Mettre la campagne en statut "sending"
@@ -971,6 +1110,35 @@ export async function sendCampaignEmails(
     console.error('Error sending campaign emails:', error);
     throw error;
   }
+}
+
+/**
+ * Envoie un email de test pour vérifier le rendu avant diffusion définitive.
+ */
+export async function sendCampaignTestEmail(
+  campaignId: string,
+  to: string
+): Promise<SendCampaignTestResult> {
+  const apiUrl = `${import.meta.env.VITE_API_URL || ''}/api/campaigns/send-test`;
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      campaignId,
+      to,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to send campaign test email');
+  }
+
+  return data as SendCampaignTestResult;
 }
 
 /**
@@ -1182,4 +1350,3 @@ export async function retryFailedEmailsWithProgress(
     throw error;
   }
 }
-

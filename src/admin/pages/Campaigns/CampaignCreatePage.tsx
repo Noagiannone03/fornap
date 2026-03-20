@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Paper,
   Title,
@@ -18,6 +18,10 @@ import {
   Box,
   ThemeIcon,
   Switch,
+  Modal,
+  ActionIcon,
+  Tooltip,
+  Loader,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -33,11 +37,19 @@ import {
   IconCode,
   IconPalette,
   IconId,
+  IconDeviceFloppy,
+  IconTemplate,
+  IconTrash,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
-import type { TargetingMode, TargetingFilters } from '../../../shared/types/campaign';
+import type { TargetingMode, TargetingFilters, EmailTemplateCustom } from '../../../shared/types/campaign';
 import { createCampaign } from '../../../shared/services/campaignService';
+import {
+  getEmailTemplates,
+  saveEmailTemplate,
+  deleteEmailTemplate,
+} from '../../../shared/services/emailTemplateService';
 import { useAdminAuth } from '../../../shared/contexts/AdminAuthContext';
 import { UserTargetingSelector, EmailEditorModal } from './components';
 import type { EmailEditorModalHandle } from './components';
@@ -53,13 +65,13 @@ export function CampaignCreatePage() {
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Étape 1: Informations de base
+  // Etape 1: Informations de base
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [subject, setSubject] = useState('');
   const [preheader, setPreheader] = useState('');
 
-  // Étape 2: Ciblage
+  // Etape 2: Ciblage
   const [targetingMode, setTargetingMode] = useState<TargetingMode>('all');
   const [filters, setFilters] = useState<TargetingFilters>({
     includeBlocked: false,
@@ -67,7 +79,7 @@ export function CampaignCreatePage() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [estimatedCount, setEstimatedCount] = useState(0);
 
-  // Étape 3: Contenu email
+  // Etape 3: Contenu email
   const [emailType, setEmailType] = useState<'template' | 'html' | 'design'>('template');
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [emailDesign, setEmailDesign] = useState<any>(null);
@@ -76,11 +88,33 @@ export function CampaignCreatePage() {
   const [editorOpened, setEditorOpened] = useState(false);
   const [attachMembershipCard, setAttachMembershipCard] = useState(false);
 
-  // Étape 4: Plus besoin de planification - tout est en brouillon
-  // L'envoi se fait depuis la page de détail
+  // Templates personnalises
+  const [customTemplates, setCustomTemplates] = useState<EmailTemplateCustom[]>([]);
+  const [customTemplatesLoading, setCustomTemplatesLoading] = useState(false);
+  const [saveTemplateModalOpened, setSaveTemplateModalOpened] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+  // Charger les templates personnalises
+  useEffect(() => {
+    loadCustomTemplates();
+  }, []);
+
+  const loadCustomTemplates = async () => {
+    try {
+      setCustomTemplatesLoading(true);
+      const templates = await getEmailTemplates();
+      setCustomTemplates(templates);
+    } catch (error) {
+      console.error('Error loading custom templates:', error);
+    } finally {
+      setCustomTemplatesLoading(false);
+    }
+  };
 
   const handleNext = async () => {
-    // Validation selon l'étape
+    // Validation selon l'etape
     if (active === 0) {
       if (!name.trim()) {
         notifications.show({
@@ -102,7 +136,7 @@ export function CampaignCreatePage() {
       if (estimatedCount === 0) {
         notifications.show({
           title: 'Erreur',
-          message: 'Aucun destinataire ciblé. Vérifiez vos critères de sélection.',
+          message: 'Aucun destinataire cible. Verifiez vos criteres de selection.',
           color: 'red',
         });
         return;
@@ -112,7 +146,7 @@ export function CampaignCreatePage() {
         if (!selectedTemplate) {
           notifications.show({
             title: 'Erreur',
-            message: 'Veuillez sélectionner un template d\'email.',
+            message: 'Veuillez selectionner un template d\'email.',
             color: 'red',
           });
           return;
@@ -130,14 +164,13 @@ export function CampaignCreatePage() {
         if (!emailHtml || emailHtml.trim() === '') {
           notifications.show({
             title: 'Erreur',
-            message: 'Le contenu de l\'email est requis. Veuillez créer votre email.',
+            message: 'Le contenu de l\'email est requis. Veuillez creer votre email.',
             color: 'red',
           });
           return;
         }
       }
     }
-    // Plus de validation pour l'étape 3 (planification) - tout est en brouillon
 
     setActive((current) => (current < 3 ? current + 1 : current));
   };
@@ -154,17 +187,109 @@ export function CampaignCreatePage() {
     setEmailDesign(design);
     setEmailHtml(html);
     notifications.show({
-      title: 'Succès',
-      message: 'Email enregistré avec succès',
+      title: 'Succes',
+      message: 'Email enregistre avec succes',
       color: 'green',
     });
+  };
+
+  const handleSaveAsTemplate = (design: any, html: string) => {
+    // Sauvegarder le design courant et ouvrir la modale de nommage
+    setEmailDesign(design);
+    setEmailHtml(html);
+    setSaveTemplateModalOpened(true);
+  };
+
+  const handleConfirmSaveTemplate = async () => {
+    if (!templateName.trim()) {
+      notifications.show({
+        title: 'Erreur',
+        message: 'Le nom du template est requis',
+        color: 'red',
+      });
+      return;
+    }
+
+    if (!emailDesign || !adminProfile) return;
+
+    try {
+      setSavingTemplate(true);
+
+      await saveEmailTemplate({
+        name: templateName.trim(),
+        description: templateDescription.trim() || undefined,
+        designJson: JSON.stringify(emailDesign),
+        thumbnailHtml: emailHtml,
+        createdBy: adminProfile.uid,
+      });
+
+      notifications.show({
+        title: 'Succes',
+        message: 'Template sauvegarde avec succes',
+        color: 'green',
+      });
+
+      setSaveTemplateModalOpened(false);
+      setTemplateName('');
+      setTemplateDescription('');
+      await loadCustomTemplates();
+    } catch (error: any) {
+      console.error('Error saving template:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: error.message || 'Impossible de sauvegarder le template',
+        color: 'red',
+      });
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteCustomTemplate = async (templateId: string) => {
+    try {
+      await deleteEmailTemplate(templateId);
+      notifications.show({
+        title: 'Succes',
+        message: 'Template supprime',
+        color: 'green',
+      });
+      await loadCustomTemplates();
+    } catch (error: any) {
+      console.error('Error deleting template:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de supprimer le template',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleLoadCustomTemplate = (template: EmailTemplateCustom) => {
+    try {
+      const design = JSON.parse(template.designJson);
+      setEmailDesign(design);
+      setEmailType('design');
+      setEditorOpened(true);
+      notifications.show({
+        title: 'Template charge',
+        message: `Le template "${template.name}" a ete charge dans l'editeur`,
+        color: 'blue',
+      });
+    } catch (error) {
+      console.error('Error parsing template design:', error);
+      notifications.show({
+        title: 'Erreur',
+        message: 'Impossible de charger ce template',
+        color: 'red',
+      });
+    }
   };
 
   const handleSubmit = async () => {
     if (!adminProfile) {
       notifications.show({
         title: 'Erreur',
-        message: 'Vous devez être connecté',
+        message: 'Vous devez etre connecte',
         color: 'red',
       });
       return;
@@ -173,13 +298,13 @@ export function CampaignCreatePage() {
     try {
       setLoading(true);
 
-      // Générer le HTML pour l'email
+      // Generer le HTML pour l'email
       let finalHtml = emailHtml;
       let finalSubject = subject;
       let finalPreheader = preheader;
 
       if (emailType === 'template' && selectedTemplate) {
-        // Utiliser le template sélectionné
+        // Utiliser le template selectionne
         finalHtml = selectedTemplate.html;
         finalSubject = selectedTemplate.subject;
         finalPreheader = selectedTemplate.preheader || '';
@@ -201,9 +326,7 @@ export function CampaignCreatePage() {
 </html>`.trim();
       }
 
-      // Créer le contenu de l'email
-      // Note: fromName, fromEmail et replyTo sont maintenant gérés automatiquement par l'API
-      // (toujours no-reply@fornap.fr)
+      // Creer le contenu de l'email
       const content: any = {
         subject: finalSubject,
         html: finalHtml,
@@ -213,24 +336,23 @@ export function CampaignCreatePage() {
         attachMembershipCard,
       };
 
-      // Ajouter preheader seulement s'il est défini
+      // Ajouter preheader seulement s'il est defini
       if (finalPreheader && finalPreheader.trim()) {
         content.preheader = finalPreheader;
       }
 
-      // Ajouter le template ID si un template est utilisé
+      // Ajouter le template ID si un template est utilise
       if (emailType === 'template' && selectedTemplate) {
         content.templateId = selectedTemplate.id;
       }
 
-      // ⚠️ Ne PAS sauvegarder le design dans Firestore car il contient des entités imbriquées complexes
-      // Firebase n'accepte pas les objets trop profonds
-      // Le HTML exporté par Unlayer suffit pour l'envoi des emails
-      // if (emailDesign) {
-      //   content.design = emailDesign;
-      // }
+      // Sauvegarder le design Unlayer serialise en string JSON
+      // (evite les limites de profondeur d'objets imbriques de Firestore)
+      if (emailDesign) {
+        content.designJson = JSON.stringify(emailDesign);
+      }
 
-      // Créer le ciblage en ne incluant que les champs pertinents
+      // Creer le ciblage en ne incluant que les champs pertinents
       const targeting: any = {
         mode: targetingMode,
         estimatedRecipients: estimatedCount,
@@ -243,8 +365,7 @@ export function CampaignCreatePage() {
         targeting.filters = filters;
       }
 
-      // Créer les données de la campagne
-      // Note: sendImmediately est toujours false - l'envoi se fait depuis la page de détail
+      // Creer les donnees de la campagne
       const campaignData: any = {
         name,
         content,
@@ -257,12 +378,12 @@ export function CampaignCreatePage() {
         campaignData.description = description;
       }
 
-      // Créer la campagne (toujours en brouillon)
+      // Creer la campagne (toujours en brouillon)
       await createCampaign(adminProfile.uid, campaignData);
 
       notifications.show({
-        title: 'Succès',
-        message: 'Campagne créée en brouillon. Rendez-vous sur la page de détail pour l\'envoyer.',
+        title: 'Succes',
+        message: 'Campagne creee en brouillon. Rendez-vous sur la page de detail pour l\'envoyer.',
         color: 'green',
       });
 
@@ -271,7 +392,7 @@ export function CampaignCreatePage() {
       console.error('Error creating campaign:', error);
       notifications.show({
         title: 'Erreur',
-        message: error.message || 'Impossible de créer la campagne',
+        message: error.message || 'Impossible de creer la campagne',
         color: 'red',
       });
     } finally {
@@ -288,7 +409,7 @@ export function CampaignCreatePage() {
               Informations de la campagne
             </Text>
             <Text c="dimmed" size="sm">
-              Définissez les paramètres de base de votre campagne d'emailing
+              Definissez les parametres de base de votre campagne d'emailing
             </Text>
           </div>
 
@@ -296,7 +417,7 @@ export function CampaignCreatePage() {
             <Stack gap="md">
               <Group gap="xs">
                 <IconFileText size={20} />
-                <Text fw={600}>Détails de la campagne</Text>
+                <Text fw={600}>Details de la campagne</Text>
               </Group>
 
               <TextInput
@@ -312,7 +433,7 @@ export function CampaignCreatePage() {
               <Textarea
                 label="Description (optionnel)"
                 description="Description interne de l'objectif de cette campagne"
-                placeholder="Décrivez l'objectif de cette campagne..."
+                placeholder="Decrivez l'objectif de cette campagne..."
                 value={description}
                 onChange={(e) => setDescription(e.currentTarget.value)}
                 minRows={3}
@@ -330,8 +451,8 @@ export function CampaignCreatePage() {
 
               <TextInput
                 label="Sujet de l'email"
-                description="Le sujet que verront les destinataires dans leur boîte mail"
-                placeholder="Ex: Découvrez notre programmation du mois !"
+                description="Le sujet que verront les destinataires dans leur boite mail"
+                placeholder="Ex: Decouvrez notre programmation du mois !"
                 required
                 size="md"
                 value={subject}
@@ -339,9 +460,9 @@ export function CampaignCreatePage() {
               />
 
               <TextInput
-                label="Préheader (optionnel)"
-                description="Texte de prévisualisation affiché après le sujet"
-                placeholder="Ex: Ne manquez pas nos événements exceptionnels..."
+                label="Preheader (optionnel)"
+                description="Texte de previsualisation affiche apres le sujet"
+                placeholder="Ex: Ne manquez pas nos evenements exceptionnels..."
                 size="md"
                 value={preheader}
                 onChange={(e) => setPreheader(e.currentTarget.value)}
@@ -353,12 +474,12 @@ export function CampaignCreatePage() {
                 <Group gap="xs">
                   <IconMail size={18} />
                   <div>
-                    <Text fw={600} size="sm">Expéditeur automatique</Text>
+                    <Text fw={600} size="sm">Expediteur automatique</Text>
                     <Text size="xs" c="dimmed">
-                      Tous les emails sont envoyés depuis <strong>no-reply@fornap.fr</strong>
+                      Tous les emails sont envoyes depuis <strong>no-reply@fornap.fr</strong>
                     </Text>
                     <Text size="xs" c="dimmed">
-                      Les réponses sont dirigées vers <strong>contact@fornap.fr</strong>
+                      Les reponses sont dirigees vers <strong>contact@fornap.fr</strong>
                     </Text>
                   </div>
                 </Group>
@@ -383,13 +504,13 @@ export function CampaignCreatePage() {
                 Choisissez un sujet clair et engageant
               </List.Item>
               <List.Item>
-                Le préheader complète le sujet et augmente le taux d'ouverture
+                Le preheader complete le sujet et augmente le taux d'ouverture
               </List.Item>
               <List.Item>
-                Utilisez un nom d'expéditeur reconnaissable
+                Utilisez un nom d'expediteur reconnaissable
               </List.Item>
               <List.Item>
-                Évitez les mots spam comme "gratuit", "urgent", etc.
+                Evitez les mots spam comme "gratuit", "urgent", etc.
               </List.Item>
             </List>
           </Stack>
@@ -407,7 +528,7 @@ export function CampaignCreatePage() {
               Ciblage des destinataires
             </Text>
             <Text c="dimmed" size="sm">
-              Sélectionnez qui recevra votre campagne d'emailing
+              Selectionnez qui recevra votre campagne d'emailing
             </Text>
           </div>
 
@@ -439,7 +560,7 @@ export function CampaignCreatePage() {
                 <div>
                   <Text size="sm" fw={600}>Tous les utilisateurs</Text>
                   <Text size="xs" c="dimmed">
-                    Envoie à tous les membres actifs
+                    Envoie a tous les membres actifs
                   </Text>
                 </div>
               </Group>
@@ -447,9 +568,9 @@ export function CampaignCreatePage() {
               <Group gap="xs">
                 <IconFilter size={16} />
                 <div>
-                  <Text size="sm" fw={600}>Filtrage avancé</Text>
+                  <Text size="sm" fw={600}>Filtrage avance</Text>
                   <Text size="xs" c="dimmed">
-                    Ciblez par âge, abonnement, tags, etc.
+                    Ciblez par age, abonnement, tags, etc.
                   </Text>
                 </div>
               </Group>
@@ -457,7 +578,7 @@ export function CampaignCreatePage() {
               <Group gap="xs">
                 <IconUsers size={16} />
                 <div>
-                  <Text size="sm" fw={600}>Sélection manuelle</Text>
+                  <Text size="sm" fw={600}>Selection manuelle</Text>
                   <Text size="xs" c="dimmed">
                     Choisissez individuellement chaque destinataire
                   </Text>
@@ -479,7 +600,7 @@ export function CampaignCreatePage() {
               Contenu de l'email
             </Text>
             <Text c="dimmed" size="sm">
-              Créez le contenu de votre email
+              Creez le contenu de votre email
             </Text>
           </div>
 
@@ -504,9 +625,9 @@ export function CampaignCreatePage() {
                         <ThemeIcon size={48} radius="xl" variant="light" color="green">
                           <IconFileText size={24} />
                         </ThemeIcon>
-                        <Text fw={600} ta="center">Template prédéfini</Text>
+                        <Text fw={600} ta="center">Template predefini</Text>
                         <Text size="sm" c="dimmed" ta="center">
-                          Utilisez un template FOR+NAP prêt à l'emploi
+                          Utilisez un template FOR+NAP pret a l'emploi
                         </Text>
                       </Stack>
                     </Card>
@@ -550,9 +671,9 @@ export function CampaignCreatePage() {
                         <ThemeIcon size={48} radius="xl" variant="light" color="orange">
                           <IconPalette size={24} />
                         </ThemeIcon>
-                        <Text fw={600} ta="center">Éditeur visuel</Text>
+                        <Text fw={600} ta="center">Editeur visuel</Text>
                         <Text size="sm" c="dimmed" ta="center">
-                          Créez un email design avec notre éditeur drag & drop
+                          Creez un email design avec notre editeur drag & drop
                         </Text>
                       </Stack>
                     </Card>
@@ -561,7 +682,7 @@ export function CampaignCreatePage() {
 
                 {emailType === 'template' && (
                   <Stack gap="md" mt="lg">
-                    <Text fw={600}>Sélectionnez un template</Text>
+                    <Text fw={600}>Selectionnez un template</Text>
                     <Grid>
                       {EMAIL_TEMPLATES.map((template) => (
                         <Grid.Col key={template.id} span={6}>
@@ -610,11 +731,87 @@ export function CampaignCreatePage() {
                   </Stack>
                 )}
 
-                {emailType === 'html' ? (
+                {emailType === 'design' && (
+                  <>
+                    {/* Templates personnalises sauvegardes */}
+                    {customTemplatesLoading ? (
+                      <Group justify="center" py="md">
+                        <Loader size="sm" />
+                        <Text size="sm" c="dimmed">Chargement des templates...</Text>
+                      </Group>
+                    ) : customTemplates.length > 0 && (
+                      <Stack gap="md" mt="lg">
+                        <Group gap="xs">
+                          <IconTemplate size={20} />
+                          <Text fw={600}>Vos templates sauvegardes</Text>
+                        </Group>
+                        <Grid>
+                          {customTemplates.map((template) => (
+                            <Grid.Col key={template.id} span={6}>
+                              <Card withBorder p="md" style={{ cursor: 'pointer' }}>
+                                <Stack gap="xs">
+                                  <Group justify="space-between">
+                                    <Badge color="violet" size="sm">
+                                      Personnalise
+                                    </Badge>
+                                    <Tooltip label="Supprimer ce template">
+                                      <ActionIcon
+                                        variant="subtle"
+                                        color="red"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteCustomTemplate(template.id);
+                                        }}
+                                      >
+                                        <IconTrash size={14} />
+                                      </ActionIcon>
+                                    </Tooltip>
+                                  </Group>
+                                  <Text fw={600} size="sm">{template.name}</Text>
+                                  {template.description && (
+                                    <Text size="xs" c="dimmed" lineClamp={2}>
+                                      {template.description}
+                                    </Text>
+                                  )}
+                                  <Text size="xs" c="dimmed">
+                                    Cree le {template.createdAt?.toDate?.().toLocaleDateString('fr-FR') || ''}
+                                  </Text>
+                                  <Button
+                                    variant="light"
+                                    color="violet"
+                                    size="xs"
+                                    fullWidth
+                                    leftSection={<IconTemplate size={14} />}
+                                    onClick={() => handleLoadCustomTemplate(template)}
+                                  >
+                                    Charger ce template
+                                  </Button>
+                                </Stack>
+                              </Card>
+                            </Grid.Col>
+                          ))}
+                        </Grid>
+                      </Stack>
+                    )}
+
+                    <Box ta="center" py="xl">
+                      <Button
+                        size="lg"
+                        leftSection={<IconPalette size={20} />}
+                        onClick={handleOpenEmailEditor}
+                      >
+                        Ouvrir l'editeur visuel
+                      </Button>
+                    </Box>
+                  </>
+                )}
+
+                {emailType === 'html' && (
                   <Stack gap="md">
                     <TextInput
                       label="Sujet de l'email"
-                      placeholder="Ex: Nouvelle fonctionnalité disponible"
+                      placeholder="Ex: Nouvelle fonctionnalite disponible"
                       value={subject}
                       onChange={(e) => setSubject(e.currentTarget.value)}
                       required
@@ -622,8 +819,8 @@ export function CampaignCreatePage() {
                     />
                     <Textarea
                       label="Corps du message"
-                      description="Rédigez le contenu de votre email"
-                      placeholder="Bonjour,&#10;&#10;Nous sommes ravis de vous annoncer...&#10;&#10;Cordialement,&#10;L'équipe FORNAP"
+                      description="Redigez le contenu de votre email"
+                      placeholder="Bonjour,&#10;&#10;Nous sommes ravis de vous annoncer...&#10;&#10;Cordialement,&#10;L'equipe FORNAP"
                       value={emailBody}
                       onChange={(e) => setEmailBody(e.currentTarget.value)}
                       minRows={12}
@@ -631,16 +828,6 @@ export function CampaignCreatePage() {
                       required
                     />
                   </Stack>
-                ) : (
-                  <Box ta="center" py="xl">
-                    <Button
-                      size="lg"
-                      leftSection={<IconPalette size={20} />}
-                      onClick={handleOpenEmailEditor}
-                    >
-                      Ouvrir l'éditeur visuel
-                    </Button>
-                  </Box>
                 )}
               </Stack>
             </Card>
@@ -651,7 +838,7 @@ export function CampaignCreatePage() {
                   <IconCheck size={32} />
                 </ThemeIcon>
                 <Text fw={600} size="lg">
-                  Template sélectionné
+                  Template selectionne
                 </Text>
                 <Text size="sm" c="dimmed" ta="center">
                   {selectedTemplate.name} - {selectedTemplate.description}
@@ -677,10 +864,10 @@ export function CampaignCreatePage() {
                   <IconCheck size={32} />
                 </ThemeIcon>
                 <Text fw={600} size="lg">
-                  Email créé avec succès
+                  Email cree avec succes
                 </Text>
                 <Text size="sm" c="dimmed" ta="center">
-                  Votre email a été enregistré. Vous pouvez le modifier ou continuer.
+                  Votre email a ete enregistre. Vous pouvez le modifier ou continuer.
                 </Text>
                 <Group>
                   <Button
@@ -712,10 +899,10 @@ export function CampaignCreatePage() {
                   <IconCheck size={32} />
                 </ThemeIcon>
                 <Text fw={600} size="lg">
-                  Email créé avec succès
+                  Email cree avec succes
                 </Text>
                 <Text size="sm" c="dimmed" ta="center">
-                  Votre email a été enregistré. Vous pouvez le modifier ou continuer.
+                  Votre email a ete enregistre. Vous pouvez le modifier ou continuer.
                 </Text>
                 <Group>
                   <Button
@@ -728,8 +915,18 @@ export function CampaignCreatePage() {
                     }}
                     size="lg"
                   >
-                    Modifier avec l'éditeur
+                    Modifier avec l'editeur
                   </Button>
+                  {emailDesign && (
+                    <Button
+                      variant="light"
+                      color="violet"
+                      leftSection={<IconDeviceFloppy size={18} />}
+                      onClick={() => setSaveTemplateModalOpened(true)}
+                    >
+                      Sauver comme template
+                    </Button>
+                  )}
                   <Button
                     variant="subtle"
                     onClick={() => {
@@ -744,19 +941,19 @@ export function CampaignCreatePage() {
             </Card>
           )}
 
-          {/* Option carte d'adhérent en pièce jointe */}
+          {/* Option carte d'adherent en piece jointe */}
           <Card withBorder p="lg" bg="pink.0">
             <Stack gap="md">
               <Group gap="xs">
                 <ThemeIcon size="lg" variant="light" color="pink">
                   <IconId size={20} />
                 </ThemeIcon>
-                <Text fw={600}>Pièce jointe carte d'adhérent</Text>
+                <Text fw={600}>Piece jointe carte d'adherent</Text>
               </Group>
 
               <Switch
-                label="Joindre la carte d'adhérent personnalisée"
-                description="Génère automatiquement la carte d'adhérent de chaque destinataire et l'envoie en pièce jointe PNG"
+                label="Joindre la carte d'adherent personnalisee"
+                description="Genere automatiquement la carte d'adherent de chaque destinataire et l'envoie en piece jointe PNG"
                 checked={attachMembershipCard}
                 onChange={(e) => setAttachMembershipCard(e.currentTarget.checked)}
                 size="md"
@@ -765,7 +962,7 @@ export function CampaignCreatePage() {
               {attachMembershipCard && (
                 <Card p="sm" bg="white" withBorder>
                   <Text size="sm" c="dimmed">
-                    <strong>Note :</strong> La carte sera générée avec le QR code unique de chaque membre, son type d'abonnement, sa date d'expiration et son nom complet.
+                    <strong>Note :</strong> La carte sera generee avec le QR code unique de chaque membre, son type d'abonnement, sa date d'expiration et son nom complet.
                   </Text>
                 </Card>
               )}
@@ -776,7 +973,7 @@ export function CampaignCreatePage() {
             <Card withBorder>
               <Stack gap="xs">
                 <Text fw={600} size="sm">
-                  Aperçu du template
+                  Apercu du template
                 </Text>
                 <Box
                   style={{
@@ -797,7 +994,7 @@ export function CampaignCreatePage() {
                     </Group>
                     {selectedTemplate.preheader && (
                       <Group gap="xs">
-                        <Text size="xs" fw={600} c="dimmed">Préheader:</Text>
+                        <Text size="xs" fw={600} c="dimmed">Preheader:</Text>
                         <Text size="xs">{selectedTemplate.preheader}</Text>
                       </Group>
                     )}
@@ -817,7 +1014,7 @@ export function CampaignCreatePage() {
             <Card withBorder>
               <Stack gap="xs">
                 <Text fw={600} size="sm">
-                  Aperçu de l'email
+                  Apercu de l'email
                 </Text>
                 <Box
                   p="md"
@@ -843,7 +1040,7 @@ export function CampaignCreatePage() {
             <Card withBorder>
               <Stack gap="xs">
                 <Text fw={600} size="sm">
-                  Aperçu du contenu
+                  Apercu du contenu
                 </Text>
                 <Box
                   style={{
@@ -880,8 +1077,8 @@ export function CampaignCreatePage() {
                 </Group>
                 <List spacing="xs" size="xs">
                   <List.Item>Design professionnel</List.Item>
-                  <List.Item>Prêt à l'emploi</List.Item>
-                  <List.Item>Cohérence de marque</List.Item>
+                  <List.Item>Pret a l'emploi</List.Item>
+                  <List.Item>Coherence de marque</List.Item>
                   <List.Item>Gain de temps</List.Item>
                 </List>
               </div>
@@ -894,8 +1091,8 @@ export function CampaignCreatePage() {
                   <Text fw={600} size="sm">Email HTML</Text>
                 </Group>
                 <List spacing="xs" size="xs">
-                  <List.Item>Contrôle total du code</List.Item>
-                  <List.Item>Pour développeurs</List.Item>
+                  <List.Item>Controle total du code</List.Item>
+                  <List.Item>Pour developpeurs</List.Item>
                   <List.Item>Personnalisation maximale</List.Item>
                 </List>
               </div>
@@ -905,10 +1102,10 @@ export function CampaignCreatePage() {
               <div>
                 <Group gap="xs" mb="xs">
                   <IconPalette size={18} />
-                  <Text fw={600} size="sm">Éditeur Visuel</Text>
+                  <Text fw={600} size="sm">Editeur Visuel</Text>
                 </Group>
                 <List spacing="xs" size="xs">
-                  <List.Item>Glisser-déposer</List.Item>
+                  <List.Item>Glisser-deposer</List.Item>
                   <List.Item>Templates pros</List.Item>
                   <List.Item>Variables de fusion</List.Item>
                   <List.Item>Responsive auto</List.Item>
@@ -927,10 +1124,10 @@ export function CampaignCreatePage() {
         <Stack gap="lg">
           <div>
             <Text size="xl" fw={700} mb="xs">
-              Récapitulatif et création
+              Recapitulatif et creation
             </Text>
             <Text c="dimmed" size="sm">
-              Vérifiez les informations avant de créer votre campagne
+              Verifiez les informations avant de creer votre campagne
             </Text>
           </div>
 
@@ -939,7 +1136,7 @@ export function CampaignCreatePage() {
               <div>
                 <Group gap="xs" mb="md">
                   <IconFileText size={20} />
-                  <Text fw={600}>Récapitulatif de la campagne</Text>
+                  <Text fw={600}>Recapitulatif de la campagne</Text>
                 </Group>
 
                 <Stack gap="sm">
@@ -981,19 +1178,19 @@ export function CampaignCreatePage() {
                     </Text>
                     <Group gap="xs">
                       {targetingMode === 'all' && <><IconUsers size={16} /><Text size="sm">Tous les utilisateurs</Text></>}
-                      {targetingMode === 'filtered' && <><IconFilter size={16} /><Text size="sm">Filtrage avancé</Text></>}
-                      {targetingMode === 'manual' && <><IconUsers size={16} /><Text size="sm">Sélection manuelle</Text></>}
+                      {targetingMode === 'filtered' && <><IconFilter size={16} /><Text size="sm">Filtrage avance</Text></>}
+                      {targetingMode === 'manual' && <><IconUsers size={16} /><Text size="sm">Selection manuelle</Text></>}
                     </Group>
                   </Group>
 
                   <Group>
                     <Text fw={500} size="sm" w={140}>
-                      Pièce jointe :
+                      Piece jointe :
                     </Text>
                     <Group gap="xs">
                       {attachMembershipCard ? (
                         <Badge size="lg" color="pink" leftSection={<IconId size={14} />}>
-                          Carte d'adhérent
+                          Carte d'adherent
                         </Badge>
                       ) : (
                         <Text size="sm" c="dimmed">Aucune</Text>
@@ -1015,7 +1212,7 @@ export function CampaignCreatePage() {
                   Campagne en brouillon
                 </Text>
                 <Text size="sm">
-                  Votre campagne sera créée en brouillon. Vous pourrez l'envoyer depuis la page de détail de la campagne.
+                  Votre campagne sera creee en brouillon. Vous pourrez l'envoyer depuis la page de detail de la campagne.
                 </Text>
               </Stack>
             </Group>
@@ -1030,21 +1227,21 @@ export function CampaignCreatePage() {
               <ThemeIcon size="lg" variant="light" color="green">
                 <IconCheck size={20} />
               </ThemeIcon>
-              <Text fw={600}>Prochaines étapes</Text>
+              <Text fw={600}>Prochaines etapes</Text>
             </Group>
 
             <List spacing="sm" size="sm" icon={<IconCheck size={14} />}>
               <List.Item>
-                La campagne sera créée en mode brouillon
+                La campagne sera creee en mode brouillon
               </List.Item>
               <List.Item>
-                Accédez à la page de détail de la campagne
+                Accedez a la page de detail de la campagne
               </List.Item>
               <List.Item>
-                Cliquez sur "Envoyer maintenant" quand vous êtes prêt
+                Cliquez sur "Envoyer maintenant" quand vous etes pret
               </List.Item>
               <List.Item>
-                Suivez l'envoi en temps réel avec la barre de progression
+                Suivez l'envoi en temps reel avec la barre de progression
               </List.Item>
             </List>
           </Stack>
@@ -1072,7 +1269,7 @@ export function CampaignCreatePage() {
             </Group>
             <Title order={1}>Nouvelle campagne email</Title>
             <Text c="dimmed" size="sm" mt="xs">
-              Créez et configurez votre campagne d'emailing professionnelle
+              Creez et configurez votre campagne d'emailing professionnelle
             </Text>
           </div>
         </Group>
@@ -1087,7 +1284,7 @@ export function CampaignCreatePage() {
           >
             <Stepper.Step
               label="Informations"
-              description="Détails de base"
+              description="Details de base"
               icon={<IconMail size={20} />}
             >
               {renderBasicInfoStep()}
@@ -1103,15 +1300,15 @@ export function CampaignCreatePage() {
 
             <Stepper.Step
               label="Contenu"
-              description="Créer l'email"
+              description="Creer l'email"
               icon={<IconEdit size={20} />}
             >
               {renderEmailEditorStep()}
             </Stepper.Step>
 
             <Stepper.Step
-              label="Récapitulatif"
-              description="Vérification finale"
+              label="Recapitulatif"
+              description="Verification finale"
               icon={<IconCheck size={20} />}
             >
               {renderSchedulingStep()}
@@ -1127,7 +1324,7 @@ export function CampaignCreatePage() {
               leftSection={<IconArrowLeft size={18} />}
               size="md"
             >
-              Précédent
+              Precedent
             </Button>
 
             {active < 3 ? (
@@ -1146,7 +1343,7 @@ export function CampaignCreatePage() {
                 loading={loading}
                 size="lg"
               >
-                Créer la campagne
+                Creer la campagne
               </Button>
             )}
           </Group>
@@ -1159,8 +1356,56 @@ export function CampaignCreatePage() {
         opened={editorOpened}
         onClose={() => setEditorOpened(false)}
         onSave={handleSaveEmail}
+        onSaveAsTemplate={handleSaveAsTemplate}
         initialDesign={emailDesign}
       />
+
+      {/* Modal de sauvegarde de template */}
+      <Modal
+        opened={saveTemplateModalOpened}
+        onClose={() => setSaveTemplateModalOpened(false)}
+        title="Sauvegarder comme template"
+        size="md"
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Sauvegardez ce design comme template reutilisable pour vos futures campagnes.
+          </Text>
+
+          <TextInput
+            label="Nom du template"
+            placeholder="Ex: Newsletter mensuelle, Invitation evenement..."
+            required
+            value={templateName}
+            onChange={(e) => setTemplateName(e.currentTarget.value)}
+          />
+
+          <Textarea
+            label="Description (optionnel)"
+            placeholder="Decrivez l'utilisation de ce template..."
+            value={templateDescription}
+            onChange={(e) => setTemplateDescription(e.currentTarget.value)}
+            minRows={2}
+          />
+
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              onClick={() => setSaveTemplateModalOpened(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              leftSection={<IconDeviceFloppy size={18} />}
+              onClick={handleConfirmSaveTemplate}
+              loading={savingTemplate}
+              color="violet"
+            >
+              Sauvegarder
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </div>
   );
 }

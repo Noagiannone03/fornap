@@ -16,6 +16,14 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestore, getFieldValue } from '../_lib/firebase-admin.js';
 import { prepareEmailWithTracking } from '../_lib/pxl-tracking.js';
 import { sendEmailWithFallback, type EmailSendResult } from '../_lib/email-transport.js';
+import {
+  buildCampaignMergeData,
+  getCampaignFromAddress,
+  getCampaignMailHeaders,
+  getCampaignReplyTo,
+  loadCampaignEmailHtml,
+  personalizeCampaignHtml,
+} from '../_lib/campaign-email.js';
 
 /**
  * Met à jour le statut d'un destinataire
@@ -189,6 +197,11 @@ export default async function handler(
       errors: [] as Array<{ email: string; error: string }>,
     };
 
+    const rawHtml = await loadCampaignEmailHtml(campaignId, campaign);
+    if (!rawHtml.trim()) {
+      throw new Error('Le contenu HTML de la campagne est vide');
+    }
+
     // 4. Tenter de renvoyer chaque email (avec fallback automatique FORNAP -> Brevo)
     for (const recipient of failedRecipients) {
       try {
@@ -208,9 +221,20 @@ export default async function handler(
 
         const user = userSnap.data();
 
+        const personalizedHtml = personalizeCampaignHtml(
+          rawHtml,
+          buildCampaignMergeData({
+            campaignId,
+            email: recipient.email,
+            firstName: recipient.firstName,
+            lastName: recipient.lastName,
+            membershipType: user?.currentMembership?.planName || user?.currentMembership?.planType || '',
+          })
+        );
+
         // Préparer le HTML avec tracking
         const emailHtml = await prepareEmailWithTracking(
-          campaign.content.html,
+          personalizedHtml,
           campaignId,
           recipient.id
         );
@@ -220,8 +244,9 @@ export default async function handler(
           to: recipient.email,
           subject: campaign.content.subject,
           html: emailHtml,
-          from: '"FOR+NAP Social Club" <no-reply@fornap.fr>',
-          replyTo: 'contact@fornap.fr',
+          from: getCampaignFromAddress(campaign),
+          replyTo: getCampaignReplyTo(campaign),
+          headers: getCampaignMailHeaders(campaignId),
         });
 
         if (!emailResult.success) {
